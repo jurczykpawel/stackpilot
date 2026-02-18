@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+*.log
+*.tmp
+npm-debug.log*
+yarn-error.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Project-specific
+local/gateflow-metrics*.csv
+benchmark-*/
+ANALYSIS.md
+
+# MCP Server
+mcp-server/node_modules/
+mcp-server/dist/

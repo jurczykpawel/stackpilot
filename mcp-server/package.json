@@ -1,0 +1,43 @@
+{
+  "name": "mikrus-toolbox-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for deploying self-hosted apps to Mikrus VPS",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "mikrus-toolbox-mcp": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jurczykpawel/mikrus-toolbox.git",
+    "directory": "mcp-server"
+  },
+  "author": "Paweł (Lazy Engineer)",
+  "keywords": ["mcp", "server", "mikrus", "vps", "docker", "self-hosted", "deployment"],
+  "homepage": "https://github.com/jurczykpawel/mikrus-toolbox#mcp-server",
+  "bugs": "https://github.com/jurczykpawel/mikrus-toolbox/issues",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "tsx test-mcp.ts",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT"
+}
