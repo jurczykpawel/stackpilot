@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # StackPilot - Backup Setup Wizard
-# Configures cloud backup on Mikrus using local Rclone for auth.
+# Configures cloud backup on the VPS using local Rclone for auth.
 # Author: Paweł (Lazy Engineer)
 
 set -e
@@ -10,16 +10,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Użycie: $0 [ssh_alias]"
+    echo "Usage: $0 [ssh_alias]"
     echo ""
-    echo "Konfiguruje automatyczne backupy do chmury (Google Drive, Dropbox, S3, itp.)."
-    echo "Wymaga zainstalowanego rclone lokalnie."
+    echo "Configures automatic cloud backups (Google Drive, Dropbox, S3, etc.)."
+    echo "Requires rclone installed locally."
     echo "Default SSH alias: vps"
     exit 0
 fi
 
 # Configuration
-VPS_HOST="${1:-vps}" # First argument or default to 'mikrus'
+VPS_HOST="${1:-vps}" # First argument or default to 'vps'
 SSH_ALIAS="$VPS_HOST"
 REMOTE_NAME="backup_remote"
 TEMP_CONF="/tmp/rclone_stackpilot_setup.conf"
@@ -30,32 +30,32 @@ REMOTE_USER=$(server_user)
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🛡️  Mikrus Backup Setup Wizard                                ║"
+echo "║  🛡️  Backup Setup Wizard                                       ║"
 echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║  Serwer:  $REMOTE_USER@$REMOTE_HOST"
+echo "║  Server:  $REMOTE_USER@$REMOTE_HOST"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "This tool will configure automatic backups to a cloud provider."
-read -p "Kontynuować na tym serwerze? (t/N) " -n 1 -r
+read -p "Continue with this server? (y/N) " -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-    echo "Anulowano."
+    echo "Cancelled."
     exit 1
 fi
 
 # 1. Check Local Prerequisites
 if ! command -v rclone &> /dev/null; then
-    echo "❌ Rclone nie jest zainstalowany na tym komputerze."
+    echo "❌ Rclone is not installed on this computer."
     echo ""
-    echo "   Rclone jest potrzebny LOKALNIE do autoryzacji OAuth - Google/Dropbox"
-    echo "   wymagają logowania przez przeglądarkę, a serwer nie ma GUI."
+    echo "   Rclone is needed LOCALLY for OAuth authorization - Google/Dropbox"
+    echo "   require browser login, and the server has no GUI."
     echo ""
-    echo "   Instalacja:"
+    echo "   Install:"
     echo "   - Mac:     brew install rclone"
     echo "   - Linux:   curl https://rclone.org/install.sh | sudo bash"
-    echo "   - Windows: https://rclone.org/downloads/ (lub winget install rclone)"
+    echo "   - Windows: https://rclone.org/downloads/ (or winget install rclone)"
     echo ""
-    echo "   Po instalacji uruchom ten skrypt ponownie."
+    echo "   After installation, run this script again."
     exit 1
 fi
 
@@ -85,9 +85,9 @@ if [[ "$TYPE" == "mega" || "$TYPE" == "s3" ]]; then
     echo "You will be asked for credentials in the terminal."
 else
     if is_on_server; then
-        echo "⚠️  UWAGA: Ten provider wymaga logowania przez przeglądarkę."
-        echo "   Na serwerze nie ma GUI - użyj rclone authorize na komputerze lokalnym"
-        echo "   lub wybierz providera bez OAuth (S3, Mega)."
+        echo "⚠️  NOTE: This provider requires browser login."
+        echo "   The server has no GUI - use rclone authorize on a local machine"
+        echo "   or choose a provider without OAuth (S3, Mega)."
     fi
     echo "A browser window will open for you to log in."
 fi
@@ -112,22 +112,22 @@ if [[ "$ENCRYPT_CHOICE" =~ ^[Yy]$ ]]; then
     echo ""
     read -s -p "Confirm Password: " PASS2
     echo ""
-    
+
     if [ "$PASS1" != "$PASS2" ]; then
         echo "❌ Passwords do not match. Aborting."
         exit 1
     fi
-    
+
     # Create the raw backend first
     echo "Authenticating with provider..."
     rclone config create "raw_cloud" "$TYPE" $CONF_ARGS --config "$TEMP_CONF" >/dev/null
-    
+
     # Create the crypt wrapper named 'backup_remote'
     # remote needs to point to the raw remote + bucket/folder path if needed
     # usually: raw_cloud:/
     echo "Configuring encryption layer..."
     rclone config create "$REMOTE_NAME" crypt remote="raw_cloud:/" password="$PASS1" --config "$TEMP_CONF" >/dev/null
-    
+
     echo "✅ Encryption configured."
 else
     # Direct setup
@@ -138,11 +138,11 @@ fi
 echo ""
 echo "✅ Authentication successful! Config generated."
 
-# 4. Deploy to Mikrus
+# 4. Deploy to Server
 echo ""
-echo "--- 🚀 Deploying to Mikrus ---"
+echo "--- 🚀 Deploying to server ---"
 
-# 4a. Install Rclone on Mikrus if missing
+# 4a. Install Rclone on server if missing
 echo "Checking Rclone on server..."
 server_exec "command -v rclone >/dev/null || (curl https://rclone.org/install.sh | sudo bash)"
 
@@ -167,22 +167,22 @@ server_exec "crontab -l | grep -v 'backup-core.sh' | { cat; echo '$CRON_CMD'; } 
 rm -f "$TEMP_CONF"
 
 echo ""
-echo "✅ Backup do chmury skonfigurowany!"
+echo "✅ Cloud backup configured!"
 echo ""
-echo "📋 Co się dzieje automatycznie:"
-echo "   - Codziennie o 3:00 backup jest wysyłany do $TYPE"
-echo "   - Backupowane katalogi: /opt/stacks, /opt/dockge"
+echo "📋 What happens automatically:"
+echo "   - Daily at 3:00 AM a backup is sent to $TYPE"
+echo "   - Backed up directories: /opt/stacks, /opt/dockge"
 echo ""
-echo "🚀 Uruchom pierwszy backup TERAZ:"
+echo "🚀 Run the first backup NOW:"
 echo "   ssh $VPS_HOST '~/backup-core.sh'"
 echo ""
-echo "🔍 Jak sprawdzić czy działa?"
+echo "🔍 How to check if it works?"
 echo "   ssh $VPS_HOST 'tail -20 /var/log/stackpilot-backup.log'"
 echo ""
-echo "🔄 Jak przywrócić dane?"
+echo "🔄 How to restore data?"
 echo "   ./local/restore.sh $VPS_HOST"
 echo ""
 if [[ "$ENCRYPT_CHOICE" =~ ^[Yy]$ ]]; then
-    echo "🔐 Szyfrowanie włączone - nazwy folderów w chmurze będą zaszyfrowane."
-    echo "   To normalne! Dane są bezpieczne i odszyfrowują się przy restore."
+    echo "🔐 Encryption enabled - folder names in the cloud will be encrypted."
+    echo "   This is normal! Data is safe and gets decrypted during restore."
 fi

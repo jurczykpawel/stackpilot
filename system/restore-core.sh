@@ -1,21 +1,21 @@
 #!/bin/bash
 
 # StackPilot - Core Restore Script
-# RESTORES data from Cloud to Mikrus.
+# RESTORES data from Cloud to the VPS.
 # WARNING: Overwrites local data!
 # Author: Paweł (Lazy Engineer)
 
 set -e
 
 # Configuration (Must match backup-core.sh)
-BACKUP_NAME="mikrus-backup"
+BACKUP_NAME="stackpilot-backup"
 REMOTE_NAME="backup_remote"
 # Directories to restore.
 TARGET_DIRS=(
     "/opt/dockge"
     "/opt/stacks"
 )
-LOG_FILE="/var/log/mikrus-restore.log"
+LOG_FILE="/var/log/stackpilot-restore.log"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -41,12 +41,12 @@ systemctl stop docker
 # 2. Perform Restore
 for DIR in "${TARGET_DIRS[@]}"; do
     SRC="$REMOTE_NAME:$BACKUP_NAME$(basename "$DIR")"
-    
+
     log "📥 Restoring $SRC to $DIR..."
-    
+
     # Ensure parent dir exists
     mkdir -p "$DIR"
-    
+
     # Sync DOWN from Cloud
     # --delete: remove files locally that are not present in backup (exact mirror)
     rclone sync "$SRC" "$DIR" --create-empty-src-dirs --verbose >> "$LOG_FILE" 2>&1

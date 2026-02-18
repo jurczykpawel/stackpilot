@@ -1,21 +1,21 @@
 #!/bin/bash
 
 # StackPilot - GateFlow Update
-# Aktualizuje GateFlow do najnowszej wersji
+# Updates GateFlow to the latest version
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   ./local/deploy.sh gateflow --ssh=mikrus --update
 #   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
-#   ./local/deploy.sh gateflow --ssh=mikrus --update --restart (restart bez aktualizacji)
+#   ./local/deploy.sh gateflow --ssh=mikrus --update --restart (restart without updating)
 #
-# Zmienne środowiskowe:
-#   BUILD_FILE - ścieżka do lokalnego pliku tar.gz (zamiast pobierania z GitHub)
+# Environment variables:
+#   BUILD_FILE - path to local tar.gz file (instead of downloading from GitHub)
 #
-# Flagi:
-#   --restart - tylko restart aplikacji (np. po zmianie .env), bez pobierania nowej wersji
+# Flags:
+#   --restart - only restart the application (e.g. after changing .env), without downloading a new version
 #
-# Uwaga: Aktualizacja bazy danych jest obsługiwana przez deploy.sh (Supabase API)
+# Note: Database updates are handled by deploy.sh (Supabase API)
 
 set -e
 
@@ -33,14 +33,14 @@ for arg in "$@"; do
 done
 
 # =============================================================================
-# AUTO-DETEKCJA KATALOGU INSTALACJI
+# AUTO-DETECT INSTALLATION DIRECTORY
 # =============================================================================
-# Nowa lokalizacja: /opt/stacks/gateflow* (backup-friendly)
-# Stara lokalizacja: /root/gateflow* (dla kompatybilności)
+# New location: /opt/stacks/gateflow* (backup-friendly)
+# Old location: /root/gateflow* (for compatibility)
 
 find_gateflow_dir() {
     local NAME="$1"
-    # Sprawdź nową lokalizację
+    # Check new location
     if [ -d "/opt/stacks/gateflow-${NAME}" ]; then
         echo "/opt/stacks/gateflow-${NAME}"
     elif [ -d "/root/gateflow-${NAME}" ]; then
@@ -69,7 +69,7 @@ else
     PM2_NAME="$PM2_NAME"
 fi
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -85,12 +85,12 @@ fi
 echo ""
 
 # =============================================================================
-# 1. SPRAWDŹ CZY GATEFLOW JEST ZAINSTALOWANY
+# 1. CHECK IF GATEFLOW IS INSTALLED
 # =============================================================================
 
 if [ ! -d "$INSTALL_DIR/admin-panel" ]; then
-    echo -e "${RED}❌ GateFlow nie jest zainstalowany${NC}"
-    echo "   Użyj deploy.sh do pierwszej instalacji."
+    echo -e "${RED}❌ GateFlow is not installed${NC}"
+    echo "   Use deploy.sh for the first installation."
     exit 1
 fi
 
@@ -98,120 +98,120 @@ ENV_FILE="$INSTALL_DIR/admin-panel/.env.local"
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 
 if [ ! -f "$ENV_FILE" ]; then
-    echo -e "${RED}❌ Brak pliku .env.local${NC}"
+    echo -e "${RED}❌ Missing .env.local file${NC}"
     exit 1
 fi
 
-echo "✅ GateFlow znaleziony w $INSTALL_DIR"
+echo "✅ GateFlow found in $INSTALL_DIR"
 
-# Pobierz aktualną wersję (jeśli dostępna)
-CURRENT_VERSION="nieznana"
+# Get current version (if available)
+CURRENT_VERSION="unknown"
 if [ -f "$INSTALL_DIR/admin-panel/version.txt" ]; then
     CURRENT_VERSION=$(cat "$INSTALL_DIR/admin-panel/version.txt")
 fi
-echo "   Aktualna wersja: $CURRENT_VERSION"
+echo "   Current version: $CURRENT_VERSION"
 
 # =============================================================================
-# 2. POBIERZ NOWĄ WERSJĘ (pominąć w trybie restart)
+# 2. DOWNLOAD NEW VERSION (skip in restart mode)
 # =============================================================================
 
 if [ "$RESTART_ONLY" = false ]; then
     echo ""
 
-    # Backup starej konfiguracji
+    # Backup old configuration
     cp "$ENV_FILE" "$INSTALL_DIR/.env.local.backup"
-    echo "   Backup .env.local utworzony"
+    echo "   .env.local backup created"
 
-    # Pobierz do tymczasowego folderu
+    # Download to temporary folder
     TEMP_DIR=$(mktemp -d)
     trap "rm -rf $TEMP_DIR" EXIT
 
     cd "$TEMP_DIR"
 
-    # Sprawdź czy mamy lokalny plik
+    # Check if we have a local file
     if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
-        echo "📦 Używam lokalnego pliku: $BUILD_FILE"
+        echo "📦 Using local file: $BUILD_FILE"
         if ! tar -xzf "$BUILD_FILE"; then
-            echo -e "${RED}❌ Nie udało się rozpakować pliku${NC}"
+            echo -e "${RED}❌ Failed to extract file${NC}"
             exit 1
         fi
     else
-        echo "📥 Pobieram z GitHub..."
+        echo "📥 Downloading from GitHub..."
         RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
         if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
-            echo -e "${RED}❌ Nie udało się pobrać nowej wersji${NC}"
+            echo -e "${RED}❌ Failed to download new version${NC}"
             echo ""
-            echo "Jeśli repo jest prywatne, użyj --build-file:"
+            echo "If the repo is private, use --build-file:"
             echo "   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz"
             exit 1
         fi
     fi
 
     if [ ! -d ".next/standalone" ]; then
-        echo -e "${RED}❌ Nieprawidłowa struktura archiwum${NC}"
+        echo -e "${RED}❌ Invalid archive structure${NC}"
         exit 1
     fi
 
-    # Sprawdź nową wersję
-    NEW_VERSION="nieznana"
+    # Check new version
+    NEW_VERSION="unknown"
     if [ -f "version.txt" ]; then
         NEW_VERSION=$(cat version.txt)
     fi
-    echo "   Nowa wersja: $NEW_VERSION"
+    echo "   New version: $NEW_VERSION"
 
-    if [ "$CURRENT_VERSION" = "$NEW_VERSION" ] && [ "$CURRENT_VERSION" != "nieznana" ]; then
-        echo -e "${YELLOW}⚠️  Masz już najnowszą wersję ($CURRENT_VERSION)${NC}"
-        read -p "Kontynuować mimo to? [t/N]: " CONTINUE
-        if [[ ! "$CONTINUE" =~ ^[TtYy]$ ]]; then
-            echo "Anulowano."
+    if [ "$CURRENT_VERSION" = "$NEW_VERSION" ] && [ "$CURRENT_VERSION" != "unknown" ]; then
+        echo -e "${YELLOW}⚠️  You already have the latest version ($CURRENT_VERSION)${NC}"
+        read -p "Continue anyway? [y/N]: " CONTINUE
+        if [[ ! "$CONTINUE" =~ ^[YyTt]$ ]]; then
+            echo "Cancelled."
             exit 0
         fi
     fi
 else
     echo ""
-    echo "📋 Tryb restart - pominięto pobieranie nowej wersji"
+    echo "📋 Restart mode - skipped downloading new version"
 fi
 
 # =============================================================================
-# 3. ZATRZYMAJ APLIKACJĘ
+# 3. STOP APPLICATION
 # =============================================================================
 
 echo ""
-echo "⏹️  Zatrzymuję GateFlow..."
+echo "⏹️  Stopping GateFlow..."
 
 export PATH="$HOME/.bun/bin:$PATH"
 pm2 stop $PM2_NAME 2>/dev/null || true
 
 # =============================================================================
-# 4. ZAMIEŃ PLIKI (pominąć w trybie restart)
+# 4. REPLACE FILES (skip in restart mode)
 # =============================================================================
 
 if [ "$RESTART_ONLY" = false ]; then
     echo ""
-    echo "📦 Aktualizuję pliki..."
+    echo "📦 Updating files..."
 
-    # Usuń stare pliki (zachowaj .env.local backup)
+    # Remove old files (keep .env.local backup)
     rm -rf "$INSTALL_DIR/admin-panel/.next"
     rm -rf "$INSTALL_DIR/admin-panel/public"
 
-    # Skopiuj nowe
+    # Copy new files
     cp -r "$TEMP_DIR/.next" "$INSTALL_DIR/admin-panel/"
     cp -r "$TEMP_DIR/public" "$INSTALL_DIR/admin-panel/" 2>/dev/null || true
     cp "$TEMP_DIR/version.txt" "$INSTALL_DIR/admin-panel/" 2>/dev/null || true
 
-    # Przywróć .env.local
+    # Restore .env.local
     cp "$INSTALL_DIR/.env.local.backup" "$ENV_FILE"
 
-    echo -e "${GREEN}✅ Pliki zaktualizowane${NC}"
+    echo -e "${GREEN}✅ Files updated${NC}"
 else
     echo ""
-    echo "📋 Tryb restart - pominięto aktualizację plików"
+    echo "📋 Restart mode - skipped file update"
 fi
 
-# Skopiuj do standalone (zawsze, zarówno w update jak i restart)
+# Copy to standalone (always, both in update and restart)
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 if [ -d "$STANDALONE_DIR" ]; then
-    echo "   Aktualizuję konfigurację w standalone..."
+    echo "   Updating configuration in standalone..."
     cp "$ENV_FILE" "$STANDALONE_DIR/.env.local"
     if [ "$RESTART_ONLY" = false ]; then
         cp -r "$INSTALL_DIR/admin-panel/.next/static" "$STANDALONE_DIR/.next/" 2>/dev/null || true
@@ -219,64 +219,64 @@ if [ -d "$STANDALONE_DIR" ]; then
     fi
 fi
 
-# Migracje są uruchamiane przez deploy.sh przez Supabase API (nie tutaj)
+# Migrations are run by deploy.sh via Supabase API (not here)
 
 # =============================================================================
-# 5. URUCHOM APLIKACJĘ
+# 5. START APPLICATION
 # =============================================================================
 
 echo ""
-echo "🚀 Uruchamiam GateFlow..."
+echo "🚀 Starting GateFlow..."
 
 cd "$STANDALONE_DIR"
 
-# Załaduj zmienne i uruchom
-# Wyczyść systemowy HOSTNAME (to nazwa maszyny, nie adres nasłuchiwania)
-# Bez tego ${HOSTNAME:-::} nigdy nie fallbackuje do :: bo system zawsze ustawia HOSTNAME
+# Load variables and start
+# Clear system HOSTNAME (it's the machine name, not the listen address)
+# Without this ${HOSTNAME:-::} never falls back to :: because the system always sets HOSTNAME
 unset HOSTNAME
 set -a
 source .env.local
 set +a
 export PORT="${PORT:-3333}"
-# :: słucha na IPv4 i IPv6 (wymagane dla Cytrus który łączy się przez IPv6)
+# :: listens on IPv4 and IPv6 (required for Cytrus which connects via IPv6)
 export HOSTNAME="${HOSTNAME:-::}"
 
 pm2 delete $PM2_NAME 2>/dev/null || true
-# WAŻNE: użyj --interpreter node, NIE "node server.js" w cudzysłowach
+# IMPORTANT: use --interpreter node, NOT "node server.js" in quotes
 pm2 start server.js --name $PM2_NAME --interpreter node
 pm2 save
 
-# Poczekaj i sprawdź
+# Wait and check
 sleep 3
 
 if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo -e "${GREEN}✅ GateFlow działa!${NC}"
+    echo -e "${GREEN}✅ GateFlow is running!${NC}"
 else
-    echo -e "${RED}❌ Problem z uruchomieniem. Logi:${NC}"
+    echo -e "${RED}❌ Problem starting. Logs:${NC}"
     pm2 logs $PM2_NAME --lines 20
     exit 1
 fi
 
 # =============================================================================
-# 6. PODSUMOWANIE
+# 6. SUMMARY
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 if [ "$RESTART_ONLY" = true ]; then
-    echo -e "${GREEN}✅ GateFlow zrestartowany!${NC}"
+    echo -e "${GREEN}✅ GateFlow restarted!${NC}"
 else
-    echo -e "${GREEN}✅ GateFlow zaktualizowany!${NC}"
+    echo -e "${GREEN}✅ GateFlow updated!${NC}"
 fi
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 if [ "$RESTART_ONLY" = false ]; then
-    echo "   Poprzednia wersja: $CURRENT_VERSION"
-    echo "   Nowa wersja: $NEW_VERSION"
+    echo "   Previous version: $CURRENT_VERSION"
+    echo "   New version: $NEW_VERSION"
     echo ""
 fi
-echo "📋 Przydatne komendy:"
-echo "   pm2 logs $PM2_NAME - logi"
+echo "📋 Useful commands:"
+echo "   pm2 logs $PM2_NAME - logs"
 echo "   pm2 restart $PM2_NAME - restart"
-echo "   ./update.sh --restart - restart bez aktualizacji (np. po zmianie .env)"
+echo "   ./update.sh --restart - restart without updating (e.g. after changing .env)"
 echo ""

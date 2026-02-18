@@ -41,15 +41,15 @@ sudo docker compose up -d
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 45 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 45 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Uptime Kuma działa na porcie $PORT"
+        echo "✅ Uptime Kuma is running on port $PORT"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
 echo ""
-echo "📊 Pierwszy login: utwórz konto admina w przeglądarce"
+echo "📊 First login: create an admin account in the browser"

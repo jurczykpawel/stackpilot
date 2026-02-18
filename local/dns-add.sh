@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # StackPilot - Cloudflare DNS Add
-# Dodaje rekord DNS do Cloudflare (A lub AAAA).
-# Wymaga wcześniejszej konfiguracji: ./local/setup-cloudflare.sh
+# Adds a DNS record to Cloudflare (A or AAAA).
+# Requires prior configuration: ./local/setup-cloudflare.sh
 # Author: Paweł (Lazy Engineer)
 
 set -e
@@ -12,71 +12,71 @@ source "$SCRIPT_DIR/../lib/server-exec.sh"
 
 CONFIG_FILE="$HOME/.config/cloudflare/config"
 
-# IP Cytrusa (Mikrus reverse proxy)
+# Cytrus IP (reverse proxy)
 CYTRUS_IP="135.181.95.85"
 
-# Argumenty
+# Arguments
 FULL_DOMAIN="$1"
 SSH_ALIAS="${2:-vps}"
-MODE="${3:-cloudflare}"  # "cloudflare" (IPv6+proxy) lub "cytrus" (IPv4, no proxy)
+MODE="${3:-cloudflare}"  # "cloudflare" (IPv6+proxy) or "cytrus" (IPv4, no proxy)
 
-# Użycie
+# Usage
 if [ -z "$FULL_DOMAIN" ]; then
-    echo "Użycie: $0 <subdomena.domena.pl> [ssh_alias] [mode]"
+    echo "Usage: $0 <subdomain.domain.com> [ssh_alias] [mode]"
     echo ""
-    echo "Tryby:"
-    echo "  cloudflare  - AAAA record (IPv6 serwera) + proxy ON (domyślny)"
+    echo "Modes:"
+    echo "  cloudflare  - AAAA record (server IPv6) + proxy ON (default)"
     echo "  cytrus      - A record → $CYTRUS_IP + proxy OFF"
     echo ""
-    echo "Przykłady:"
-    echo "  $0 app.mojafirma.pl                    # Cloudflare + Caddy"
-    echo "  $0 app.mojafirma.pl mikrus              # z innego serwera"
-    echo "  $0 app.mojafirma.pl mikrus cytrus       # dla Cytrus API"
+    echo "Examples:"
+    echo "  $0 app.mycompany.com                    # Cloudflare + Caddy"
+    echo "  $0 app.mycompany.com vps                # from a different server"
+    echo "  $0 app.mycompany.com vps cytrus          # for Cytrus API"
     echo ""
-    echo "Wymaga wcześniejszej konfiguracji: ./local/setup-cloudflare.sh"
+    echo "Requires prior configuration: ./local/setup-cloudflare.sh"
     exit 1
 fi
 
-# Ustal typ rekordu i IP
+# Determine record type and IP
 if [ "$MODE" = "cytrus" ]; then
     RECORD_TYPE="A"
     IP_ADDRESS="$CYTRUS_IP"
     PROXY="false"
-    echo "🍊 Tryb Cytrus"
-    echo "   Rekord: A → $IP_ADDRESS"
-    echo "   Proxy: OFF (Cytrus obsługuje SSL)"
+    echo "🍊 Cytrus mode"
+    echo "   Record: A → $IP_ADDRESS"
+    echo "   Proxy: OFF (Cytrus handles SSL)"
 else
     RECORD_TYPE="AAAA"
     PROXY="true"
-    echo "☁️  Tryb Cloudflare"
-    echo "🔍 Pobieram IPv6 serwera '$SSH_ALIAS'..."
+    echo "☁️  Cloudflare mode"
+    echo "🔍 Fetching server IPv6 '$SSH_ALIAS'..."
     IP_ADDRESS=$(server_exec "ip -6 addr show scope global | grep -oP '(?<=inet6 )[0-9a-f:]+' | head -1" 2>/dev/null)
 
     if [ -z "$IP_ADDRESS" ]; then
-        echo "❌ Nie udało się pobrać IPv6 z serwera '$SSH_ALIAS'"
+        echo "❌ Failed to get IPv6 from server '$SSH_ALIAS'"
         exit 1
     fi
-    echo "   Rekord: AAAA → $IP_ADDRESS"
-    echo "   Proxy: ON (żółta chmurka)"
+    echo "   Record: AAAA → $IP_ADDRESS"
+    echo "   Proxy: ON (orange cloud)"
 fi
 echo ""
 
-# Sprawdź konfigurację
+# Check configuration
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "❌ Brak konfiguracji Cloudflare!"
-    echo "   Uruchom najpierw: ./local/setup-cloudflare.sh"
+    echo "❌ Missing Cloudflare configuration!"
+    echo "   Run first: ./local/setup-cloudflare.sh"
     exit 1
 fi
 
-# Wczytaj token
+# Load token
 API_TOKEN=$(grep "^API_TOKEN=" "$CONFIG_FILE" | cut -d= -f2)
 
 if [ -z "$API_TOKEN" ]; then
-    echo "❌ Brak API_TOKEN w konfiguracji!"
+    echo "❌ Missing API_TOKEN in configuration!"
     exit 1
 fi
 
-# Wyciągnij domenę główną z pełnej subdomeny
+# Extract root domain from full subdomain
 ROOT_DOMAIN=$(echo "$FULL_DOMAIN" | rev | cut -d. -f1-2 | rev)
 SUBDOMAIN=$(echo "$FULL_DOMAIN" | sed "s/\.$ROOT_DOMAIN$//")
 
@@ -84,27 +84,27 @@ if [ "$SUBDOMAIN" = "$ROOT_DOMAIN" ]; then
     SUBDOMAIN="@"
 fi
 
-echo "📍 Domena: $ROOT_DOMAIN"
-echo "📍 Subdomena: $SUBDOMAIN"
+echo "📍 Domain: $ROOT_DOMAIN"
+echo "📍 Subdomain: $SUBDOMAIN"
 echo ""
 
-# Znajdź Zone ID
+# Find Zone ID
 ZONE_ID=$(grep "^${ROOT_DOMAIN}=" "$CONFIG_FILE" | cut -d= -f2)
 
 if [ -z "$ZONE_ID" ]; then
-    echo "❌ Nie znaleziono Zone ID dla domeny: $ROOT_DOMAIN"
-    echo "   Dostępne domeny w konfiguracji:"
-    grep -v "^#" "$CONFIG_FILE" | grep -v "API_TOKEN" | grep "=" || echo "   (brak)"
+    echo "❌ Zone ID not found for domain: $ROOT_DOMAIN"
+    echo "   Available domains in configuration:"
+    grep -v "^#" "$CONFIG_FILE" | grep -v "API_TOKEN" | grep "=" || echo "   (none)"
     echo ""
-    echo "   Uruchom ponownie: ./local/setup-cloudflare.sh"
+    echo "   Run again: ./local/setup-cloudflare.sh"
     exit 1
 fi
 
 echo "🔑 Zone ID: $ZONE_ID"
 echo ""
 
-# Sprawdź czy rekord już istnieje
-echo "Sprawdzam istniejące rekordy..."
+# Check if record already exists
+echo "Checking existing records..."
 EXISTING=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=$RECORD_TYPE&name=$FULL_DOMAIN" \
     -H "Authorization: Bearer $API_TOKEN" \
     -H "Content-Type: application/json")
@@ -112,23 +112,23 @@ EXISTING=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/d
 EXISTING_ID=$(echo "$EXISTING" | grep -o '"id":"[^"]*"' | head -1 | sed 's/"id":"//g' | sed 's/"//g')
 
 if [ -n "$EXISTING_ID" ]; then
-    echo "⚠️  Rekord $RECORD_TYPE dla $FULL_DOMAIN już istnieje!"
+    echo "⚠️  $RECORD_TYPE record for $FULL_DOMAIN already exists!"
     EXISTING_IP=$(echo "$EXISTING" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//g' | sed 's/"//g')
-    echo "   Obecny IP: $EXISTING_IP"
+    echo "   Current IP: $EXISTING_IP"
 
-    # Jeśli IP jest takie samo - nic nie rób, sukces
+    # If IP is the same - do nothing, success
     if [ "$EXISTING_IP" = "$IP_ADDRESS" ]; then
-        echo "✅ DNS już skonfigurowany poprawnie!"
+        echo "✅ DNS already configured correctly!"
         exit 0
     fi
 
-    # Pytaj tylko gdy terminal jest interaktywny
+    # Ask only when terminal is interactive
     if [ -t 0 ]; then
         echo ""
-        read -p "Zaktualizować na $IP_ADDRESS? (t/N) " -n 1 -r
+        read -p "Update to $IP_ADDRESS? (y/N) " -n 1 -r
         echo ""
     else
-        echo "   Tryb nieinteraktywny - pomijam aktualizację"
+        echo "   Non-interactive mode - skipping update"
         exit 0
     fi
 
@@ -139,46 +139,46 @@ if [ -n "$EXISTING_ID" ]; then
             --data "{\"type\":\"$RECORD_TYPE\",\"name\":\"$FULL_DOMAIN\",\"content\":\"$IP_ADDRESS\",\"ttl\":3600,\"proxied\":$PROXY}")
 
         if echo "$UPDATE_RESPONSE" | grep -q '"success":true'; then
-            echo "✅ Rekord zaktualizowany!"
+            echo "✅ Record updated!"
         else
-            echo "❌ Błąd aktualizacji!"
+            echo "❌ Update failed!"
             echo "$UPDATE_RESPONSE"
             exit 1
         fi
     else
-        echo "Anulowano."
+        echo "Cancelled."
         exit 0
     fi
 else
-    echo "Tworzę rekord $RECORD_TYPE..."
+    echo "Creating $RECORD_TYPE record..."
     CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
         -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json" \
         --data "{\"type\":\"$RECORD_TYPE\",\"name\":\"$FULL_DOMAIN\",\"content\":\"$IP_ADDRESS\",\"ttl\":3600,\"proxied\":$PROXY}")
 
     if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
-        echo "✅ Rekord utworzony!"
+        echo "✅ Record created!"
     else
-        echo "❌ Błąd tworzenia rekordu!"
+        echo "❌ Failed to create record!"
         echo "$CREATE_RESPONSE"
         exit 1
     fi
 fi
 
 echo ""
-echo "🎉 DNS skonfigurowany: $FULL_DOMAIN → $IP_ADDRESS ($RECORD_TYPE)"
+echo "🎉 DNS configured: $FULL_DOMAIN → $IP_ADDRESS ($RECORD_TYPE)"
 
 if [ "$MODE" = "cytrus" ]; then
     echo ""
-    echo "🍊 Następny krok - dodaj domenę do Cytrusa:"
+    echo "🍊 Next step - add the domain to Cytrus:"
     echo "   ./local/cytrus-domain.sh $FULL_DOMAIN PORT $SSH_ALIAS"
 else
-    echo "☁️  Proxy Cloudflare: WŁĄCZONY"
+    echo "☁️  Cloudflare Proxy: ENABLED"
     echo ""
-    echo "🚀 Następny krok - wystaw przez Caddy:"
+    echo "🚀 Next step - expose via Caddy:"
     echo "   ssh $SSH_ALIAS 'sp-expose $FULL_DOMAIN PORT'"
 fi
 
 echo ""
-echo "⏳ Propagacja DNS może zająć do 5 minut."
+echo "⏳ DNS propagation may take up to 5 minutes."
 echo ""

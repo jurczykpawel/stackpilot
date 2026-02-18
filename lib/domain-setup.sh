@@ -1,48 +1,48 @@
 #!/bin/bash
 
 # StackPilot - Domain Setup Helper
-# Używany przez skrypty instalacyjne do konfiguracji domeny.
+# Used by installation scripts to configure the domain.
 # Author: Paweł (Lazy Engineer)
 #
-# NOWY FLOW z CLI:
-#   1. parse_args() + load_defaults()  - z cli-parser.sh
-#   2. ask_domain()       - sprawdza flagi, pyta tylko gdy brak
-#   3. configure_domain() - konfiguruje domenę (po uruchomieniu usługi!)
+# NEW FLOW with CLI:
+#   1. parse_args() + load_defaults()  - from cli-parser.sh
+#   2. ask_domain()       - checks flags, only asks when missing
+#   3. configure_domain() - configures domain (after starting the service!)
 #
-# Flagi CLI:
+# CLI flags:
 #   --domain-type=cytrus|cloudflare|local
-#   --domain=DOMAIN (lub --domain=auto dla Cytrus automatyczny)
+#   --domain=DOMAIN (or --domain=auto for automatic Cytrus)
 #
-# Po wywołaniu dostępne zmienne:
+# Available variables after calling:
 #   $DOMAIN_TYPE  - "cytrus" | "cloudflare" | "local"
-#   $DOMAIN       - pełna domena, "-" dla auto-cytrus, lub "" dla local
+#   $DOMAIN       - full domain, "-" for auto-cytrus, or "" for local
 
-# Załaduj cli-parser jeśli nie załadowany
+# Load cli-parser if not loaded
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if ! type ask_if_empty &>/dev/null; then
     source "$SCRIPT_DIR/cli-parser.sh"
 fi
 
-# Załaduj server-exec jeśli nie załadowany
+# Load server-exec if not loaded
 if ! type is_on_server &>/dev/null; then
     source "$SCRIPT_DIR/server-exec.sh"
 fi
 
 CLOUDFLARE_CONFIG="$HOME/.config/cloudflare/config"
 
-# Kolory (jeśli nie zdefiniowane przez cli-parser)
+# Colors (if not defined by cli-parser)
 RED="${RED:-\033[0;31m}"
 GREEN="${GREEN:-\033[0;32m}"
 YELLOW="${YELLOW:-\033[1;33m}"
 BLUE="${BLUE:-\033[0;34m}"
 NC="${NC:-\033[0m}"
 
-# Zmienne eksportowane (nie resetuj jeśli już ustawione)
+# Exported variables (don't reset if already set)
 export DOMAIN="${DOMAIN:-}"
 export DOMAIN_TYPE="${DOMAIN_TYPE:-}"
 
 # =============================================================================
-# FAZA 1: Zbieranie informacji (respektuje flagi CLI)
+# PHASE 1: Gathering information (respects CLI flags)
 # =============================================================================
 
 ask_domain() {
@@ -50,41 +50,41 @@ ask_domain() {
     local PORT="$2"
     local SSH_ALIAS="${3:-${SSH_ALIAS:-vps}}"
 
-    # Jeśli DOMAIN_TYPE już ustawione z CLI
+    # If DOMAIN_TYPE already set from CLI
     if [ -n "$DOMAIN_TYPE" ]; then
-        # Walidacja wartości
+        # Value validation
         case "$DOMAIN_TYPE" in
             cytrus|cloudflare|local) ;;
             *)
-                echo -e "${RED}Błąd: --domain-type musi być: cytrus, cloudflare lub local${NC}" >&2
+                echo -e "${RED}Error: --domain-type must be: cytrus, cloudflare or local${NC}" >&2
                 return 1
                 ;;
         esac
 
-        # local nie wymaga publicznej domeny, ale zachowaj DOMAIN jeśli podana
-        # (install.sh może użyć domeny do nazewnictwa instancji, np. WordPress multi-instance)
+        # local doesn't need a public domain, but keep DOMAIN if provided
+        # (install.sh may use domain for instance naming, e.g. WordPress multi-instance)
         if [ "$DOMAIN_TYPE" = "local" ]; then
             if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "auto" ]; then
                 export DOMAIN=""
             fi
-            echo -e "${GREEN}✅ Tryb: tylko lokalnie (tunel SSH)${NC}"
+            echo -e "${GREEN}✅ Mode: local only (SSH tunnel)${NC}"
             return 0
         fi
 
-        # Cytrus z --domain=auto
+        # Cytrus with --domain=auto
         if [ "$DOMAIN_TYPE" = "cytrus" ] && [ "$DOMAIN" = "auto" ]; then
-            export DOMAIN="-"  # marker dla automatycznej domeny
-            echo -e "${GREEN}✅ Tryb: automatyczna domena Cytrus${NC}"
+            export DOMAIN="-"  # marker for automatic domain
+            echo -e "${GREEN}✅ Mode: automatic Cytrus domain${NC}"
             return 0
         fi
 
-        # Cytrus/Cloudflare wymaga DOMAIN
+        # Cytrus/Cloudflare requires DOMAIN
         if [ -z "$DOMAIN" ]; then
             if [ "$YES_MODE" = true ]; then
-                echo -e "${RED}Błąd: --domain jest wymagane dla --domain-type=$DOMAIN_TYPE${NC}" >&2
+                echo -e "${RED}Error: --domain is required for --domain-type=$DOMAIN_TYPE${NC}" >&2
                 return 1
             fi
-            # Tryb interaktywny - dopytaj
+            # Interactive mode - ask for it
             if [ "$DOMAIN_TYPE" = "cytrus" ]; then
                 ask_domain_cytrus "$APP_NAME"
             else
@@ -93,36 +93,36 @@ ask_domain() {
             return $?
         fi
 
-        echo -e "${GREEN}✅ Domena: $DOMAIN (typ: $DOMAIN_TYPE)${NC}"
+        echo -e "${GREEN}✅ Domain: $DOMAIN (type: $DOMAIN_TYPE)${NC}"
         return 0
     fi
 
-    # Tryb --yes bez --domain-type = błąd
+    # --yes mode without --domain-type = error
     if [ "$YES_MODE" = true ]; then
-        echo -e "${RED}Błąd: --domain-type jest wymagane w trybie --yes${NC}" >&2
+        echo -e "${RED}Error: --domain-type is required in --yes mode${NC}" >&2
         return 1
     fi
 
-    # Tryb interaktywny
+    # Interactive mode
     echo ""
-    echo "Jak chcesz uzyskać dostęp do aplikacji?"
-    echo ""
-
-    echo "  1) 🍊 Domena  (Cytrus) - najszybsze!"
-    echo "     Automatyczna domena *.byst.re / *.bieda.it / *.toadres.pl"
-    echo "     ➜ Działa od razu, bez konfiguracji DNS"
+    echo "How do you want to access the application?"
     echo ""
 
-    echo "  2) ☁️  Własna domena przez Cloudflare"
-    echo "     Skrypt skonfiguruje DNS automatycznie"
-    echo "     ➜ Wymaga: ./local/setup-cloudflare.sh"
-    echo ""
-    echo "  3) 🔒 Tylko lokalnie (tunel SSH)"
-    echo "     Dostęp przez: ssh -L $PORT:localhost:$PORT $SSH_ALIAS"
-    echo "     ➜ Bez domeny, idealne dla paneli admina"
+    echo "  1) 🍊 Domain (Cytrus) - fastest!"
+    echo "     Automatic domain *.byst.re / *.bieda.it / *.toadres.pl"
+    echo "     Works immediately, no DNS configuration needed"
     echo ""
 
-    read -p "Wybierz opcję [1-3]: " DOMAIN_CHOICE
+    echo "  2) ☁️  Own domain via Cloudflare"
+    echo "     Script will configure DNS automatically"
+    echo "     Requires: ./local/setup-cloudflare.sh"
+    echo ""
+    echo "  3) 🔒 Local only (SSH tunnel)"
+    echo "     Access via: ssh -L $PORT:localhost:$PORT $SSH_ALIAS"
+    echo "     No domain, ideal for admin panels"
+    echo ""
+
+    read -p "Choose option [1-3]: " DOMAIN_CHOICE
 
     case $DOMAIN_CHOICE in
         1)
@@ -139,11 +139,11 @@ ask_domain() {
             export DOMAIN_TYPE="local"
             export DOMAIN=""
             echo ""
-            echo -e "${GREEN}✅ Wybrano: tylko lokalnie (tunel SSH)${NC}"
+            echo -e "${GREEN}✅ Selected: local only (SSH tunnel)${NC}"
             return 0
             ;;
         *)
-            echo -e "${RED}❌ Nieprawidłowy wybór${NC}"
+            echo -e "${RED}❌ Invalid choice${NC}"
             return 1
             ;;
     esac
@@ -152,58 +152,58 @@ ask_domain() {
 ask_domain_cytrus() {
     local APP_NAME="$1"
 
-    # Jeśli DOMAIN już ustawione (z CLI)
+    # If DOMAIN already set (from CLI)
     if [ -n "$DOMAIN" ]; then
         return 0
     fi
 
     echo ""
-    echo "Dostępne domeny  (darmowe):"
-    echo "  1) Automatyczna (system nada np. xyz123.byst.re)"
-    echo "  2) *.byst.re    - wpiszesz własną subdomenę"
-    echo "  3) *.bieda.it   - wpiszesz własną subdomenę"
-    echo "  4) *.toadres.pl - wpiszesz własną subdomenę"
-    echo "  5) *.tojest.dev - wpiszesz własną subdomenę"
+    echo "Available domains (free):"
+    echo "  1) Automatic (system will assign e.g. xyz123.byst.re)"
+    echo "  2) *.byst.re    - you'll enter your own subdomain"
+    echo "  3) *.bieda.it   - you'll enter your own subdomain"
+    echo "  4) *.toadres.pl - you'll enter your own subdomain"
+    echo "  5) *.tojest.dev - you'll enter your own subdomain"
     echo ""
 
-    read -p "Wybierz [1-5]: " CYTRUS_CHOICE
+    read -p "Choose [1-5]: " CYTRUS_CHOICE
 
     case $CYTRUS_CHOICE in
         1)
-            export DOMAIN="-"  # automatyczna
+            export DOMAIN="-"  # automatic
             echo ""
-            echo -e "${GREEN}✅ Wybrano: automatyczna domena Cytrus${NC}"
+            echo -e "${GREEN}✅ Selected: automatic Cytrus domain${NC}"
             ;;
         2)
-            read -p "Podaj subdomenę (bez .byst.re): " SUBDOMAIN
-            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Pusta subdomena${NC}"; return 1; }
+            read -p "Enter subdomain (without .byst.re): " SUBDOMAIN
+            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Empty subdomain${NC}"; return 1; }
             export DOMAIN="${SUBDOMAIN}.byst.re"
             echo ""
-            echo -e "${GREEN}✅ Wybrano: $DOMAIN${NC}"
+            echo -e "${GREEN}✅ Selected: $DOMAIN${NC}"
             ;;
         3)
-            read -p "Podaj subdomenę (bez .bieda.it): " SUBDOMAIN
-            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Pusta subdomena${NC}"; return 1; }
+            read -p "Enter subdomain (without .bieda.it): " SUBDOMAIN
+            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Empty subdomain${NC}"; return 1; }
             export DOMAIN="${SUBDOMAIN}.bieda.it"
             echo ""
-            echo -e "${GREEN}✅ Wybrano: $DOMAIN${NC}"
+            echo -e "${GREEN}✅ Selected: $DOMAIN${NC}"
             ;;
         4)
-            read -p "Podaj subdomenę (bez .toadres.pl): " SUBDOMAIN
-            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Pusta subdomena${NC}"; return 1; }
+            read -p "Enter subdomain (without .toadres.pl): " SUBDOMAIN
+            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Empty subdomain${NC}"; return 1; }
             export DOMAIN="${SUBDOMAIN}.toadres.pl"
             echo ""
-            echo -e "${GREEN}✅ Wybrano: $DOMAIN${NC}"
+            echo -e "${GREEN}✅ Selected: $DOMAIN${NC}"
             ;;
         5)
-            read -p "Podaj subdomenę (bez .tojest.dev): " SUBDOMAIN
-            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Pusta subdomena${NC}"; return 1; }
+            read -p "Enter subdomain (without .tojest.dev): " SUBDOMAIN
+            [ -z "$SUBDOMAIN" ] && { echo -e "${RED}❌ Empty subdomain${NC}"; return 1; }
             export DOMAIN="${SUBDOMAIN}.tojest.dev"
             echo ""
-            echo -e "${GREEN}✅ Wybrano: $DOMAIN${NC}"
+            echo -e "${GREEN}✅ Selected: $DOMAIN${NC}"
             ;;
         *)
-            echo -e "${RED}❌ Nieprawidłowy wybór${NC}"
+            echo -e "${RED}❌ Invalid choice${NC}"
             return 1
             ;;
     esac
@@ -214,26 +214,26 @@ ask_domain_cytrus() {
 ask_domain_cloudflare() {
     local APP_NAME="$1"
 
-    # Jeśli DOMAIN już ustawione (z CLI)
+    # If DOMAIN already set (from CLI)
     if [ -n "$DOMAIN" ]; then
         return 0
     fi
 
     if [ ! -f "$CLOUDFLARE_CONFIG" ]; then
         echo ""
-        echo -e "${YELLOW}⚠️  Cloudflare nie jest skonfigurowany!${NC}"
-        echo "   Uruchom najpierw: ./local/setup-cloudflare.sh"
+        echo -e "${YELLOW}⚠️  Cloudflare is not configured!${NC}"
+        echo "   Run first: ./local/setup-cloudflare.sh"
         return 1
     fi
 
     echo ""
-    echo -e "${GREEN}✅ Cloudflare skonfigurowany${NC}"
+    echo -e "${GREEN}✅ Cloudflare configured${NC}"
     echo ""
 
-    # Pobierz listę domen (tylko prawdziwe domeny - bez spacji, z kropką)
+    # Get list of domains (only real domains - without spaces, with dot)
     local DOMAINS=()
     while IFS= read -r line; do
-        # Filtruj: musi zawierać kropkę, nie może zawierać spacji ani @
+        # Filter: must contain dot, no spaces, no @
         if [[ "$line" == *.* ]] && [[ "$line" != *" "* ]] && [[ "$line" != *"@"* ]]; then
             DOMAINS+=("$line")
         fi
@@ -242,15 +242,15 @@ ask_domain_cloudflare() {
     local DOMAIN_COUNT=${#DOMAINS[@]}
 
     if [ "$DOMAIN_COUNT" -eq 0 ]; then
-        echo -e "${RED}❌ Brak skonfigurowanych domen w Cloudflare${NC}"
+        echo -e "${RED}❌ No configured domains in Cloudflare${NC}"
         return 1
     fi
 
     local FULL_DOMAIN=""
 
-    # Jeśli ≤3 domeny, pokaż gotowe propozycje
+    # If <= 3 domains, show ready-made suggestions
     if [ "$DOMAIN_COUNT" -le 3 ]; then
-        echo "Wybierz domenę dla $APP_NAME:"
+        echo "Choose a domain for $APP_NAME:"
         echo ""
 
         local i=1
@@ -259,25 +259,25 @@ ask_domain_cloudflare() {
             ((i++))
         done
         echo ""
-        echo "  Lub wpisz własną domenę (np. $APP_NAME.mojadomena.pl)"
+        echo "  Or type a custom domain (e.g. $APP_NAME.mydomain.com)"
         echo ""
 
-        read -p "Wybór [1-$DOMAIN_COUNT] lub domena: " CHOICE
+        read -p "Choice [1-$DOMAIN_COUNT] or domain: " CHOICE
 
-        # Sprawdź czy to numer
+        # Check if it's a number
         if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "$DOMAIN_COUNT" ]; then
             local SELECTED_DOMAIN="${DOMAINS[$((CHOICE-1))]}"
             FULL_DOMAIN="$APP_NAME.$SELECTED_DOMAIN"
         elif [ -n "$CHOICE" ]; then
-            # Traktuj jako domenę wpisaną ręcznie
+            # Treat as manually typed domain
             FULL_DOMAIN="$CHOICE"
         else
-            echo -e "${RED}❌ Nie podano domeny${NC}"
+            echo -e "${RED}❌ No domain provided${NC}"
             return 1
         fi
     else
-        # Więcej niż 3 domeny - stary tryb
-        echo "Dostępne domeny:"
+        # More than 3 domains - old mode
+        echo "Available domains:"
         local i=1
         for domain in "${DOMAINS[@]}"; do
             echo "  $i) $domain"
@@ -285,41 +285,41 @@ ask_domain_cloudflare() {
         done
         echo ""
 
-        read -p "Podaj pełną domenę (np. $APP_NAME.twojadomena.pl): " FULL_DOMAIN
+        read -p "Enter full domain (e.g. $APP_NAME.yourdomain.com): " FULL_DOMAIN
     fi
 
     if [ -z "$FULL_DOMAIN" ]; then
-        echo -e "${RED}❌ Domena nie może być pusta${NC}"
+        echo -e "${RED}❌ Domain cannot be empty${NC}"
         return 1
     fi
 
     export DOMAIN="$FULL_DOMAIN"
     echo ""
-    echo -e "${GREEN}✅ Wybrano: $DOMAIN${NC}"
+    echo -e "${GREEN}✅ Selected: $DOMAIN${NC}"
 
     return 0
 }
 
 # =============================================================================
-# HELPER: Podsumowanie konfiguracji domeny
+# HELPER: Domain configuration summary
 # =============================================================================
 
 show_domain_summary() {
     echo ""
-    echo "📋 Konfiguracja domeny:"
-    echo "   Typ:    $DOMAIN_TYPE"
+    echo "📋 Domain configuration:"
+    echo "   Type:   $DOMAIN_TYPE"
     if [ "$DOMAIN_TYPE" = "local" ]; then
-        echo "   Dostęp: tunel SSH"
+        echo "   Access: SSH tunnel"
     elif [ "$DOMAIN" = "-" ]; then
-        echo "   Domena: (automatyczna Cytrus)"
+        echo "   Domain: (automatic Cytrus)"
     else
-        echo "   Domena: $DOMAIN"
+        echo "   Domain: $DOMAIN"
     fi
     echo ""
 }
 
 # =============================================================================
-# FAZA 2: Konfiguracja domeny (po uruchomieniu usługi!)
+# PHASE 2: Domain configuration (after starting the service!)
 # =============================================================================
 
 configure_domain() {
@@ -328,7 +328,7 @@ configure_domain() {
 
     # Dry-run mode
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] Konfiguruję domenę: $DOMAIN_TYPE / $DOMAIN${NC}"
+        echo -e "${BLUE}[dry-run] Configuring domain: $DOMAIN_TYPE / $DOMAIN${NC}"
         if [ "$DOMAIN_TYPE" = "cytrus" ] && [ "$DOMAIN" = "-" ]; then
             DOMAIN="[auto-assigned].byst.re"
             export DOMAIN
@@ -336,28 +336,28 @@ configure_domain() {
         return 0
     fi
 
-    # Local - nic nie robimy
+    # Local - nothing to do
     if [ "$DOMAIN_TYPE" = "local" ]; then
         echo ""
-        echo "📋 Dostęp przez tunel SSH:"
+        echo "📋 Access via SSH tunnel:"
         echo -e "   ${BLUE}ssh -L $PORT:localhost:$PORT $SSH_ALIAS${NC}"
-        echo "   Potem otwórz: http://localhost:$PORT"
+        echo "   Then open: http://localhost:$PORT"
         return 0
     fi
 
-    # Cytrus - wywołaj API
+    # Cytrus - call API
     if [ "$DOMAIN_TYPE" = "cytrus" ]; then
         configure_domain_cytrus "$PORT" "$SSH_ALIAS"
         return $?
     fi
 
-    # Cloudflare - skonfiguruj DNS
+    # Cloudflare - configure DNS
     if [ "$DOMAIN_TYPE" = "cloudflare" ]; then
         configure_domain_cloudflare "$PORT" "$SSH_ALIAS"
         return $?
     fi
 
-    echo -e "${RED}❌ Nieznany typ domeny: $DOMAIN_TYPE${NC}"
+    echo -e "${RED}❌ Unknown domain type: $DOMAIN_TYPE${NC}"
     return 1
 }
 
@@ -366,29 +366,29 @@ configure_domain_cytrus() {
     local SSH_ALIAS="$2"
 
     echo ""
-    echo "🍊 Konfiguruję domenę przez Cytrus..."
+    echo "🍊 Configuring domain via Cytrus..."
 
-    # WAŻNE: Cytrus wymaga stabilnie działającej usługi na porcie!
-    # Jeśli usługa nie odpowiada stabilnie, Cytrus skonfiguruje domenę z https://[ipv6]:port co nie działa
-    echo "   Sprawdzam czy usługa odpowiada na porcie $PORT..."
+    # IMPORTANT: Cytrus requires a stably running service on the port!
+    # If the service doesn't respond stably, Cytrus will configure domain with https://[ipv6]:port which won't work
+    echo "   Checking if service responds on port $PORT..."
 
     local MAX_WAIT=60
     local WAITED=0
     local SUCCESS_COUNT=0
-    local REQUIRED_SUCCESSES=3  # Wymagamy 3 udanych odpowiedzi pod rząd
+    local REQUIRED_SUCCESSES=3  # We require 3 consecutive successful responses
 
     while [ "$WAITED" -lt "$MAX_WAIT" ]; do
         local SERVICE_CHECK=$(server_exec "curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:$PORT 2>/dev/null" || echo "000")
         if [ "$SERVICE_CHECK" -ge 200 ] && [ "$SERVICE_CHECK" -lt 500 ]; then
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             if [ "$SUCCESS_COUNT" -ge "$REQUIRED_SUCCESSES" ]; then
-                echo -e "\r   ${GREEN}✅ Usługa gotowa i stabilna (HTTP $SERVICE_CHECK)${NC}"
+                echo -e "\r   ${GREEN}✅ Service ready and stable (HTTP $SERVICE_CHECK)${NC}"
                 break
             fi
-            printf "\r   ⏳ Usługa odpowiada, sprawdzam stabilność... (%d/%d)" "$SUCCESS_COUNT" "$REQUIRED_SUCCESSES"
+            printf "\r   ⏳ Service responding, checking stability... (%d/%d)" "$SUCCESS_COUNT" "$REQUIRED_SUCCESSES"
         else
-            SUCCESS_COUNT=0  # Reset jeśli fail
-            printf "\r   ⏳ Czekam na usługę... (%ds/%ds)        " "$WAITED" "$MAX_WAIT"
+            SUCCESS_COUNT=0  # Reset on failure
+            printf "\r   ⏳ Waiting for service... (%ds/%ds)        " "$WAITED" "$MAX_WAIT"
         fi
         sleep 2
         WAITED=$((WAITED + 2))
@@ -396,15 +396,15 @@ configure_domain_cytrus() {
 
     if [ "$SUCCESS_COUNT" -lt "$REQUIRED_SUCCESSES" ]; then
         echo ""
-        echo -e "${YELLOW}⚠️  Usługa nie odpowiada stabilnie na porcie $PORT${NC}"
-        echo "   Cytrus może nie działać poprawnie. Sprawdź logi kontenera."
+        echo -e "${YELLOW}⚠️  Service is not responding stably on port $PORT${NC}"
+        echo "   Cytrus may not work correctly. Check container logs."
     fi
     echo ""
 
-    # Pobierz klucz API
+    # Get API key
     local API_KEY=$(server_exec 'cat /klucz_api 2>/dev/null' 2>/dev/null)
     if [ -z "$API_KEY" ]; then
-        echo -e "${RED}❌ Brak klucza API. Włącz API: https://mikr.us/panel/?a=api${NC}"
+        echo -e "${RED}❌ Missing API key. Make sure the API is enabled on your server.${NC}"
         return 1
     fi
 
@@ -416,24 +416,24 @@ configure_domain_cytrus() {
         -d "domain=$DOMAIN" \
         -d "port=$PORT")
 
-    # Sprawdź odpowiedź
+    # Check response
     if echo "$RESPONSE" | grep -qi '"status".*gotowe\|"domain"'; then
-        # Wyciągnij domenę z odpowiedzi jeśli była automatyczna
+        # Extract domain from response if it was automatic
         local ASSIGNED=$(echo "$RESPONSE" | sed -n 's/.*"domain"\s*:\s*"\([^"]*\)".*/\1/p')
         if [ "$DOMAIN" = "-" ] && [ -n "$ASSIGNED" ]; then
             export DOMAIN="$ASSIGNED"
         fi
-        echo -e "${GREEN}✅ Domena skonfigurowana: https://$DOMAIN${NC}"
+        echo -e "${GREEN}✅ Domain configured: https://$DOMAIN${NC}"
         return 0
 
     elif echo "$RESPONSE" | grep -qiE "już istnieje|ju.*istnieje|niepoprawna nazwa domeny"; then
-        # API zwraca "Niepoprawna nazwa domeny" gdy domena jest zajęta
-        echo -e "${YELLOW}⚠️  Domena $DOMAIN jest zajęta lub nieprawidłowa!${NC}"
-        echo "   Spróbuj inną nazwę, np.: ${DOMAIN%%.*}-2.${DOMAIN#*.}"
+        # API returns "Niepoprawna nazwa domeny" when domain is taken
+        echo -e "${YELLOW}⚠️  Domain $DOMAIN is taken or invalid!${NC}"
+        echo "   Try a different name, e.g.: ${DOMAIN%%.*}-2.${DOMAIN#*.}"
         return 1
 
     else
-        echo -e "${RED}❌ Błąd Cytrus: $RESPONSE${NC}"
+        echo -e "${RED}❌ Cytrus error: $RESPONSE${NC}"
         return 1
     fi
 }
@@ -447,88 +447,88 @@ configure_domain_cloudflare() {
     local OPTIMIZE_SCRIPT="$REPO_ROOT/local/setup-cloudflare-optimize.sh"
 
     echo ""
-    echo "☁️  Konfiguruję DNS w Cloudflare..."
+    echo "☁️  Configuring DNS in Cloudflare..."
 
     local DNS_OK=false
     if [ -f "$DNS_SCRIPT" ]; then
         if bash "$DNS_SCRIPT" "$DOMAIN" "$SSH_ALIAS"; then
-            echo -e "${GREEN}✅ DNS skonfigurowany: $DOMAIN${NC}"
+            echo -e "${GREEN}✅ DNS configured: $DOMAIN${NC}"
             DNS_OK=true
         else
-            echo -e "${YELLOW}⚠️  DNS już istnieje lub błąd - kontynuuję konfigurację Caddy${NC}"
+            echo -e "${YELLOW}⚠️  DNS already exists or error - continuing Caddy configuration${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Nie znaleziono dns-add.sh${NC}"
+        echo -e "${YELLOW}⚠️  dns-add.sh not found${NC}"
     fi
 
-    # Optymalizacja ustawień Cloudflare (SSL Flexible, cache, kompresja)
+    # Cloudflare settings optimization (SSL Flexible, cache, compression)
     if [ -f "$OPTIMIZE_SCRIPT" ]; then
         echo ""
-        # Mapuj APP_NAME na --app preset (jeśli znany)
+        # Map APP_NAME to --app preset (if known)
         local CF_APP_FLAG=""
         case "${APP_NAME:-}" in
             wordpress) CF_APP_FLAG="--app=wordpress" ;;
             gateflow)  CF_APP_FLAG="--app=nextjs" ;;
         esac
-        bash "$OPTIMIZE_SCRIPT" "$DOMAIN" $CF_APP_FLAG || echo -e "${YELLOW}⚠️  Optymalizacja Cloudflare pominięta${NC}"
+        bash "$OPTIMIZE_SCRIPT" "$DOMAIN" $CF_APP_FLAG || echo -e "${YELLOW}⚠️  Cloudflare optimization skipped${NC}"
     fi
 
-    # Konfiguruj Caddy na serwerze (nawet jeśli DNS nie wymagał zmian)
+    # Configure Caddy on server (even if DNS didn't need changes)
     echo ""
-    echo "🔒 Konfiguruję HTTPS (Caddy)..."
+    echo "🔒 Configuring HTTPS (Caddy)..."
 
-    # Sprawdź czy to static site (szukamy pliku /tmp/APP_webroot, nie domain_public_webroot)
-    # domain_public_webroot jest dla DOMAIN_PUBLIC, obsługiwane osobno w deploy.sh
+    # Check if this is a static site (look for /tmp/APP_webroot file, not domain_public_webroot)
+    # domain_public_webroot is for DOMAIN_PUBLIC, handled separately in deploy.sh
     local WEBROOT=$(server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
 
     if [ -n "$WEBROOT" ]; then
-        # Walidacja domeny (zapobieganie Caddyfile/shell injection)
+        # Domain validation (preventing Caddyfile/shell injection)
         if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$ ]]; then
-            echo -e "${RED}❌ Nieprawidłowa domena: $DOMAIN${NC}" >&2
+            echo -e "${RED}❌ Invalid domain: $DOMAIN${NC}" >&2
             return 1
         fi
 
-        # Static site (littlelink, etc.) - użyj trybu file_server
-        echo "   Wykryto static site: $WEBROOT"
+        # Static site (littlelink, etc.) - use file_server mode
+        echo "   Detected static site: $WEBROOT"
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static"; then
-            echo -e "${GREEN}✅ HTTPS skonfigurowany (file_server)${NC}"
-            # Usuń marker (nie usuwaj domain_public_webroot!)
+            echo -e "${GREEN}✅ HTTPS configured (file_server)${NC}"
+            # Remove marker (don't remove domain_public_webroot!)
             server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
         else
-            echo -e "${YELLOW}⚠️  sp-expose niedostępny${NC}"
+            echo -e "${YELLOW}⚠️  sp-expose not available${NC}"
         fi
     else
-        # Walidacja domeny (zapobieganie Caddyfile/shell injection)
+        # Domain validation (preventing Caddyfile/shell injection)
         if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$ ]]; then
-            echo -e "${RED}❌ Nieprawidłowa domena: $DOMAIN${NC}" >&2
+            echo -e "${RED}❌ Invalid domain: $DOMAIN${NC}" >&2
             return 1
         fi
 
-        # Docker app - użyj reverse_proxy
+        # Docker app - use reverse_proxy
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
-            echo -e "${GREEN}✅ HTTPS skonfigurowany (reverse_proxy)${NC}"
+            echo -e "${GREEN}✅ HTTPS configured (reverse_proxy)${NC}"
         else
-            # Sprawdź czy domena już jest w Caddyfile
+            # Check if domain is already in Caddyfile
             if server_exec "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
-                echo -e "${GREEN}✅ HTTPS już skonfigurowany w Caddy${NC}"
+                echo -e "${GREEN}✅ HTTPS already configured in Caddy${NC}"
             else
-                echo -e "${YELLOW}⚠️  sp-expose niedostępny${NC}"
+                echo -e "${YELLOW}⚠️  sp-expose not available${NC}"
             fi
         fi
     fi
 
     echo ""
-    echo -e "${GREEN}🎉 Domena skonfigurowana: https://$DOMAIN${NC}"
+    echo -e "${GREEN}🎉 Domain configured: https://$DOMAIN${NC}"
 
     return 0
 }
 
 # =============================================================================
-# FAZA 3: Weryfikacja czy domena działa
+# PHASE 3: Verifying if domain works
 # =============================================================================
 
 wait_for_domain() {
-    local TIMEOUT="${1:-60}"  # domyślnie 60 sekund
+    local TIMEOUT="${1:-60}"  # default 60 seconds
 
     if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ] || [ "$DOMAIN_TYPE" = "local" ]; then
         return 0
@@ -536,12 +536,12 @@ wait_for_domain() {
 
     # Dry-run mode
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] Czekam na domenę: $DOMAIN${NC}"
+        echo -e "${BLUE}[dry-run] Waiting for domain: $DOMAIN${NC}"
         return 0
     fi
 
     echo ""
-    echo "⏳ Czekam aż $DOMAIN zacznie odpowiadać..."
+    echo "⏳ Waiting for $DOMAIN to start responding..."
 
     local START_TIME=$(date +%s)
     local SPINNER="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -553,31 +553,31 @@ wait_for_domain() {
 
         if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
             echo ""
-            echo -e "${YELLOW}⚠️  Timeout - domena może jeszcze nie być gotowa${NC}"
-            echo "   ⏳ Propagacja DNS może zająć do 5 minut."
-            echo "   Sprawdź za chwilę: https://$DOMAIN"
+            echo -e "${YELLOW}⚠️  Timeout - domain may not be ready yet${NC}"
+            echo "   ⏳ DNS propagation may take up to 5 minutes."
+            echo "   Check shortly: https://$DOMAIN"
             return 1
         fi
 
-        # Sprawdź HTTP code i zawartość
+        # Check HTTP code and content
         local HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://$DOMAIN" 2>/dev/null || echo "000")
         local RESPONSE=$(curl -s --max-time 5 "https://$DOMAIN" 2>/dev/null || echo "")
 
-        # Cytrus - sprawdź czy to nie placeholder I czy HTTP 2xx
+        # Cytrus - check if it's not a placeholder AND if HTTP 2xx
         if [ "$DOMAIN_TYPE" = "cytrus" ]; then
-            # Cytrus placeholder ma <title>CYTR.US</title>
+            # Cytrus placeholder has <title>CYTR.US</title>
             if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
                 if [ -n "$RESPONSE" ] && ! echo "$RESPONSE" | grep -q "<title>CYTR.US</title>"; then
                     echo ""
-                    echo -e "${GREEN}✅ Domena działa! (HTTP $HTTP_CODE)${NC}"
+                    echo -e "${GREEN}✅ Domain is working! (HTTP $HTTP_CODE)${NC}"
                     return 0
                 fi
             fi
         else
-            # Cloudflare - sprawdź HTTP 2xx-4xx (nie 5xx)
+            # Cloudflare - check HTTP 2xx-4xx (not 5xx)
             if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 500 ]; then
                 echo ""
-                echo -e "${GREEN}✅ Domena działa! (HTTP $HTTP_CODE)${NC}"
+                echo -e "${GREEN}✅ Domain is working! (HTTP $HTTP_CODE)${NC}"
                 return 0
             fi
         fi
@@ -585,29 +585,29 @@ wait_for_domain() {
         # Spinner
         local CHAR="${SPINNER:$SPINNER_IDX:1}"
         SPINNER_IDX=$(( (SPINNER_IDX + 1) % ${#SPINNER} ))
-        printf "\r   %s Sprawdzam... (%ds/%ds)" "$CHAR" "$ELAPSED" "$TIMEOUT"
+        printf "\r   %s Checking... (%ds/%ds)" "$CHAR" "$ELAPSED" "$TIMEOUT"
 
         sleep 3
     done
 }
 
 # =============================================================================
-# STARY FLOW (kompatybilność wsteczna)
+# OLD FLOW (backward compatibility)
 # =============================================================================
 
-# Stara funkcja get_domain - teraz wywołuje nowe funkcje
+# Old get_domain function - now calls new functions
 get_domain() {
     local APP_NAME="$1"
     local PORT="$2"
     local SSH_ALIAS="${3:-${SSH_ALIAS:-vps}}"
 
-    # Faza 1: zbierz wybór
+    # Phase 1: gather choice
     if ! ask_domain "$APP_NAME" "$PORT" "$SSH_ALIAS"; then
         return 1
     fi
 
-    # Faza 2: skonfiguruj (stary flow robi to od razu)
-    # UWAGA: W nowym flow configure_domain() jest wywoływane PO uruchomieniu usługi!
+    # Phase 2: configure (old flow does it immediately)
+    # NOTE: In the new flow configure_domain() is called AFTER starting the service!
     if [ "$DOMAIN_TYPE" != "local" ]; then
         if ! configure_domain "$PORT" "$SSH_ALIAS"; then
             return 1
@@ -617,7 +617,7 @@ get_domain() {
     return 0
 }
 
-# Stara funkcja setup_domain
+# Old setup_domain function
 setup_domain() {
     local APP_NAME="$1"
     local PORT="$2"
@@ -625,14 +625,14 @@ setup_domain() {
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  🌐 Konfiguracja domeny dla: $APP_NAME"
+    echo "║  🌐 Domain configuration for: $APP_NAME"
     echo "╚════════════════════════════════════════════════════════════════╝"
 
     get_domain "$APP_NAME" "$PORT" "$SSH_ALIAS"
     return $?
 }
 
-# Pomocnicze funkcje (dla kompatybilności)
+# Helper functions (for compatibility)
 get_domain_cytrus() {
     local APP_NAME="$1"
     local PORT="$2"
@@ -677,7 +677,7 @@ setup_cytrus() {
     get_domain_cytrus "$@"
 }
 
-# Eksportuj funkcje
+# Export functions
 export -f ask_domain
 export -f ask_domain_cytrus
 export -f ask_domain_cloudflare

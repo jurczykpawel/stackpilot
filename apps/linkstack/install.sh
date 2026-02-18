@@ -6,8 +6,8 @@
 #
 # IMAGE_SIZE_MB=550  # linkstackorg/linkstack:latest
 #
-# Opcjonalne zmienne środowiskowe:
-#   DOMAIN - domena dla LinkStack
+# Optional environment variables:
+#   DOMAIN - domain for LinkStack
 
 set -e
 
@@ -19,21 +19,21 @@ echo "--- 🔗 LinkStack Setup ---"
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus)"
+    echo "✅ Domain: automatic (Cytrus)"
 else
-    echo "⚠️  Brak domeny - używam localhost"
+    echo "⚠️  No domain - using localhost"
 fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-# Sprawdź czy to pierwsza instalacja (brak plików w data/)
+# Check if this is a first install (no files in data/)
 if [ ! -f "./data/index.php" ]; then
-    echo "📦 Pierwsza instalacja - pobieram pliki aplikacji..."
+    echo "📦 First install - downloading application files..."
 
-    # Tymczasowy kontener bez wolumenu
+    # Temporary container without volume
     cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   linkstack:
@@ -41,22 +41,22 @@ services:
     restart: "no"
 EOF
 
-    # Uruchom tymczasowo aby skopiować pliki
+    # Start temporarily to copy files
     sudo docker compose up -d
     sleep 5
 
-    # Skopiuj pliki z kontenera do hosta
+    # Copy files from container to host
     sudo mkdir -p data
     CONTAINER_ID=$(sudo docker compose ps -q linkstack)
     sudo docker cp "$CONTAINER_ID:/htdocs/." ./data/
     sudo docker compose down
 
-    # Ustaw uprawnienia dla Apache
+    # Set permissions for Apache
     sudo chown -R 100:101 data
-    echo "✅ Pliki aplikacji skopiowane"
+    echo "✅ Application files copied"
 fi
 
-# Właściwy docker-compose z bind mount
+# Final docker-compose with bind mount
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   linkstack:
@@ -80,13 +80,13 @@ sudo docker compose up -d
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 45 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 45 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ LinkStack działa"
+        echo "✅ LinkStack is running"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
@@ -101,24 +101,23 @@ echo ""
 echo "✅ LinkStack started!"
 echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "🔗 Otwórz: https://$DOMAIN"
+    echo "🔗 Open: https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
-    echo "🔗 Dostęp przez tunel SSH: ssh -L $PORT:localhost:$PORT <server>"
-    echo "   Potem otwórz: http://localhost:$PORT"
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+    echo "   Then open: http://localhost:$PORT"
 fi
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "📋 SETUP WIZARD - co wybrać?"
+echo "📋 SETUP WIZARD - what to choose?"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "   🎯 Jesteś soloprenerem / masz jeden profil?"
-echo "      → Wybierz SQLite i nie myśl więcej"
+echo "   🎯 Are you a solopreneur / have a single profile?"
+echo "      → Choose SQLite and don't worry about it"
 echo ""
-echo "   🏢 Robisz to dla firmy z wieloma pracownikami?"
-echo "      → MySQL (dane: ssh $SSH_ALIAS 'curl -s -d"
-echo "        \"srv=\\\$(hostname)&key=\\\$(cat /klucz_api)\" https://api.mikr.us/db.bash')"
+echo "   🏢 Setting this up for a company with multiple employees?"
+echo "      → MySQL (use your database credentials)"
 echo ""
-echo "   📝 Zapisz dane logowania admina - będą potrzebne później!"
+echo "   📝 Save your admin login credentials - you'll need them later!"
 echo ""

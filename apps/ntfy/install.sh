@@ -5,7 +5,7 @@
 # Send alerts from n8n directly to your phone.
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=50  # binwiederhier/ntfy:latest (bardzo lekki)
+# IMAGE_SIZE_MB=50  # binwiederhier/ntfy:latest (very lightweight)
 
 set -e
 
@@ -21,13 +21,13 @@ cd "$STACK_DIR"
 # Domain for BASE_URL
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     NTFY_BASE_URL="https://$DOMAIN"
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
     NTFY_BASE_URL="https://notify.example.com"
-    echo "✅ Domena: automatyczna (Cytrus) — BASE_URL zostanie zaktualizowany"
+    echo "✅ Domain: automatic (Cytrus) — BASE_URL will be updated"
 else
     NTFY_BASE_URL="https://notify.example.com"
-    echo "⚠️  Brak domeny - użyj --domain=... lub zaktualizuj BASE_URL później"
+    echo "⚠️  No domain - use --domain=... or update BASE_URL later"
 fi
 
 # Basic config with cache enabled
@@ -58,24 +58,24 @@ sudo docker compose up -d
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 30 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 30 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ ntfy działa na porcie $PORT"
+        echo "✅ ntfy is running on port $PORT"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
-echo "👤 Utwórz użytkownika do logowania w ntfy:"
-echo "   ssh $SSH_ALIAS 'docker exec -it ntfy-ntfy-1 ntfy user add --role=admin TWOJ_USER'"
-echo "   (to nowy user wewnętrzny ntfy, nie systemowy)"
+echo "👤 Create a user for ntfy login:"
+echo "   ssh $SSH_ALIAS 'docker exec -it ntfy-ntfy-1 ntfy user add --role=admin YOUR_USER'"
+echo "   (this is an internal ntfy user, not a system user)"

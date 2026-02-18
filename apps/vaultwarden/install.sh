@@ -7,9 +7,9 @@
 #
 # IMAGE_SIZE_MB=330  # vaultwarden/server:latest
 #
-# Opcjonalne zmienne środowiskowe:
-#   DOMAIN - domena dla Vaultwarden
-#   ADMIN_TOKEN - token dla panelu admina (jeśli brak, generowany automatycznie)
+# Optional environment variables:
+#   DOMAIN - domain for Vaultwarden
+#   ADMIN_TOKEN - token for admin panel (if not set, generated automatically)
 
 set -e
 
@@ -24,19 +24,19 @@ echo ""
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus)"
+    echo "✅ Domain: automatic (Cytrus)"
 else
-    echo "⚠️  Brak domeny - używam localhost"
+    echo "⚠️  No domain - using localhost"
 fi
 
 # Admin token
 if [ -z "$ADMIN_TOKEN" ]; then
     ADMIN_TOKEN=$(openssl rand -hex 32)
-    echo "✅ Wygenerowano Admin Token"
+    echo "✅ Admin Token generated"
 else
-    echo "✅ Używam Admin Token z konfiguracji"
+    echo "✅ Using Admin Token from configuration"
 fi
 
 sudo mkdir -p "$STACK_DIR"
@@ -80,13 +80,13 @@ sudo docker compose up -d
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 30 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 30 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Vaultwarden działa"
+        echo "✅ Vaultwarden is running"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
@@ -102,13 +102,13 @@ echo "✅ Vaultwarden started!"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
 echo "   Admin panel: $DOMAIN_URL/admin"
-echo "   Admin token zapisany w: $STACK_DIR/.admin_token"
+echo "   Admin token saved in: $STACK_DIR/.admin_token"
 echo ""
 echo "⚠️  ACTION REQUIRED:"
 echo "1. Create your account NOW."

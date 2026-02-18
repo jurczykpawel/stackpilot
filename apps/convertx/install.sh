@@ -14,17 +14,17 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3000}
 
 echo "--- 🔄 ConvertX Setup ---"
-echo "Uniwersalny konwerter plików w przeglądarce."
+echo "Universal file converter in your browser."
 echo ""
 
-# Port binding: Cytrus wymaga 0.0.0.0, Cloudflare/local → 127.0.0.1
+# Port binding: Cytrus requires 0.0.0.0, Cloudflare/local → 127.0.0.1
 if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
     BIND_ADDR=""
 else
     BIND_ADDR="127.0.0.1:"
 fi
 
-# JWT secret - bez tego sesje giną po restarcie kontenera
+# JWT secret - without this, sessions are lost after container restart
 JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | od -An -tx1 | tr -d ' \n')
 
 sudo mkdir -p "$STACK_DIR"
@@ -32,11 +32,11 @@ cd "$STACK_DIR"
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus)"
+    echo "✅ Domain: automatic (Cytrus)"
 else
-    echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
+    echo "⚠️  No domain - use --domain=... or access via SSH tunnel"
 fi
 
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
@@ -70,33 +70,33 @@ sudo docker compose up -d
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ ConvertX działa na porcie $PORT"
+        echo "✅ ConvertX is running on port $PORT"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ ConvertX zainstalowany!"
+echo "✅ ConvertX installed!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "🔗 Otwórz https://$DOMAIN"
+    echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
-    echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
-echo "📝 Następne kroki:"
-echo "   1. Utwórz konto administratora w przeglądarce"
-echo "   2. Po utworzeniu konta wyłącz rejestrację:"
+echo "📝 Next steps:"
+echo "   1. Create an admin account in the browser"
+echo "   2. After creating the account, disable registration:"
 echo "      ssh <server> 'cd $STACK_DIR && sed -i \"s/ACCOUNT_REGISTRATION=true/ACCOUNT_REGISTRATION=false/\" docker-compose.yaml && docker compose up -d'"
 echo ""
-echo "💡 Pliki starsze niż 24h są automatycznie usuwane."
-echo "   Zmień AUTO_DELETE_EVERY_N_HOURS w docker-compose.yaml (0 = wyłącz)."
+echo "💡 Files older than 24h are automatically deleted."
+echo "   Change AUTO_DELETE_EVERY_N_HOURS in docker-compose.yaml (0 = disable)."

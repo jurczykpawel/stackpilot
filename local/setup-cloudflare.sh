@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # StackPilot - Cloudflare Setup
-# Konfiguruje dostęp do API Cloudflare (lokalnie).
-# Pozwala na automatyczne dodawanie rekordów DNS.
+# Configures Cloudflare API access (locally).
+# Enables automatic DNS record management.
 # Author: Paweł (Lazy Engineer)
 
 set -e
@@ -15,40 +15,40 @@ echo "╔═══════════════════════�
 echo "║  ☁️  Cloudflare DNS Setup                                       ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
-echo "Ten skrypt skonfiguruje dostęp do Cloudflare API."
-echo "Będziesz mógł automatycznie dodawać rekordy DNS dla swoich aplikacji."
+echo "This script will configure Cloudflare API access."
+echo "You will be able to automatically add DNS records for your applications."
 echo ""
 
-# 1. Sprawdź czy już skonfigurowane
+# 1. Check if already configured
 if [ -f "$CONFIG_FILE" ]; then
-    echo "⚠️  Znaleziono istniejącą konfigurację: $CONFIG_FILE"
-    read -p "Nadpisać? (t/N) " -n 1 -r
+    echo "⚠️  Found existing configuration: $CONFIG_FILE"
+    read -p "Overwrite? (y/N) " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-        echo "Anulowano."
+        echo "Cancelled."
         exit 0
     fi
 fi
 
-# 2. Otwórz przeglądarkę z instrukcjami
-echo "📋 Otwieram stronę Cloudflare do utworzenia tokenu..."
+# 2. Open browser with instructions
+echo "📋 Opening Cloudflare page to create a token..."
 echo ""
-echo "   W przeglądarce:"
-echo "   1. Kliknij 'Create Token'"
-echo "   2. Kliknij 'Create Custom Token' (na dole)"
-echo "   3. Dodaj uprawnienia:"
-echo "      • Zone → DNS → Edit           (wymagane - rekordy DNS)"
-echo "      • Zone → Zone Settings → Edit (opcjonalne - SSL, kompresja)"
-echo "      • Zone → Cache Rules → Edit   (opcjonalne - cache Next.js)"
-echo "   4. W 'Zone Resources' wybierz 'All zones' lub konkretne domeny"
-echo "   5. Kliknij 'Continue to summary' → 'Create Token'"
-echo "   6. Skopiuj token (pokazuje się tylko raz!)"
+echo "   In the browser:"
+echo "   1. Click 'Create Token'"
+echo "   2. Click 'Create Custom Token' (at the bottom)"
+echo "   3. Add permissions:"
+echo "      • Zone → DNS → Edit           (required - DNS records)"
+echo "      • Zone → Zone Settings → Edit (optional - SSL, compression)"
+echo "      • Zone → Cache Rules → Edit   (optional - Next.js cache)"
+echo "   4. In 'Zone Resources' select 'All zones' or specific domains"
+echo "   5. Click 'Continue to summary' → 'Create Token'"
+echo "   6. Copy the token (shown only once!)"
 echo ""
-echo "   💡 Uprawnienia Zone Settings i Cache Rules są potrzebne dla"
-echo "      automatycznej optymalizacji (SSL Flexible, Brotli, cache)."
+echo "   💡 Zone Settings and Cache Rules permissions are needed for"
+echo "      automatic optimization (SSL Flexible, Brotli, cache)."
 echo ""
 
-# Otwórz przeglądarkę (różne komendy dla różnych systemów)
+# Open browser (different commands for different systems)
 URL="https://dash.cloudflare.com/profile/api-tokens"
 if command -v open &> /dev/null; then
     open "$URL"  # macOS
@@ -57,60 +57,60 @@ elif command -v xdg-open &> /dev/null; then
 elif command -v start &> /dev/null; then
     start "$URL"  # Windows (Git Bash)
 else
-    echo "   Otwórz ręcznie: $URL"
+    echo "   Open manually: $URL"
 fi
 
-read -p "Naciśnij Enter gdy skopiujesz token..."
+read -p "Press Enter when you've copied the token..."
 
 echo ""
-read -s -p "🔑 Wklej API Token: " API_TOKEN
+read -s -p "🔑 Paste API Token: " API_TOKEN
 echo ""
 
 if [ -z "$API_TOKEN" ]; then
-    echo "❌ Token nie może być pusty!"
+    echo "❌ Token cannot be empty!"
     exit 1
 fi
 
-# 3. Weryfikacja tokenu
+# 3. Verify token
 echo ""
-echo "Weryfikuję token..."
+echo "Verifying token..."
 
 VERIFY_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
     -H "Authorization: Bearer $API_TOKEN" \
     -H "Content-Type: application/json")
 
 if echo "$VERIFY_RESPONSE" | grep -q '"success":true'; then
-    echo "✅ Token działa!"
+    echo "✅ Token works!"
 else
-    echo "❌ Token nieprawidłowy lub nie ma uprawnień!"
-    echo "   Odpowiedź: $VERIFY_RESPONSE"
+    echo "❌ Token is invalid or lacks permissions!"
+    echo "   Response: $VERIFY_RESPONSE"
     exit 1
 fi
 
-# 4. Pobierz listę Zone IDs
+# 4. Fetch Zone IDs
 echo ""
-echo "Pobieram listę domen..."
+echo "Fetching domain list..."
 
 ZONES_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones" \
     -H "Authorization: Bearer $API_TOKEN" \
     -H "Content-Type: application/json")
 
-# Parsuj domeny
+# Parse domains
 ZONES=$(echo "$ZONES_RESPONSE" | grep -o '"name":"[^"]*"' | sed 's/"name":"//g' | sed 's/"//g')
 ZONE_IDS=$(echo "$ZONES_RESPONSE" | grep -o '"id":"[^"]*"' | head -20 | sed 's/"id":"//g' | sed 's/"//g')
 
 if [ -z "$ZONES" ]; then
-    echo "❌ Nie znaleziono żadnych domen!"
-    echo "   Upewnij się że token ma dostęp do przynajmniej jednej domeny."
+    echo "❌ No domains found!"
+    echo "   Make sure the token has access to at least one domain."
     exit 1
 fi
 
 echo ""
-echo "Znalezione domeny:"
+echo "Found domains:"
 echo "$ZONES" | nl
 echo ""
 
-# 5. Zapisz konfigurację
+# 5. Save configuration
 mkdir -p "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
@@ -123,7 +123,7 @@ API_TOKEN=$API_TOKEN
 # Zone mappings (domain=zone_id)
 EOF
 
-# Dodaj mapowanie domen do zone ID
+# Add domain to zone ID mapping
 ZONE_ARRAY=($ZONE_IDS)
 i=0
 echo "$ZONES" | while read -r domain; do
@@ -134,11 +134,11 @@ done
 chmod 600 "$CONFIG_FILE"
 
 echo ""
-echo "✅ Konfiguracja zapisana: $CONFIG_FILE"
+echo "✅ Configuration saved: $CONFIG_FILE"
 echo ""
-echo "🚀 Teraz możesz używać:"
-echo "   ./local/dns-add.sh subdomena.twojadomena.pl IP_SERWERA"
+echo "🚀 Now you can use:"
+echo "   ./local/dns-add.sh subdomain.yourdomain.com SERVER_IP"
 echo ""
-echo "   Przykład:"
-echo "   ./local/dns-add.sh status.mojafirma.pl 185.181.10.50"
+echo "   Example:"
+echo "   ./local/dns-add.sh status.mycompany.com 185.181.10.50"
 echo ""

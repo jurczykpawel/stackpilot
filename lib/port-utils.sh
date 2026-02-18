@@ -1,23 +1,23 @@
 #!/bin/bash
 
 # StackPilot - Port Utilities
-# Wyszukiwanie wolnych portów na serwerze.
+# Finding free ports on the server.
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   source lib/port-utils.sh
-#   PORT=$(find_free_port 8000)           # lokalnie
-#   PORT=$(find_free_port_remote mikrus 8000)  # zdalnie przez SSH
+#   PORT=$(find_free_port 8000)           # locally
+#   PORT=$(find_free_port_remote vps 8000)  # remotely via SSH
 
-# Załaduj server-exec jeśli nie załadowany
+# Load server-exec if not loaded
 if ! type is_on_server &>/dev/null; then
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/server-exec.sh"
 fi
 
-# Znajdź pierwszy wolny port >= BASE_PORT (lokalnie)
-# Jedno wywołanie ss, potem szukanie w pamięci - brak limitu prób.
-# Argumenty: BASE_PORT
-# Zwraca: numer wolnego portu (stdout)
+# Find first free port >= BASE_PORT (locally)
+# Single ss call, then searching in memory - no retry limit.
+# Arguments: BASE_PORT
+# Returns: free port number (stdout)
 find_free_port() {
     local port="${1:-8000}"
     local used
@@ -29,16 +29,16 @@ find_free_port() {
     echo "$port"
 }
 
-# Znajdź pierwszy wolny port >= BASE_PORT (zdalnie przez SSH)
-# Jedno wywołanie SSH, potem szukanie lokalne.
-# Na serwerze: deleguje do find_free_port() (bez SSH).
-# Argumenty: SSH_ALIAS BASE_PORT
-# Zwraca: numer wolnego portu (stdout)
+# Find first free port >= BASE_PORT (remotely via SSH)
+# Single SSH call, then local searching.
+# On server: delegates to find_free_port() (without SSH).
+# Arguments: SSH_ALIAS BASE_PORT
+# Returns: free port number (stdout)
 find_free_port_remote() {
     local ssh_alias="$1"
     local port="${2:-8000}"
 
-    # Na serwerze: nie potrzebujemy SSH
+    # On server: we don't need SSH
     if is_on_server; then
         find_free_port "$port"
         return
@@ -53,6 +53,6 @@ find_free_port_remote() {
     echo "$port"
 }
 
-# Eksportuj funkcje
+# Export functions
 export -f find_free_port
 export -f find_free_port_remote

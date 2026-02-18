@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
 
-# Benchmark GateFlow - test obciążeniowy + monitorowanie zasobów
-# Użycie: ./local/benchmark-gateflow.sh <url> <ssh_alias> [requesty] [współbieżność]
+# Benchmark GateFlow - load test + resource monitoring
+# Usage: ./local/benchmark-gateflow.sh <url> <ssh_alias> [requests] [concurrency]
 #
-# Przykłady:
-#   ./local/benchmark-gateflow.sh https://shop.byst.re mikrus
-#   ./local/benchmark-gateflow.sh https://shop.example.com mikrus 200 20
+# Examples:
+#   ./local/benchmark-gateflow.sh https://shop.byst.re vps
+#   ./local/benchmark-gateflow.sh https://shop.example.com vps 200 20
 
 URL=${1}
 SSH_ALIAS=${2}
@@ -14,10 +14,10 @@ REQUESTS=${3:-100}
 CONCURRENT=${4:-10}
 
 if [ -z "$URL" ] || [ -z "$SSH_ALIAS" ]; then
-  echo "❌ Użycie: $0 <url> <ssh_alias> [requesty] [współbieżność]"
+  echo "❌ Usage: $0 <url> <ssh_alias> [requests] [concurrency]"
   echo ""
-  echo "Przykład:"
-  echo "  $0 https://shop.byst.re mikrus 200 20"
+  echo "Example:"
+  echo "  $0 https://shop.byst.re vps 200 20"
   exit 1
 fi
 
@@ -32,35 +32,35 @@ echo "🎯 Benchmark GateFlow"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "URL:          $URL"
 echo "SSH:          $SSH_ALIAS"
-echo "Requesty:     $REQUESTS"
-echo "Współbieżne:  $CONCURRENT"
+echo "Requests:     $REQUESTS"
+echo "Concurrent:   $CONCURRENT"
 echo "Output:       $BENCHMARK_DIR/"
 echo ""
 
-# Sprawdź czy skrypty istnieją
+# Check if scripts exist
 if [ ! -f "$SCRIPT_DIR/monitor-gateflow.sh" ]; then
-  echo "❌ Nie znaleziono: monitor-gateflow.sh"
+  echo "❌ Not found: monitor-gateflow.sh"
   exit 1
 fi
 
 if [ ! -f "$SCRIPT_DIR/load-test-gateflow.sh" ]; then
-  echo "❌ Nie znaleziono: load-test-gateflow.sh"
+  echo "❌ Not found: load-test-gateflow.sh"
   exit 1
 fi
 
-# Szacuj czas trwania testu
-# Zakładamy ~200ms na request + overhead współbieżności
+# Estimate test duration
+# Assume ~200ms per request + concurrency overhead
 ESTIMATED_TIME=$(awk "BEGIN {printf \"%.0f\", ($REQUESTS / $CONCURRENT) * 0.2 + 10}")
 MONITOR_TIME=$((ESTIMATED_TIME + 5))
 
-echo "⏱️  Szacowany czas: ~${ESTIMATED_TIME}s"
+echo "⏱️  Estimated time: ~${ESTIMATED_TIME}s"
 echo ""
-echo "🔍 PRZED testem - snapshot zasobów:"
+echo "🔍 BEFORE test - resource snapshot:"
 
-# Snapshot przed testem
+# Snapshot before test
 server_exec "pm2 list | grep gateflow" || true
 
-# Pobierz metryki przez Python (kompatybilne z macOS)
+# Get metrics via Python (compatible with macOS)
 BEFORE=$(server_exec "pm2 jlist 2>/dev/null | python3 -c \"
 import sys, json
 try:
@@ -86,8 +86,8 @@ echo "  CPU: ${BEFORE_CPU}%"
 echo "  RAM: ${BEFORE_MEM_MB} MB"
 echo ""
 
-# Uruchom monitoring w tle
-echo "📊 Uruchamiam monitoring (${MONITOR_TIME}s)..."
+# Start monitoring in background
+echo "📊 Starting monitoring (${MONITOR_TIME}s)..."
 (
   cd "$SCRIPT_DIR"
   ./monitor-gateflow.sh "$SSH_ALIAS" "$MONITOR_TIME" > "../$BENCHMARK_DIR/monitoring.log" 2>&1
@@ -95,11 +95,11 @@ echo "📊 Uruchamiam monitoring (${MONITOR_TIME}s)..."
 ) &
 MONITOR_PID=$!
 
-# Poczekaj 3 sekundy na start monitoringu
+# Wait 3 seconds for monitoring to start
 sleep 3
 
-# Uruchom test obciążeniowy
-echo "🚀 Uruchamiam test obciążeniowy..."
+# Run load test
+echo "🚀 Starting load test..."
 echo ""
 
 (
@@ -108,12 +108,12 @@ echo ""
 ) | tee "$BENCHMARK_DIR/load-test-output.txt"
 
 echo ""
-echo "⏳ Czekam na zakończenie monitoringu..."
+echo "⏳ Waiting for monitoring to finish..."
 wait $MONITOR_PID
 
-# Snapshot po teście
+# Snapshot after test
 echo ""
-echo "🔍 PO teście - snapshot zasobów:"
+echo "🔍 AFTER test - resource snapshot:"
 
 AFTER=$(server_exec "pm2 jlist 2>/dev/null | python3 -c \"
 import sys, json
@@ -140,15 +140,15 @@ echo "  CPU: ${AFTER_CPU}%"
 echo "  RAM: ${AFTER_MEM_MB} MB"
 echo ""
 
-# Generuj raport
+# Generate report
 REPORT_FILE="$BENCHMARK_DIR/REPORT.txt"
 
 cat > "$REPORT_FILE" << EOF
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  BENCHMARK GATEFLOW - RAPORT
+  BENCHMARK GATEFLOW - REPORT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Data:              $(date)
+Date:              $(date)
 URL:               $URL
 SSH Alias:         $SSH_ALIAS
 Test Duration:     ${MONITOR_TIME}s
@@ -156,64 +156,64 @@ Total Requests:    $REQUESTS
 Concurrent:        $CONCURRENT
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ZUŻYCIE ZASOBÓW
+  RESOURCE USAGE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PRZED testem:
+BEFORE test:
   CPU: ${BEFORE_CPU}%
   RAM: ${BEFORE_MEM_MB} MB
 
-PO teście:
+AFTER test:
   CPU: ${AFTER_CPU}%
   RAM: ${AFTER_MEM_MB} MB
 
-Zmiana:
+Change:
   CPU: $(python3 -c "print(round($AFTER_CPU - $BEFORE_CPU, 1))")%
   RAM: $((AFTER_MEM_MB - BEFORE_MEM_MB)) MB
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  PLIKI WYJŚCIOWE
+  OUTPUT FILES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. REPORT.txt              - ten raport
-2. gateflow-metrics-*.csv  - szczegółowe metryki (CSV)
-3. load-test.log           - logi testu obciążeniowego
-4. monitoring.log          - logi monitoringu
+1. REPORT.txt              - this report
+2. gateflow-metrics-*.csv  - detailed metrics (CSV)
+3. load-test.log           - load test logs
+4. monitoring.log          - monitoring logs
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ANALIZA WYDAJNOŚCI
+  PERFORMANCE ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 EOF
 
-# Dodaj wyniki testu do raportu
+# Add test results to report
 if [ -f "$BENCHMARK_DIR/load-test.log" ]; then
   echo "" >> "$REPORT_FILE"
   cat "$BENCHMARK_DIR/load-test.log" >> "$REPORT_FILE"
 fi
 
-# Dodaj podsumowanie monitoringu
+# Add monitoring summary
 if [ -f "$BENCHMARK_DIR/monitoring.log" ]; then
   echo "" >> "$REPORT_FILE"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> "$REPORT_FILE"
-  echo "  SZCZEGÓŁY MONITORINGU" >> "$REPORT_FILE"
+  echo "  MONITORING DETAILS" >> "$REPORT_FILE"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> "$REPORT_FILE"
   echo "" >> "$REPORT_FILE"
   tail -20 "$BENCHMARK_DIR/monitoring.log" >> "$REPORT_FILE"
 fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Benchmark zakończony!"
+echo "✅ Benchmark complete!"
 echo ""
-echo "📁 Wyniki zapisane w: $BENCHMARK_DIR/"
+echo "📁 Results saved in: $BENCHMARK_DIR/"
 echo ""
-echo "📊 Pliki:"
-echo "  - REPORT.txt              (podsumowanie)"
-echo "  - gateflow-metrics-*.csv  (dane do wykresu)"
-echo "  - load-test.log           (szczegóły testów)"
+echo "📊 Files:"
+echo "  - REPORT.txt              (summary)"
+echo "  - gateflow-metrics-*.csv  (chart data)"
+echo "  - load-test.log           (test details)"
 echo ""
-echo "💡 Aby zobaczyć raport:"
+echo "💡 To view the report:"
 echo "   cat $BENCHMARK_DIR/REPORT.txt"
 echo ""
-echo "📈 Aby utworzyć wykres:"
-echo "   Otwórz plik CSV w Excel/Google Sheets i utwórz wykres liniowy"
+echo "📈 To create a chart:"
+echo "   Open the CSV file in Excel/Google Sheets and create a line chart"

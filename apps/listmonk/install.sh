@@ -8,13 +8,13 @@
 #
 # IMAGE_SIZE_MB=150  # listmonk/listmonk:latest (Go binary, ~150MB)
 #
-# WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
-#     Współdzielona baza  NIE działa (brak uprawnień do tworzenia rozszerzeń).
-#     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
+# REQUIREMENTS: PostgreSQL with pgcrypto extension!
+#     Shared database does NOT work (no permissions to create extensions).
+#     Use: a dedicated PostgreSQL instance
 #
-# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+# Required environment variables (passed by deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
-#   DOMAIN (opcjonalne)
+#   DOMAIN (optional)
 
 set -e
 
@@ -27,27 +27,26 @@ echo "Requires PostgreSQL Database."
 
 # Validate database credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
-    echo "❌ Błąd: Brak danych bazy danych!"
-    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    echo "❌ Error: Missing database credentials!"
+    echo "   Required variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
     exit 1
 fi
 
-echo "✅ Dane bazy danych:"
+echo "✅ Database credentials:"
 echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 
-# Check for shared Mikrus DB (doesn't support pgcrypto)
+# Check for shared DB (doesn't support pgcrypto)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Listmonk NIE działa ze współdzieloną bazą !   ║"
+    echo "║  ❌ ERROR: Listmonk does NOT work with a shared database!    ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Listmonk (od v6.0.0) wymaga rozszerzenia 'pgcrypto',          ║"
-    echo "║  które nie jest dostępne w darmowej bazie .             ║"
-    echo "║                                                                ║"
-    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
-    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "║  Listmonk (since v6.0.0) requires the 'pgcrypto' extension, ║"
+    echo "║  which is not available on the free shared database.         ║"
+    echo "║                                                              ║"
+    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
@@ -55,13 +54,13 @@ fi
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
     ROOT_URL="https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus) — ROOT_URL zostanie zaktualizowany"
+    echo "✅ Domain: automatic (Cytrus) — ROOT_URL will be updated"
     ROOT_URL="http://localhost:$PORT"
 else
-    echo "⚠️  Brak domeny - używam localhost"
+    echo "⚠️  No domain - using localhost"
     ROOT_URL="http://localhost:$PORT"
 fi
 
@@ -104,13 +103,13 @@ sudo docker compose up -d
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Kontener działa"
+        echo "✅ Container is running"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
@@ -126,7 +125,7 @@ echo "✅ Listmonk started!"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

@@ -6,16 +6,16 @@
 #
 # IMAGE_SIZE_MB=500  # gateflow (Next.js app ~500MB)
 #
-# Wymagane:
-#   - Mikrus 3.0+ (1GB RAM)
-#   - Konto Supabase (darmowe)
-#   - Konto Stripe
+# Requirements:
+#   - 1GB+ VPS (1GB RAM)
+#   - Supabase account (free)
+#   - Stripe account
 #
-# Zmienne środowiskowe (opcjonalne - można podać interaktywnie):
+# Environment variables (optional - can be provided interactively):
 #   STRIPE_PK          - Stripe Publishable Key
 #   STRIPE_SK          - Stripe Secret Key
-#   STRIPE_WEBHOOK_SECRET - Stripe Webhook Secret (opcjonalne)
-#   DOMAIN             - Domena aplikacji
+#   STRIPE_WEBHOOK_SECRET - Stripe Webhook Secret (optional)
+#   DOMAIN             - Application domain
 
 set -e
 
@@ -23,15 +23,15 @@ APP_NAME="gateflow"
 GITHUB_REPO="jurczykpawel/gateflow"
 
 # =============================================================================
-# MULTI-INSTANCE: nazwa instancji z domeny
+# MULTI-INSTANCE: instance name from domain
 # =============================================================================
-# Wyciągnij pierwszą część domeny jako nazwę instancji
+# Extract first part of domain as instance name
 # shop.example.com → shop
 # abc123.byst.re → abc123
 #
-# UWAGA: Auto-cytrus (DOMAIN="-") = tylko SINGLE INSTANCE!
-# Dla multi-instance musisz podać konkretne domeny z góry.
-# Drugie wywołanie z DOMAIN="-" nadpisałoby pierwszy katalog.
+# NOTE: Auto-cytrus (DOMAIN="-") = SINGLE INSTANCE only!
+# For multi-instance you must provide specific domains upfront.
+# A second call with DOMAIN="-" would overwrite the first directory.
 #
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     INSTANCE_NAME="${DOMAIN%%.*}"
@@ -39,8 +39,8 @@ else
     INSTANCE_NAME=""
 fi
 
-# Ustaw ścieżki i nazwy na podstawie instancji
-# Instalujemy do /opt/stacks żeby backup działał automatycznie
+# Set paths and names based on instance
+# Install to /opt/stacks so backup works automatically
 if [ -n "$INSTANCE_NAME" ]; then
     INSTALL_DIR="/opt/stacks/gateflow-${INSTANCE_NAME}"
     PM2_NAME="gateflow-${INSTANCE_NAME}"
@@ -48,16 +48,16 @@ else
     INSTALL_DIR="/opt/stacks/gateflow"
     PM2_NAME="gateflow"
 
-    # Sprawdź czy katalog już istnieje (zapobiegaj nadpisaniu przy auto-cytrus)
+    # Check if directory already exists (prevent overwrite with auto-cytrus)
     if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ]; then
-        echo "❌ Katalog $INSTALL_DIR już istnieje!"
+        echo "❌ Directory $INSTALL_DIR already exists!"
         echo ""
-        echo "   Auto-cytrus (--domain=-) wspiera tylko JEDNĄ instancję."
-        echo "   Dla wielu instancji użyj konkretnych domen:"
+        echo "   Auto-cytrus (--domain=-) supports only ONE instance."
+        echo "   For multiple instances use specific domains:"
         echo "   ./local/deploy.sh gateflow --domain=shop.example.com"
         echo "   ./local/deploy.sh gateflow --domain=test.example.com"
         echo ""
-        echo "   Lub usuń istniejącą instalację:"
+        echo "   Or remove the existing installation:"
         echo "   pm2 delete gateflow && rm -rf $INSTALL_DIR"
         exit 1
     fi
@@ -68,78 +68,78 @@ PORT=${PORT:-3333}
 echo "--- 💰 GateFlow Setup ---"
 echo ""
 if [ -n "$INSTANCE_NAME" ]; then
-    echo "📦 Instancja: $INSTANCE_NAME"
-    echo "   Katalog: $INSTALL_DIR"
+    echo "📦 Instance: $INSTANCE_NAME"
+    echo "   Directory: $INSTALL_DIR"
     echo "   PM2: $PM2_NAME"
     echo ""
 fi
 
 # =============================================================================
-# 1. INSTALACJA BUN + PM2
+# 1. INSTALL BUN + PM2
 # =============================================================================
 
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
 if ! command -v bun &> /dev/null || ! command -v pm2 &> /dev/null; then
-    echo "📦 Instaluję Bun + PM2..."
+    echo "📦 Installing Bun + PM2..."
     if [ -f "/opt/stackpilot/system/bun-setup.sh" ]; then
         source /opt/stackpilot/system/bun-setup.sh
     else
-        # Fallback - instaluj bezpośrednio
+        # Fallback - install directly
         curl -fsSL https://bun.sh/install | bash
         export PATH="$HOME/.bun/bin:$PATH"
         bun install -g pm2
     fi
 fi
 
-# Dodaj PATH do rc pliku powłoki (żeby pm2 działał przez SSH)
-# Sprawdzamy $SHELL żeby wybrać właściwy plik
+# Add PATH to shell rc file (so pm2 works via SSH)
+# Check $SHELL to pick the right file
 add_path_to_rc() {
     local RC_FILE="$1"
     local PREPEND="${2:-false}"
 
     if [ "$PREPEND" = "true" ] && [ -f "$RC_FILE" ]; then
-        # Dodaj na początku (bash - przed guardem [ -z "$PS1" ] && return)
+        # Add at the beginning (bash - before the guard [ -z "$PS1" ] && return)
         {
-            echo '# Bun & PM2 (dodane przez stackpilot)'
+            echo '# Bun & PM2 (added by stackpilot)'
             echo 'export PATH="$HOME/.bun/bin:$PATH"'
             echo ''
             cat "$RC_FILE"
         } > "${RC_FILE}.new"
         mv "${RC_FILE}.new" "$RC_FILE"
     else
-        # Dodaj na końcu (zsh, profile)
+        # Add at the end (zsh, profile)
         echo '' >> "$RC_FILE"
-        echo '# Bun & PM2 (dodane przez stackpilot)' >> "$RC_FILE"
+        echo '# Bun & PM2 (added by stackpilot)' >> "$RC_FILE"
         echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$RC_FILE"
     fi
 }
 
-# Sprawdź czy PATH już dodany do któregoś z plików
+# Check if PATH already added to any file
 if ! grep -q '\.bun/bin' ~/.bashrc 2>/dev/null && \
    ! grep -q '\.bun/bin' ~/.zshrc 2>/dev/null && \
    ! grep -q '\.bun/bin' ~/.profile 2>/dev/null; then
 
-    # Wybierz plik na podstawie powłoki użytkownika
+    # Choose file based on user's shell
     case "$SHELL" in
         */zsh)
             add_path_to_rc ~/.zshrc false
-            echo "✅ Dodano PATH do ~/.zshrc"
+            echo "✅ Added PATH to ~/.zshrc"
             ;;
         */bash)
             if [ -f ~/.bashrc ]; then
                 add_path_to_rc ~/.bashrc true
-                echo "✅ Dodano PATH do ~/.bashrc"
+                echo "✅ Added PATH to ~/.bashrc"
             else
                 add_path_to_rc ~/.profile false
-                echo "✅ Dodano PATH do ~/.profile"
+                echo "✅ Added PATH to ~/.profile"
             fi
             ;;
         *)
-            # Nieznana powłoka - użyj .profile (uniwersalne)
+            # Unknown shell - use .profile (universal)
             add_path_to_rc ~/.profile false
-            echo "✅ Dodano PATH do ~/.profile"
+            echo "✅ Added PATH to ~/.profile"
             ;;
     esac
 fi
@@ -149,56 +149,56 @@ echo "✅ PM2: v$(pm2 --version)"
 echo ""
 
 # =============================================================================
-# 2. POBIERANIE PRE-BUILT RELEASE
+# 2. DOWNLOAD PRE-BUILT RELEASE
 # =============================================================================
 
 mkdir -p "$INSTALL_DIR/admin-panel"
 cd "$INSTALL_DIR/admin-panel"
 
-# Sprawdź czy już mamy pliki (aktualizacja vs świeża instalacja)
+# Check if we already have files (update vs fresh install)
 if [ -d ".next/standalone" ]; then
-    echo "✅ GateFlow już pobrany - używam istniejących plików"
+    echo "✅ GateFlow already downloaded - using existing files"
 else
-    echo "📥 Pobieram GateFlow..."
+    echo "📥 Downloading GateFlow..."
 
-    # Sprawdź czy mamy lokalny plik (przekazany przez deploy.sh)
+    # Check if we have a local file (passed by deploy.sh)
     if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
-        echo "   Używam pliku: $BUILD_FILE"
+        echo "   Using file: $BUILD_FILE"
         if ! tar -xzf "$BUILD_FILE"; then
             echo ""
-            echo "❌ Nie udało się rozpakować pliku"
-            echo "   Upewnij się, że plik jest prawidłowym archiwum .tar.gz"
+            echo "❌ Failed to extract file"
+            echo "   Make sure the file is a valid .tar.gz archive"
             exit 1
         fi
     else
-        # Pobierz z GitHub
-        # Spróbuj /latest (wymaga oznaczonego "latest release" na GitHub)
+        # Download from GitHub
+        # Try /latest (requires a tagged "latest release" on GitHub)
         RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
 
         if ! curl -fsSL "$RELEASE_URL" 2>/dev/null | tar -xz 2>/dev/null; then
-            # Fallback: znajdź najnowszy release z artefaktem gateflow-build.tar.gz
-            echo "   /latest niedostępny, szukam najnowszego releasu z buildem..."
+            # Fallback: find the newest release with gateflow-build.tar.gz artifact
+            echo "   /latest unavailable, looking for the newest release with build..."
             RELEASE_URL=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases" 2>/dev/null \
                 | grep -m1 "browser_download_url.*gateflow-build" | sed 's/.*: "\(.*\)".*/\1/')
 
             if [ -n "$RELEASE_URL" ]; then
                 LATEST_TAG=$(echo "$RELEASE_URL" | sed 's|.*/download/\([^/]*\)/.*|\1|')
-                echo "   Znaleziono: $LATEST_TAG"
+                echo "   Found: $LATEST_TAG"
                 if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
                     echo ""
-                    echo "❌ Nie udało się pobrać GateFlow ($LATEST_TAG)"
+                    echo "❌ Failed to download GateFlow ($LATEST_TAG)"
                     exit 1
                 fi
             else
                 echo ""
-                echo "❌ Nie udało się pobrać GateFlow z GitHub"
+                echo "❌ Failed to download GateFlow from GitHub"
                 echo ""
-                echo "   Możliwe przyczyny:"
-                echo "   • Brak releasu z artefaktem gateflow-build.tar.gz"
-                echo "   • Repozytorium jest prywatne"
-                echo "   • Brak połączenia z internetem"
+                echo "   Possible causes:"
+                echo "   • No release with gateflow-build.tar.gz artifact"
+                echo "   • Repository is private"
+                echo "   • No internet connection"
                 echo ""
-                echo "   Rozwiązanie: Pobierz plik ręcznie i użyj flagi --build-file:"
+                echo "   Solution: Download the file manually and use the --build-file flag:"
                 echo "   ./local/deploy.sh gateflow --ssh=mikrus --build-file=~/Downloads/gateflow-build.tar.gz"
                 exit 1
             fi
@@ -207,64 +207,64 @@ else
 
     if [ ! -d ".next/standalone" ]; then
         echo ""
-        echo "❌ Nieprawidłowa struktura archiwum"
-        echo "   Archiwum powinno zawierać folder .next/standalone"
+        echo "❌ Invalid archive structure"
+        echo "   Archive should contain a .next/standalone folder"
         exit 1
     fi
 
-    echo "✅ GateFlow pobrany"
+    echo "✅ GateFlow downloaded"
 fi
 echo ""
 
 # =============================================================================
-# 3. KONFIGURACJA SUPABASE
+# 3. SUPABASE CONFIGURATION
 # =============================================================================
 
 ENV_FILE="$INSTALL_DIR/admin-panel/.env.local"
 
 if [ -f "$ENV_FILE" ] && grep -q "SUPABASE_URL=" "$ENV_FILE"; then
-    echo "✅ Konfiguracja Supabase już istnieje"
+    echo "✅ Supabase configuration already exists"
 elif [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
-    # Zmienne przekazane z deploy.sh
-    echo "✅ Konfiguruję Supabase..."
+    # Variables passed from deploy.sh
+    echo "✅ Configuring Supabase..."
 
     cat > "$ENV_FILE" <<ENVEOF
-# Supabase (runtime - bez NEXT_PUBLIC_)
+# Supabase (runtime - without NEXT_PUBLIC_)
 SUPABASE_URL=$SUPABASE_URL
 SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 
-# Klucz szyfrujący dla integracji (Stripe UI wizard, GUS, Currency API)
-# AES-256-GCM - NIE ZMIENIAJ! Utrata klucza = reset konfiguracji integracji
+# Encryption key for integrations (Stripe UI wizard, GUS, Currency API)
+# AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
 APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ENVEOF
 else
-    echo "❌ Brak konfiguracji Supabase!"
-    echo "   Uruchom deploy.sh interaktywnie lub podaj zmienne:"
+    echo "❌ Missing Supabase configuration!"
+    echo "   Run deploy.sh interactively or provide variables:"
     echo "   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY"
     exit 1
 fi
 
-# Upewnij się że APP_ENCRYPTION_KEY istnieje (dla starszych instalacji)
+# Make sure APP_ENCRYPTION_KEY exists (for older installations)
 if ! grep -q "APP_ENCRYPTION_KEY=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔐 Generuję klucz szyfrujący..."
+    echo "🔐 Generating encryption key..."
     cat >> "$ENV_FILE" <<ENVEOF
 
-# Klucz szyfrujący dla integracji (Stripe UI wizard, GUS, Currency API)
-# AES-256-GCM - NIE ZMIENIAJ! Utrata klucza = reset konfiguracji integracji
+# Encryption key for integrations (Stripe UI wizard, GUS, Currency API)
+# AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
 APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ENVEOF
 fi
 
 # =============================================================================
-# 4. KONFIGURACJA STRIPE
+# 4. STRIPE CONFIGURATION
 # =============================================================================
 
 if grep -q "STRIPE_PUBLISHABLE_KEY" "$ENV_FILE" 2>/dev/null; then
-    echo "✅ Konfiguracja Stripe już istnieje"
+    echo "✅ Stripe configuration already exists"
 elif [ -n "$STRIPE_PK" ] && [ -n "$STRIPE_SK" ]; then
-    # Użyj kluczy przekazanych przez deploy.sh (zebrane lokalnie w FAZIE 1.5)
-    echo "✅ Konfiguruję Stripe..."
+    # Use keys passed by deploy.sh (collected locally in PHASE 1.5)
+    echo "✅ Configuring Stripe..."
     cat >> "$ENV_FILE" <<ENVEOF
 
 # Stripe Configuration
@@ -274,11 +274,11 @@ STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
 STRIPE_COLLECT_TERMS_OF_SERVICE=false
 ENVEOF
 else
-    # Brak kluczy - dodaj placeholdery (skonfiguruje w UI)
-    echo "ℹ️  Stripe zostanie skonfigurowany w panelu po instalacji"
+    # No keys - add placeholders (will be configured in UI)
+    echo "ℹ️  Stripe will be configured in the panel after installation"
     cat >> "$ENV_FILE" <<ENVEOF
 
-# Stripe Configuration (skonfiguruj przez UI wizard w panelu)
+# Stripe Configuration (configure via UI wizard in the panel)
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_SECRET_KEY=
 STRIPE_COLLECT_TERMS_OF_SERVICE=false
@@ -286,36 +286,36 @@ ENVEOF
 fi
 
 # =============================================================================
-# 5. KONFIGURACJA DOMENY I URL
+# 5. DOMAIN AND URL CONFIGURATION
 # =============================================================================
 
-# Dla auto-Cytrus (DOMAIN="-"), pomiń konfigurację URL - deploy.sh zaktualizuje po otrzymaniu domeny
+# For auto-Cytrus (DOMAIN="-"), skip URL configuration - deploy.sh will update after receiving the domain
 if [ "$DOMAIN" = "-" ]; then
-    echo "⏳ Domena zostanie skonfigurowana po przydzieleniu przez Cytrus"
-    # Ustaw tylko PORT i HOSTNAME żeby serwer wystartował
+    echo "⏳ Domain will be configured after Cytrus assignment"
+    # Set only PORT and HOSTNAME so the server starts
     cat >> "$ENV_FILE" <<ENVEOF
 
-# Production (domena zostanie dodana przez deploy.sh)
+# Production (domain will be added by deploy.sh)
 NODE_ENV=production
 PORT=$PORT
 HOSTNAME=::
 NEXT_TELEMETRY_DISABLED=1
 ENVEOF
 elif grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
-    echo "✅ Konfiguracja URL już istnieje"
+    echo "✅ URL configuration already exists"
 else
     if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
         SITE_URL="https://$DOMAIN"
     elif [ -t 0 ]; then
         echo ""
-        read -p "Domena aplikacji (np. app.example.com): " DOMAIN
+        read -p "Application domain (e.g. app.example.com): " DOMAIN
         SITE_URL="https://$DOMAIN"
     else
         SITE_URL="https://localhost:$PORT"
         DOMAIN="localhost"
     fi
 
-    # Sprawdź czy to domena Cytrus (reverse proxy z SSL termination)
+    # Check if it's a Cytrus domain (reverse proxy with SSL termination)
     DISABLE_HSTS="false"
     case "$DOMAIN" in
         *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl)
@@ -332,17 +332,17 @@ MAIN_DOMAIN=$DOMAIN
 # Production
 NODE_ENV=production
 PORT=$PORT
-# :: słucha na IPv4 i IPv6 (wymagane dla Cytrus który łączy się przez IPv6)
+# :: listens on IPv4 and IPv6 (required for Cytrus which connects via IPv6)
 HOSTNAME=::
 NEXT_TELEMETRY_DISABLED=1
 
-# HSTS (wyłącz dla reverse proxy z SSL termination)
+# HSTS (disable for reverse proxy with SSL termination)
 DISABLE_HSTS=$DISABLE_HSTS
 ENVEOF
 fi
 
 # =============================================================================
-# 5.1. KONFIGURACJA TURNSTILE (jeśli przekazano klucze)
+# 5.1. TURNSTILE CONFIGURATION (if keys provided)
 # =============================================================================
 
 if [ -n "$CLOUDFLARE_TURNSTILE_SITE_KEY" ] && [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
@@ -352,80 +352,80 @@ if [ -n "$CLOUDFLARE_TURNSTILE_SITE_KEY" ] && [ -n "$CLOUDFLARE_TURNSTILE_SECRET
 # Cloudflare Turnstile (CAPTCHA)
 CLOUDFLARE_TURNSTILE_SITE_KEY=$CLOUDFLARE_TURNSTILE_SITE_KEY
 CLOUDFLARE_TURNSTILE_SECRET_KEY=$CLOUDFLARE_TURNSTILE_SECRET_KEY
-# Alias dla Supabase Auth
+# Alias for Supabase Auth
 TURNSTILE_SECRET_KEY=$CLOUDFLARE_TURNSTILE_SECRET_KEY
 ENVEOF
-        echo "✅ Turnstile skonfigurowany"
+        echo "✅ Turnstile configured"
     fi
 fi
 
 chmod 600 "$ENV_FILE"
-echo "✅ Konfiguracja zapisana w $ENV_FILE"
+echo "✅ Configuration saved to $ENV_FILE"
 echo ""
 
 # =============================================================================
-# 6. KOPIOWANIE ENV DO STANDALONE
+# 6. COPY ENV TO STANDALONE
 # =============================================================================
 
-echo "📋 Konfiguruję standalone server..."
+echo "📋 Configuring standalone server..."
 
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 
 if [ -d "$STANDALONE_DIR" ]; then
-    # Kopiuj konfigurację
+    # Copy configuration
     cp "$ENV_FILE" "$STANDALONE_DIR/.env.local"
 
-    # Kopiuj pliki statyczne (wymagane dla standalone mode)
+    # Copy static files (required for standalone mode)
     cp -r "$INSTALL_DIR/admin-panel/.next/static" "$STANDALONE_DIR/.next/" 2>/dev/null || true
     cp -r "$INSTALL_DIR/admin-panel/public" "$STANDALONE_DIR/" 2>/dev/null || true
 
-    echo "✅ Standalone skonfigurowany (env + static files)"
+    echo "✅ Standalone configured (env + static files)"
 else
-    echo "⚠️  Brak folderu standalone - używam standardowego startu"
+    echo "⚠️  No standalone folder - using standard start"
 fi
 
 # =============================================================================
-# 7. START APLIKACJI
+# 7. START APPLICATION
 # =============================================================================
 
-echo "🚀 Uruchamiam GateFlow..."
+echo "🚀 Starting GateFlow..."
 
-# Zatrzymaj jeśli działa
+# Stop if running
 pm2 delete $PM2_NAME 2>/dev/null || true
 
-# Uruchom - preferuj standalone server (szybszy start, mniej RAM)
+# Start - prefer standalone server (faster start, less RAM)
 if [ -f "$STANDALONE_DIR/server.js" ]; then
     cd "$STANDALONE_DIR"
 
-    # Załaduj zmienne z .env.local i uruchom PM2 w tej samej sesji
-    # (PM2 dziedziczy zmienne środowiskowe z bieżącej sesji)
-    # Wyczyść systemowy HOSTNAME (to nazwa maszyny, nie adres nasłuchiwania)
+    # Load variables from .env.local and start PM2 in the same session
+    # (PM2 inherits environment variables from the current session)
+    # Clear system HOSTNAME (it's the machine name, not the listen address)
     unset HOSTNAME
     set -a
     source .env.local
     set +a
     export PORT="${PORT:-3333}"
-    # :: słucha na IPv4 i IPv6 (wymagane dla Cytrus który łączy się przez IPv6)
+    # :: listens on IPv4 and IPv6 (required for Cytrus which connects via IPv6)
     export HOSTNAME="${HOSTNAME:-::}"
 
-    # WAŻNE: użyj --interpreter node, NIE "node server.js" w cudzysłowach
-    # Cudzysłowy uruchamiają przez bash, który nie dziedziczy zmiennych środowiskowych
+    # IMPORTANT: use --interpreter node, NOT "node server.js" in quotes
+    # Quotes launch via bash, which doesn't inherit environment variables
     pm2 start server.js --name $PM2_NAME --interpreter node
 else
-    # Fallback do bun run start
+    # Fallback to bun run start
     cd "$INSTALL_DIR/admin-panel"
     pm2 start server.js --name $PM2_NAME --interpreter bun
 fi
 
 pm2 save
 
-# Poczekaj i sprawdź
+# Wait and check
 sleep 3
 
 if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo "✅ GateFlow działa!"
+    echo "✅ GateFlow is running!"
 else
-    echo "❌ Problem z uruchomieniem. Logi:"
+    echo "❌ Problem starting. Logs:"
     pm2 logs $PM2_NAME --lines 20
     exit 1
 fi
@@ -434,22 +434,22 @@ fi
 sleep 2
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
-    echo "✅ Aplikacja odpowiada na porcie $PORT (HTTP $HTTP_CODE)"
+    echo "✅ Application responding on port $PORT (HTTP $HTTP_CODE)"
 else
-    echo "⚠️  Aplikacja może jeszcze się uruchamiać... (HTTP $HTTP_CODE)"
+    echo "⚠️  Application may still be starting... (HTTP $HTTP_CODE)"
 fi
 
 # =============================================================================
-# 8. PODSUMOWANIE (skrócone - pełne info w deploy.sh po przydzieleniu domeny)
+# 8. SUMMARY (abbreviated - full info in deploy.sh after domain assignment)
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ GateFlow zainstalowany!"
+echo "✅ GateFlow installed!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "📋 Przydatne komendy:"
-echo "   pm2 status              - status aplikacji"
-echo "   pm2 logs $PM2_NAME - logi"
+echo "📋 Useful commands:"
+echo "   pm2 status              - application status"
+echo "   pm2 logs $PM2_NAME - logs"
 echo "   pm2 restart $PM2_NAME - restart"
 echo ""

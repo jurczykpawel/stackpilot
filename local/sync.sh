@@ -11,24 +11,24 @@
 # Examples:
 #   ./local/sync.sh up ./my-website /var/www/html
 #   ./local/sync.sh up ./backup.sql /tmp/ --ssh=hanna
-#   ./local/sync.sh down /opt/stacks/n8n/.env ./backup/ --ssh=mikrus
+#   ./local/sync.sh down /opt/stacks/n8n/.env ./backup/ --ssh=vps
 
 set -e
 
-# Ten skrypt działa tylko na komputerze lokalnym (rsync wymaga SSH)
+# This script only runs on the local machine (rsync requires SSH)
 if [ -f /klucz_api ]; then
-    echo "Ten skrypt działa tylko na komputerze lokalnym (nie na serwerze Mikrus)."
+    echo "This script only runs on the local machine (not on the server)."
     exit 1
 fi
 
-# Znajdź katalog repo
+# Find repo directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Załaduj cli-parser (dla --ssh, --yes, kolorów)
+# Load cli-parser (for --ssh, --yes, colors)
 source "$REPO_ROOT/lib/cli-parser.sh"
 
-# Parsuj argumenty — wyciągnij direction, src, dest + flagi CLI
+# Parse arguments — extract direction, src, dest + CLI flags
 DIRECTION=""
 SRC=""
 DEST=""
@@ -37,7 +37,7 @@ POSITIONAL=()
 for arg in "$@"; do
     case "$arg" in
         --ssh=*|--yes|-y|--dry-run|--help|-h)
-            # Te obsłuży parse_args
+            # These will be handled by parse_args
             ;;
         *)
             POSITIONAL+=("$arg")
@@ -45,13 +45,13 @@ for arg in "$@"; do
     esac
 done
 
-# Parsuj flagi CLI (--ssh, --yes, --dry-run)
+# Parse CLI flags (--ssh, --yes, --dry-run)
 parse_args "$@"
 
-# SSH alias z --ssh lub domyślny
+# SSH alias from --ssh or default
 SSH_ALIAS="${SSH_ALIAS:-vps}"
 
-# Wyciągnij pozycyjne argumenty
+# Extract positional arguments
 DIRECTION="${POSITIONAL[0]:-}"
 SRC="${POSITIONAL[1]:-}"
 DEST="${POSITIONAL[2]:-}"
@@ -60,26 +60,26 @@ print_usage() {
     cat <<EOF
 StackPilot - File Sync Helper
 
-Użycie:
+Usage:
   $0 up   <local_path> <remote_path> [--ssh=ALIAS]
   $0 down <remote_path> <local_path> [--ssh=ALIAS]
 
-Opcje:
-  --ssh=ALIAS    SSH alias (domyślnie: mikrus)
-  --dry-run      Pokaż co się wykona bez wykonania
-  --help, -h     Pokaż tę pomoc
+Options:
+  --ssh=ALIAS    SSH alias (default: vps)
+  --dry-run      Preview what would be executed without running it
+  --help, -h     Show this help
 
-Przykłady:
-  # Upload katalogu na serwer
+Examples:
+  # Upload a directory to the server
   $0 up ./my-website /var/www/html
 
-  # Upload na inny serwer
+  # Upload to a different server
   $0 up ./backup.sql /tmp/ --ssh=hanna
 
-  # Download pliku z serwera
+  # Download a file from the server
   $0 down /opt/stacks/n8n/.env ./backup/
 
-  # Podgląd bez wykonania
+  # Preview without executing
   $0 up ./dist /var/www/public/app --dry-run
 EOF
     exit 1
@@ -89,31 +89,31 @@ if [ -z "$DIRECTION" ] || [ -z "$SRC" ] || [ -z "$DEST" ]; then
     print_usage
 fi
 
-# Sprawdź czy rsync jest zainstalowany
+# Check if rsync is installed
 if ! command -v rsync &>/dev/null; then
-    echo -e "${RED}❌ rsync nie jest zainstalowany.${NC}"
+    echo -e "${RED}❌ rsync is not installed.${NC}"
     echo ""
     if [[ "$OSTYPE" == darwin* ]]; then
-        echo "Zainstaluj: brew install rsync"
+        echo "Install: brew install rsync"
     else
-        echo "Zainstaluj: sudo apt install rsync"
+        echo "Install: sudo apt install rsync"
     fi
     exit 1
 fi
 
-# Walidacja SSH alias (zapobieganie injection)
+# Validate SSH alias (prevent injection)
 if ! [[ "$SSH_ALIAS" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
-    echo -e "${RED}❌ Nieprawidłowy SSH alias: '$SSH_ALIAS'${NC}"
+    echo -e "${RED}❌ Invalid SSH alias: '$SSH_ALIAS'${NC}"
     exit 1
 fi
 
 echo ""
-echo -e "🔄 Sync: ${BLUE}$DIRECTION${NC} (serwer: $SSH_ALIAS)"
+echo -e "🔄 Sync: ${BLUE}$DIRECTION${NC} (server: $SSH_ALIAS)"
 
 if [ "$DIRECTION" == "up" ]; then
     # Upload: Local -> Remote
     if [ ! -e "$SRC" ]; then
-        echo -e "${RED}❌ Lokalna ścieżka '$SRC' nie istnieje.${NC}"
+        echo -e "${RED}❌ Local path '$SRC' does not exist.${NC}"
         exit 1
     fi
 
@@ -138,9 +138,9 @@ elif [ "$DIRECTION" == "down" ]; then
     fi
 
 else
-    echo -e "${RED}❌ Nieprawidłowy kierunek: '$DIRECTION'. Użyj 'up' lub 'down'.${NC}"
+    echo -e "${RED}❌ Invalid direction: '$DIRECTION'. Use 'up' or 'down'.${NC}"
     print_usage
 fi
 
 echo ""
-echo -e "${GREEN}✅ Sync zakończony.${NC}"
+echo -e "${GREEN}✅ Sync complete.${NC}"

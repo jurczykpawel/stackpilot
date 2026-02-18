@@ -4,15 +4,15 @@
 # Installs n8n optimized for low-RAM environment, connecting to external PostgreSQL.
 # Author: Paweł (Lazy Engineer)
 #
-# WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
-#     Współdzielona baza  NIE działa (brak uprawnień do tworzenia rozszerzeń).
-#     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
+# REQUIREMENTS: PostgreSQL with pgcrypto extension!
+#     Shared database does NOT work (no permissions to create extensions).
+#     Use: a dedicated PostgreSQL instance
 #
 # IMAGE_SIZE_MB=800  # n8nio/n8n:latest
 #
-# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+# Required environment variables (passed by deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
-#   DOMAIN (opcjonalne - dla konfiguracji webhooków)
+#   DOMAIN (optional - for webhook configuration)
 
 set -e
 
@@ -26,48 +26,47 @@ echo ""
 
 # 1. Validate database credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
-    echo "❌ Błąd: Brak danych bazy danych!"
-    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    echo "❌ Error: Missing database credentials!"
+    echo "   Required variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
     echo ""
-    echo "   Użyj deploy.sh z opcjami --db-source=... lub uruchom interaktywnie."
+    echo "   Use deploy.sh with --db-source=... options or run interactively."
     exit 1
 fi
 
-echo "✅ Dane bazy danych:"
+echo "✅ Database credentials:"
 echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 DB_SCHEMA=${DB_SCHEMA:-n8n}
 
-# Check for shared Mikrus DB (doesn't support pgcrypto)
+# Check for shared DB (doesn't support pgcrypto)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: n8n NIE działa ze współdzieloną bazą !        ║"
+    echo "║  ❌ ERROR: n8n does NOT work with a shared database!         ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  n8n wymaga rozszerzenia 'pgcrypto' (gen_random_uuid),         ║"
-    echo "║  które nie jest dostępne w darmowej bazie .             ║"
-    echo "║                                                                ║"
-    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
-    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "║  n8n requires the 'pgcrypto' extension (gen_random_uuid),    ║"
+    echo "║  which is not available on the free shared database.         ║"
+    echo "║                                                              ║"
+    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
 fi
 
 if [ "$DB_SCHEMA" != "public" ]; then
-    echo "   Schemat: $DB_SCHEMA"
+    echo "   Schema: $DB_SCHEMA"
 fi
 
 # 2. Domain and webhook URL
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
     WEBHOOK_URL="https://$DOMAIN/"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus) — WEBHOOK_URL zostanie zaktualizowany"
+    echo "✅ Domain: automatic (Cytrus) — WEBHOOK_URL will be updated"
     WEBHOOK_URL=""
 else
-    echo "⚠️  Brak domeny - webhooks będą wymagały ręcznej konfiguracji"
+    echo "⚠️  No domain - webhooks will require manual configuration"
     WEBHOOK_URL=""
 fi
 
@@ -82,7 +81,7 @@ sudo chown -R 1000:1000 "$STACK_DIR/data"
 # 4. Create docker-compose.yaml
 # Features:
 # - External DB connection
-# - Memory limits (critical for Mikrus)
+# - Memory limits (critical for small VPS)
 # - Timezone set to Europe/Warsaw
 # - Execution logs pruning (keep DB small)
 
@@ -138,13 +137,13 @@ sudo docker compose up -d
 # Health check - wait for container to be running
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Kontener działa"
+        echo "✅ Container is running"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
@@ -163,7 +162,7 @@ echo "✅ n8n Installed & Started!"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN to finish setup."
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
     echo "   Then open: http://localhost:$PORT"

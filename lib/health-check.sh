@@ -1,26 +1,26 @@
 #!/bin/bash
 
 # StackPilot - Health Check Helper
-# Sprawdza czy kontener wystartował i aplikacja odpowiada.
+# Checks if a container has started and the application is responding.
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   source "$(dirname "$0")/../../lib/health-check.sh"
 #   wait_for_healthy "$APP_NAME" "$PORT" [timeout_seconds]
 #
-# Funkcja zwraca:
-#   0 - sukces (aplikacja działa)
-#   1 - błąd (timeout lub app nie odpowiada)
+# Function returns:
+#   0 - success (application is running)
+#   1 - error (timeout or app not responding)
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Sprawdza czy kontener działa i aplikacja odpowiada na HTTP
-# Argumenty: APP_NAME PORT [TIMEOUT] [HEALTH_PATH]
-# Używa $STACK_DIR z env jeśli ustawiony, inaczej /opt/stacks/$APP_NAME
+# Checks if container is running and application responds to HTTP
+# Arguments: APP_NAME PORT [TIMEOUT] [HEALTH_PATH]
+# Uses $STACK_DIR from env if set, otherwise /opt/stacks/$APP_NAME
 wait_for_healthy() {
     local APP_NAME="$1"
     local PORT="$2"
@@ -32,15 +32,15 @@ wait_for_healthy() {
     local INTERVAL=2
 
     echo ""
-    echo "🔍 Sprawdzam czy $APP_NAME działa..."
+    echo "🔍 Checking if $APP_NAME is running..."
 
-    # 1. Sprawdź czy kontener jest running
+    # 1. Check if container is running
     cd "$STACK_DIR" 2>/dev/null || {
-        echo -e "${RED}❌ Nie znaleziono katalogu $STACK_DIR${NC}"
+        echo -e "${RED}❌ Directory $STACK_DIR not found${NC}"
         return 1
     }
 
-    # Czekaj na stan "running"
+    # Wait for "running" state
     while [ $ELAPSED -lt $TIMEOUT ]; do
         if sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
             break
@@ -52,34 +52,34 @@ wait_for_healthy() {
 
     if ! sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
         echo ""
-        echo -e "${RED}❌ Kontener nie wystartował!${NC}"
+        echo -e "${RED}❌ Container did not start!${NC}"
         echo ""
-        echo "📋 Logi:"
+        echo "📋 Logs:"
         sudo docker compose logs --tail 20
         return 1
     fi
 
-    echo -e " kontener ${GREEN}running${NC}"
+    echo -e " container ${GREEN}running${NC}"
 
-    # 2. Sprawdź czy aplikacja odpowiada na HTTP
-    echo -n "   Czekam na odpowiedź HTTP"
+    # 2. Check if application responds to HTTP
+    echo -n "   Waiting for HTTP response"
 
     while [ $ELAPSED -lt $TIMEOUT ]; do
-        # Sprawdź czy curl dostaje odpowiedź (jakąkolwiek, nawet 401/403)
+        # Check if curl gets a response (any response, even 401/403)
         local HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "http://localhost:$PORT$HEALTH_PATH" 2>/dev/null)
 
         if [ -n "$HTTP_CODE" ] && [ "$HTTP_CODE" != "000" ]; then
             echo ""
-            echo -e "   ${GREEN}✅ Aplikacja odpowiada (HTTP $HTTP_CODE)${NC}"
+            echo -e "   ${GREEN}✅ Application is responding (HTTP $HTTP_CODE)${NC}"
             return 0
         fi
 
-        # Sprawdź czy kontener nadal działa (może crashować w pętli)
+        # Check if container is still running (might be crash-looping)
         if ! sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
             echo ""
-            echo -e "${RED}❌ Kontener przestał działać!${NC}"
+            echo -e "${RED}❌ Container stopped running!${NC}"
             echo ""
-            echo "📋 Logi:"
+            echo "📋 Logs:"
             sudo docker compose logs --tail 30
             return 1
         fi
@@ -90,14 +90,14 @@ wait_for_healthy() {
     done
 
     echo ""
-    echo -e "${YELLOW}⚠️  Timeout - aplikacja nie odpowiada po ${TIMEOUT}s${NC}"
+    echo -e "${YELLOW}⚠️  Timeout - application not responding after ${TIMEOUT}s${NC}"
     echo ""
-    echo "📋 Logi:"
+    echo "📋 Logs:"
     sudo docker compose logs --tail 30
     return 1
 }
 
-# Szybkie sprawdzenie - tylko czy kontener running (bez HTTP)
+# Quick check - only if container is running (no HTTP)
 check_container_running() {
     local APP_NAME="$1"
     local STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
@@ -106,15 +106,15 @@ check_container_running() {
 
     sleep 3
     if sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
-        echo -e "${GREEN}✅ Kontener $APP_NAME działa${NC}"
+        echo -e "${GREEN}✅ Container $APP_NAME is running${NC}"
         return 0
     else
-        echo -e "${RED}❌ Kontener $APP_NAME nie wystartował${NC}"
+        echo -e "${RED}❌ Container $APP_NAME did not start${NC}"
         sudo docker compose logs --tail 20
         return 1
     fi
 }
 
-# Eksportuj funkcje
+# Export functions
 export -f wait_for_healthy
 export -f check_container_running

@@ -1,30 +1,30 @@
 #!/bin/bash
 
 # StackPilot - Server Execution Abstraction
-# Transparentnie uruchamia komendy lokalnie lub przez SSH.
+# Transparently runs commands locally or via SSH.
 #
-# Detekcja: /klucz_api istnieje TYLKO na servers.
-# Na lokalnym kompie → ssh, scp (jak dotychczas).
-# Na serwerze → bash -c, cp (bezpośrednio, bez SSH).
+# Detection: /klucz_api exists ONLY on servers.
+# On local machine -> ssh, scp (as before).
+# On server -> bash -c, cp (directly, without SSH).
 #
-# Użycie:
+# Usage:
 #   source "$SCRIPT_DIR/../lib/server-exec.sh"
 #   server_exec "cat /klucz_api"
 #   server_exec_tty "bash install.sh"
 #   server_copy "/tmp/file" "/opt/dest"
 
-# Detekcja środowiska
+# Environment detection
 if [ -f /klucz_api ]; then
     _MIKRUS_ON_SERVER=true
 else
     _MIKRUS_ON_SERVER=false
 fi
 
-# Czy skrypt działa na server?
+# Is the script running on the server?
 is_on_server() { [ "$_MIKRUS_ON_SERVER" = true ]; }
 
-# Uruchom komendę na serwerze
-# Użycie: server_exec "polecenie"
+# Run a command on the server
+# Usage: server_exec "command"
 server_exec() {
     if is_on_server; then
         bash -c "$1"
@@ -33,8 +33,8 @@ server_exec() {
     fi
 }
 
-# Uruchom komendę z alokacją TTY (dla interaktywnych poleceń)
-# Użycie: server_exec_tty "polecenie"
+# Run a command with TTY allocation (for interactive commands)
+# Usage: server_exec_tty "command"
 server_exec_tty() {
     if is_on_server; then
         bash -c "$1"
@@ -43,8 +43,8 @@ server_exec_tty() {
     fi
 }
 
-# Uruchom komendę z timeoutem połączenia
-# Użycie: server_exec_timeout SEKUNDY "polecenie"
+# Run a command with connection timeout
+# Usage: server_exec_timeout SECONDS "command"
 server_exec_timeout() {
     local timeout="$1"
     local cmd="$2"
@@ -55,8 +55,8 @@ server_exec_timeout() {
     fi
 }
 
-# Skopiuj plik NA serwer
-# Użycie: server_copy LOCAL_PATH REMOTE_PATH
+# Copy a file TO the server
+# Usage: server_copy LOCAL_PATH REMOTE_PATH
 server_copy() {
     local src="$1"
     local dst="$2"
@@ -67,8 +67,8 @@ server_copy() {
     fi
 }
 
-# Prześlij plik na serwer (odpowiednik: cat FILE | ssh "cat > DEST")
-# Użycie: server_pipe_to LOCAL_FILE REMOTE_PATH
+# Pipe a file to the server (equivalent: cat FILE | ssh "cat > DEST")
+# Usage: server_pipe_to LOCAL_FILE REMOTE_PATH
 server_pipe_to() {
     local src="$1"
     local dst="$2"
@@ -80,8 +80,8 @@ server_pipe_to() {
     fi
 }
 
-# Pobierz hostname serwera
-# Użycie: HOSTNAME=$(server_hostname)
+# Get server hostname
+# Usage: HOSTNAME=$(server_hostname)
 server_hostname() {
     if is_on_server; then
         hostname
@@ -90,8 +90,8 @@ server_hostname() {
     fi
 }
 
-# Pobierz username na serwerze
-# Użycie: USER=$(server_user)
+# Get username on the server
+# Usage: USER=$(server_user)
 server_user() {
     if is_on_server; then
         whoami

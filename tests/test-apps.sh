@@ -77,9 +77,9 @@ test_app() {
 
     if [ $DEPLOY_EXIT -ne 0 ]; then
         # Check if it's a resource constraint (expected on small server)
-        if echo "$DEPLOY_OUTPUT" | grep -qiE "za mało|za malo|wymagane.*MB|wymaga.*RAM|za mało miejsca"; then
+        if echo "$DEPLOY_OUTPUT" | grep -qiE "not enough|insufficient|requires.*MB|requires.*RAM|not enough space"; then
             echo -e "  ${YELLOW}SKIP: resource constraint${NC}"
-            echo "$DEPLOY_OUTPUT" | grep -iE "RAM:|Dysk:|wymagane|wymaga" | tail -3 | sed 's/^/    /'
+            echo "$DEPLOY_OUTPUT" | grep -iE "RAM:|Disk:|requires|required" | tail -3 | sed 's/^/    /'
             RESULTS+=("$app | SKIP_RESOURCES | port=$port | server too small")
             SKIP=$((SKIP + 1))
             cleanup_app "$app"

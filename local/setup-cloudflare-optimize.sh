@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # StackPilot - Cloudflare Optimization
-# Ustawia optymalne ustawienia Cloudflare dla domen na Mikrus
+# Sets optimal Cloudflare settings for domains on the VPS
 # Author: Paweł (Lazy Engineer)
 #
-# Ustawienia zone (uniwersalne):
-#   - SSL: Flexible (Mikrus nie ma własnego certyfikatu)
+# Zone settings (universal):
+#   - SSL: Flexible (the VPS doesn't have its own certificate)
 #   - Brotli: ON
 #   - Always HTTPS: ON
 #   - Minimum TLS: 1.2
@@ -16,91 +16,91 @@
 #   wordpress: bypass wp-admin/wp-login/wp-json, cache wp-content/wp-includes
 #   nextjs:    cache /_next/static/*, bypass /api/*
 #
-# Reguły są scopowane per hostname i mergowane z istniejącymi.
-# Wielokrotne uruchomienie jest bezpieczne (nadpisuje reguły tylko dla danego hosta).
+# Rules are scoped per hostname and merged with existing ones.
+# Running multiple times is safe (overwrites rules only for the given host).
 
 set -e
 
 CONFIG_FILE="$HOME/.config/cloudflare/config"
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Parsowanie argumentów
+# Parse arguments
 FULL_DOMAIN=""
 APP_TYPE=""
 
 for arg in "$@"; do
     case "$arg" in
         --app=*) APP_TYPE="${arg#--app=}" ;;
-        -*) echo -e "${RED}❌ Nieznana opcja: $arg${NC}"; exit 1 ;;
+        -*) echo -e "${RED}❌ Unknown option: $arg${NC}"; exit 1 ;;
         *) FULL_DOMAIN="$arg" ;;
     esac
 done
 
 if [ -z "$FULL_DOMAIN" ]; then
-    echo "Użycie: $0 <domena> [--app=wordpress|nextjs]"
+    echo "Usage: $0 <domain> [--app=wordpress|nextjs]"
     echo ""
-    echo "Optymalizuje ustawienia Cloudflare dla domeny:"
-    echo "  - SSL Flexible (wymagane dla Mikrus)"
-    echo "  - Kompresja Brotli"
+    echo "Optimizes Cloudflare settings for a domain:"
+    echo "  - SSL Flexible (required for the VPS)"
+    echo "  - Brotli compression"
     echo "  - Always HTTPS, HTTP/2, HTTP/3"
     echo "  - Early Hints"
     echo ""
-    echo "Cache Rules (opcjonalne, wymaga --app):"
-    echo "  --app=wordpress   Bypass wp-admin/wp-login, cache statyki WP"
+    echo "Cache Rules (optional, requires --app):"
+    echo "  --app=wordpress   Bypass wp-admin/wp-login, cache WP static assets"
     echo "  --app=nextjs      Cache /_next/static/*, bypass /api/*"
     echo ""
-    echo "Reguły są scopowane per hostname - bezpieczne dla wielu apek na jednej domenie."
+    echo "Rules are scoped per hostname - safe for multiple apps on one domain."
     echo ""
-    echo "Przykłady:"
-    echo "  $0 app.mojadomena.pl"
-    echo "  $0 wp.mojadomena.pl --app=wordpress"
-    echo "  $0 next.mojadomena.pl --app=nextjs"
+    echo "Examples:"
+    echo "  $0 app.mydomain.com"
+    echo "  $0 wp.mydomain.com --app=wordpress"
+    echo "  $0 next.mydomain.com --app=nextjs"
     echo ""
-    echo "Wymaga: ./local/setup-cloudflare.sh"
+    echo "Requires: ./local/setup-cloudflare.sh"
     exit 1
 fi
 
-# Walidacja --app
+# Validate --app
 if [ -n "$APP_TYPE" ] && [ "$APP_TYPE" != "wordpress" ] && [ "$APP_TYPE" != "nextjs" ]; then
-    echo -e "${RED}❌ Nieznany typ aplikacji: $APP_TYPE${NC}"
-    echo "   Dostępne: wordpress, nextjs"
+    echo -e "${RED}❌ Unknown application type: $APP_TYPE${NC}"
+    echo "   Available: wordpress, nextjs"
     exit 1
 fi
 
-# Sprawdź konfigurację
+# Check configuration
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo -e "${RED}❌ Brak konfiguracji Cloudflare${NC}"
-    echo "   Uruchom najpierw: ./local/setup-cloudflare.sh"
+    echo -e "${RED}❌ Missing Cloudflare configuration${NC}"
+    echo "   Run first: ./local/setup-cloudflare.sh"
     exit 1
 fi
 
-# Wyciągnij token (nie sourcuj całego pliku - zawiera zone mappings z kropkami)
+# Extract token (don't source the whole file - contains zone mappings with dots)
 CF_API_TOKEN=$(grep -E "^(CF_)?API_TOKEN=" "$CONFIG_FILE" | head -1 | cut -d'=' -f2)
 
 if [ -z "$CF_API_TOKEN" ]; then
-    echo -e "${RED}❌ Brak tokenu API${NC}"
+    echo -e "${RED}❌ Missing API token${NC}"
     exit 1
 fi
 
-# Wyciągnij domenę główną (zone)
+# Extract root domain (zone)
 # app.example.com → example.com
 ZONE_NAME=$(echo "$FULL_DOMAIN" | awk -F. '{print $(NF-1)"."$NF}')
 
 echo "☁️  Cloudflare Optimization"
-echo "   Domena: $FULL_DOMAIN"
+echo "   Domain: $FULL_DOMAIN"
 echo "   Zone: $ZONE_NAME"
 if [ -n "$APP_TYPE" ]; then
     echo "   App: $APP_TYPE"
 fi
 echo ""
 
-# Pobierz Zone ID
-echo "🔍 Szukam Zone ID..."
+# Get Zone ID
+echo "🔍 Looking for Zone ID..."
 ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" \
     -H "Authorization: Bearer $CF_API_TOKEN" \
     -H "Content-Type: application/json")
@@ -108,18 +108,18 @@ ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=
 ZONE_ID=$(echo "$ZONE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ -z "$ZONE_ID" ]; then
-    echo -e "${RED}❌ Nie znaleziono strefy: $ZONE_NAME${NC}"
-    echo "   Upewnij się że domena jest dodana do Cloudflare"
+    echo -e "${RED}❌ Zone not found: $ZONE_NAME${NC}"
+    echo "   Make sure the domain is added to Cloudflare"
     exit 1
 fi
 
 echo "   Zone ID: $ZONE_ID"
 echo ""
 
-# Śledzenie błędów uprawnień
+# Track permission errors
 PERMISSION_ERRORS=0
 
-# Funkcja do ustawiania opcji zone
+# Function to set zone options
 set_zone_setting() {
     local SETTING="$1"
     local VALUE="$2"
@@ -144,15 +144,15 @@ set_zone_setting() {
 }
 
 # =============================================================================
-# USTAWIENIA ZONE
+# ZONE SETTINGS
 # =============================================================================
 
-echo "⚙️  Ustawienia zone..."
+echo "⚙️  Zone settings..."
 
-# SSL Flexible - WYMAGANE dla Mikrus (brak certyfikatu na serwerze)
+# SSL Flexible - REQUIRED for the VPS (no certificate on server)
 set_zone_setting "ssl" '"flexible"' "SSL Flexible"
 
-# Brotli - lepsza kompresja
+# Brotli - better compression
 set_zone_setting "brotli" '"on"' "Brotli"
 
 # Always HTTPS
@@ -161,7 +161,7 @@ set_zone_setting "always_use_https" '"on"' "Always HTTPS"
 # Minimum TLS 1.2
 set_zone_setting "min_tls_version" '"1.2"' "Min TLS 1.2"
 
-# Early Hints - szybsze ładowanie
+# Early Hints - faster loading
 set_zone_setting "early_hints" '"on"' "Early Hints"
 
 # HTTP/2
@@ -173,10 +173,10 @@ set_zone_setting "http3" '"on"' "HTTP/3"
 echo ""
 
 # =============================================================================
-# CACHE RULES (zależne od --app, scopowane per hostname, mergowane)
+# CACHE RULES (depends on --app, scoped per hostname, merged)
 # =============================================================================
 
-# Generowanie reguł cache per app type (bez hostname - dodawany potem przez jq)
+# Generate cache rules per app type (without hostname - added later via jq)
 get_wordpress_rules() {
     cat <<'RULES'
 [
@@ -252,8 +252,8 @@ get_nextjs_rules() {
 RULES
 }
 
-# Scopuj reguły per hostname i taguj w opisie
-# Input: tablica reguł JSON (stdin), $1 = hostname
+# Scope rules per hostname and tag in description
+# Input: JSON rules array (stdin), $1 = hostname
 scope_rules_to_host() {
     local HOST="$1"
     jq --arg host "$HOST" '
@@ -269,19 +269,19 @@ CACHE_RULE_OK=false
 if [ -n "$APP_TYPE" ]; then
     echo "📦 Cache Rules ($APP_TYPE → $FULL_DOMAIN)..."
 
-    # Sprawdź jq (wymagane do merge reguł)
+    # Check jq (required for rule merging)
     if ! command -v jq &>/dev/null; then
-        echo -e "${YELLOW}⚠️  jq nie znalezione - pominięto Cache Rules${NC}"
-        echo "   Zainstaluj: brew install jq (macOS) lub apt install jq (Linux)"
+        echo -e "${YELLOW}⚠️  jq not found - skipped Cache Rules${NC}"
+        echo "   Install: brew install jq (macOS) or apt install jq (Linux)"
         echo ""
     else
-        # Pobierz reguły dla wybranej aplikacji i scopuj per hostname
+        # Get rules for selected app and scope per hostname
         case "$APP_TYPE" in
             wordpress) NEW_RULES=$(get_wordpress_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
             nextjs)    NEW_RULES=$(get_nextjs_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
         esac
 
-        # Sprawdź czy ruleset już istnieje
+        # Check if ruleset already exists
         RULESETS_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets?phase=http_request_cache_settings" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json")
@@ -289,28 +289,28 @@ if [ -n "$APP_TYPE" ]; then
         RULESET_ID=$(echo "$RULESETS_RESPONSE" | jq -r '.result[0].id // empty')
 
         if [ -n "$RULESET_ID" ]; then
-            # Pobierz istniejące reguły
+            # Get existing rules
             EXISTING_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/$RULESET_ID" \
                 -H "Authorization: Bearer $CF_API_TOKEN" \
                 -H "Content-Type: application/json")
 
-            # Usuń stare reguły dla tego hosta, zachowaj resztę
+            # Remove old rules for this host, keep the rest
             KEPT_RULES=$(echo "$EXISTING_RESPONSE" | jq --arg host "$FULL_DOMAIN" '
                 [.result.rules[] | select(.description | endswith("[" + $host + "]") | not)]
             ')
 
-            # Merguj: istniejące (bez tego hosta) + nowe
+            # Merge: existing (without this host) + new
             MERGED=$(jq -n --argjson kept "$KEPT_RULES" --argjson new "$NEW_RULES" '
                 {"rules": ($kept + $new)}
             ')
 
-            echo -n "   Aktualizuję cache rules (merge)... "
+            echo -n "   Updating cache rules (merge)... "
             RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/$RULESET_ID" \
                 -H "Authorization: Bearer $CF_API_TOKEN" \
                 -H "Content-Type: application/json" \
                 --data "$MERGED")
         else
-            # Utwórz nowy ruleset
+            # Create new ruleset
             FULL_RULESET=$(jq -n --argjson rules "$NEW_RULES" '{
                 "name": "StackPilot Cache Rules",
                 "kind": "zone",
@@ -318,7 +318,7 @@ if [ -n "$APP_TYPE" ]; then
                 "rules": $rules
             }')
 
-            echo -n "   Tworzę cache rules... "
+            echo -n "   Creating cache rules... "
             RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets" \
                 -H "Authorization: Bearer $CF_API_TOKEN" \
                 -H "Content-Type: application/json" \
@@ -331,11 +331,11 @@ if [ -n "$APP_TYPE" ]; then
             case "$APP_TYPE" in
                 wordpress)
                     echo "      /wp-admin, /wp-login.php, /wp-json, /wp-cron.php → bypass"
-                    echo "      /wp-content/uploads, /wp-includes → cache 1 rok"
-                    echo "      /wp-content/themes, /wp-content/plugins → cache 1 tydzień"
+                    echo "      /wp-content/uploads, /wp-includes → cache 1 year"
+                    echo "      /wp-content/themes, /wp-content/plugins → cache 1 week"
                     ;;
                 nextjs)
-                    echo "      /_next/static/* → cache 1 rok"
+                    echo "      /_next/static/* → cache 1 year"
                     echo "      /api/* → bypass cache"
                     ;;
             esac
@@ -344,7 +344,7 @@ if [ -n "$APP_TYPE" ]; then
             if [ -n "$ERROR" ]; then
                 echo -e "${YELLOW}⚠️  $ERROR${NC}"
             else
-                echo -e "${YELLOW}⚠️  Nie udało się (może brak uprawnień do Cache Rules)${NC}"
+                echo -e "${YELLOW}⚠️  Failed (possibly missing Cache Rules permissions)${NC}"
             fi
             if echo "$ERROR" | grep -qi "unauthorized\|authentication"; then
                 PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
@@ -354,44 +354,44 @@ if [ -n "$APP_TYPE" ]; then
         echo ""
     fi
 else
-    echo "ℹ️  Pominięto Cache Rules (użyj --app=wordpress|nextjs aby dodać)"
+    echo "ℹ️  Skipped Cache Rules (use --app=wordpress|nextjs to add)"
     echo ""
 fi
 
-# Podsumowanie
+# Summary
 if [ "$PERMISSION_ERRORS" -gt 0 ]; then
-    echo -e "${YELLOW}⚠️  Niektóre ustawienia pominięte (brak uprawnień tokenu)${NC}"
+    echo -e "${YELLOW}⚠️  Some settings were skipped (insufficient token permissions)${NC}"
     echo ""
-    echo "   Twój token nie ma wymaganych uprawnień. Utwórz nowy token z:"
+    echo "   Your token does not have the required permissions. Create a new token with:"
     echo "   • Zone → Zone Settings → Edit  (SSL, Brotli, HTTPS, TLS)"
     if [ -n "$APP_TYPE" ]; then
-        echo "   • Zone → Cache Rules → Edit    (cache dla $APP_TYPE)"
+        echo "   • Zone → Cache Rules → Edit    (cache for $APP_TYPE)"
     fi
     echo ""
-    echo "   Utwórz token: https://dash.cloudflare.com/profile/api-tokens"
-    echo "   Lub ustaw ręcznie w panelu Cloudflare:"
+    echo "   Create token: https://dash.cloudflare.com/profile/api-tokens"
+    echo "   Or configure manually in the Cloudflare dashboard:"
     echo "   → SSL/TLS: Flexible"
-    echo "   → Speed → Optimization: włącz Brotli"
+    echo "   → Speed → Optimization: enable Brotli"
     echo ""
 else
-    echo -e "${GREEN}🎉 Optymalizacja zakończona!${NC}"
+    echo -e "${GREEN}🎉 Optimization complete!${NC}"
     echo ""
-    echo "📋 Ustawione:"
-    echo "   • SSL: Flexible (wymagane dla Mikrus)"
-    echo "   • Kompresja: Brotli"
-    echo "   • HTTPS: wymuszony"
+    echo "📋 Configured:"
+    echo "   • SSL: Flexible (required for the VPS)"
+    echo "   • Compression: Brotli"
+    echo "   • HTTPS: enforced"
     echo "   • TLS: minimum 1.2"
     echo "   • HTTP/2 + HTTP/3"
     echo "   • Early Hints"
     if [ "$CACHE_RULE_OK" = true ]; then
         case "$APP_TYPE" in
             wordpress)
-                echo "   • Cache: wp-content/uploads, wp-includes (1 rok)"
-                echo "   • Cache: wp-content/themes, plugins (1 tydzień)"
+                echo "   • Cache: wp-content/uploads, wp-includes (1 year)"
+                echo "   • Cache: wp-content/themes, plugins (1 week)"
                 echo "   • Bypass: wp-admin, wp-login, wp-json, wp-cron"
                 ;;
             nextjs)
-                echo "   • Cache: /_next/static/* (1 rok)"
+                echo "   • Cache: /_next/static/* (1 year)"
                 echo "   • No-cache: /api/*"
                 ;;
         esac

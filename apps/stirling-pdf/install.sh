@@ -5,14 +5,14 @@
 # Merge, Split, Convert, OCR - all in your browser.
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=1000  # frooodle/s-pdf:latest (~1GB z Java+LibreOffice)
+# IMAGE_SIZE_MB=1000  # frooodle/s-pdf:latest (~1GB with Java+LibreOffice)
 #
-# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 3.0+)!
-#     Stirling-PDF używa Java (Spring Boot) + LibreOffice do konwersji.
-#     Na Mikrus 2.1 (1GB RAM) może powodować zawieszenie serwera.
+# ⚠️  NOTE: This app requires at least 2GB RAM (2GB+ VPS)!
+#     Stirling-PDF uses Java (Spring Boot) + LibreOffice for conversion.
+#     On a 1GB VPS it may cause the server to hang.
 #
-# Opcjonalne zmienne środowiskowe:
-#   DOMAIN - domena dla Stirling-PDF
+# Optional environment variables:
+#   DOMAIN - domain for Stirling-PDF
 
 set -e
 
@@ -22,45 +22,45 @@ PORT=${PORT:-8087}
 
 echo "--- 📄 Stirling-PDF Setup ---"
 
-# Sprawdź dostępny RAM - WYMAGANE minimum 2GB!
+# Check available RAM - REQUIRED minimum 2GB!
 TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")
 
 if [ "$TOTAL_RAM" -lt 1800 ]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Za mało RAM dla Stirling-PDF!                        ║"
+    echo "║  ❌ ERROR: Not enough RAM for Stirling-PDF!                    ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                                        ║"
-    echo "║  Wymagane:    2048MB RAM (Mikrus 3.0+)                         ║"
+    echo "║  Your server: ${TOTAL_RAM}MB RAM                                        ║"
+    echo "║  Required:    2048MB RAM (2GB+ VPS)                            ║"
     echo "║                                                                ║"
-    echo "║  Stirling-PDF używa Java + LibreOffice (~600-800MB RAM).      ║"
-    echo "║  Na Mikrus 2.1 zawiesza serwer!                               ║"
+    echo "║  Stirling-PDF uses Java + LibreOffice (~600-800MB RAM).       ║"
+    echo "║  On a 1GB VPS it hangs the server!                             ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  💡 ALTERNATYWA: Gotenberg                                     ║"
-    echo "║     Lekkie API do konwersji dokumentów (~150MB RAM)           ║"
-    echo "║     Instalacja: ./local/deploy.sh gotenberg                   ║"
+    echo "║  💡 ALTERNATIVE: Gotenberg                                     ║"
+    echo "║     Lightweight API for document conversion (~150MB RAM)       ║"
+    echo "║     Install: ./local/deploy.sh gotenberg                       ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
 fi
 
-# Ustaw limit pamięci kontenera w zależności od dostępnego RAM
+# Set container memory limit based on available RAM
 if [ "$TOTAL_RAM" -ge 3000 ]; then
     MEMORY_LIMIT="1536M"
-    echo "✅ RAM: ${TOTAL_RAM}MB - limit kontenera: 1.5GB"
+    echo "✅ RAM: ${TOTAL_RAM}MB - container limit: 1.5GB"
 else
     MEMORY_LIMIT="1024M"
-    echo "✅ RAM: ${TOTAL_RAM}MB - limit kontenera: 1GB"
+    echo "✅ RAM: ${TOTAL_RAM}MB - container limit: 1GB"
 fi
 echo ""
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus)"
+    echo "✅ Domain: automatic (Cytrus)"
 else
-    echo "⚠️  Brak domeny - używam localhost"
+    echo "⚠️  No domain - using localhost"
 fi
 
 sudo mkdir -p "$STACK_DIR"
@@ -87,22 +87,22 @@ EOF
 
 sudo docker compose up -d
 
-# Health check - Stirling-PDF potrzebuje ~90-120s na start (Java + LibreOffice)
-echo "⏳ Czekam na uruchomienie Stirling-PDF (~90s dla Java)..."
+# Health check - Stirling-PDF needs ~90-120s to start (Java + LibreOffice)
+echo "⏳ Waiting for Stirling-PDF to start (~90s for Java)..."
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 120 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 120 || { echo "❌ Installation failed!"; exit 1; }
 else
-    # Fallback - czekaj do 120s
+    # Fallback - wait up to 120s
     for i in $(seq 1 12); do
         sleep 10
         if curl -sf "http://localhost:$PORT" > /dev/null 2>&1 || curl -sf "http://localhost:$PORT/login" > /dev/null 2>&1; then
-            echo "✅ Stirling-PDF działa (po $((i*10))s)"
+            echo "✅ Stirling-PDF is running (after $((i*10))s)"
             break
         fi
         echo "   ... $((i*10))s"
         if [ "$i" -eq 12 ]; then
-            echo "❌ Kontener nie wystartował w 120s!"
+            echo "❌ Container failed to start within 120s!"
             sudo docker compose logs --tail 30
             exit 1
         fi
@@ -121,7 +121,7 @@ echo "✅ Stirling-PDF started!"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

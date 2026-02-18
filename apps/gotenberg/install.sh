@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # StackPilot - Gotenberg
-# API do konwersji dokumentów (HTML→PDF, DOCX→PDF, itp.)
-# Lekka alternatywa dla Stirling-PDF (~150MB RAM vs ~450MB)
+# API for document conversion (HTML→PDF, DOCX→PDF, etc.)
+# Lightweight alternative to Stirling-PDF (~150MB RAM vs ~450MB)
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=1500  # gotenberg/gotenberg:8 (~1.5GB z LibreOffice+Chromium)
+# IMAGE_SIZE_MB=1500  # gotenberg/gotenberg:8 (~1.5GB with LibreOffice+Chromium)
 #
-# Opcjonalne zmienne środowiskowe:
-#   DOMAIN - domena dla Gotenberg
-#   GOTENBERG_USER - użytkownik Basic Auth (domyślnie: admin)
-#   GOTENBERG_PASS - hasło Basic Auth (domyślnie: generowane)
+# Optional environment variables:
+#   DOMAIN - domain for Gotenberg
+#   GOTENBERG_USER - Basic Auth user (default: admin)
+#   GOTENBERG_PASS - Basic Auth password (default: generated)
 
 set -e
 
@@ -19,28 +19,28 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3000}
 
 echo "--- 📄 Gotenberg Setup ---"
-echo "Lekkie API do konwersji dokumentów (Go + Chromium + LibreOffice)"
+echo "Lightweight API for document conversion (Go + Chromium + LibreOffice)"
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus)"
+    echo "✅ Domain: automatic (Cytrus)"
 else
-    echo "⚠️  Brak domeny - używam localhost"
+    echo "⚠️  No domain - using localhost"
 fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-# Generuj hasło jeśli nie podano
+# Generate password if not provided
 GOTENBERG_USER="${GOTENBERG_USER:-admin}"
 if [ -z "$GOTENBERG_PASS" ]; then
     GOTENBERG_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
-    echo "✅ Wygenerowano hasło API"
+    echo "✅ API password generated"
 fi
 
-# Zapisz credentials
+# Save credentials
 echo "$GOTENBERG_USER:$GOTENBERG_PASS" | sudo tee .api_credentials > /dev/null
 sudo chmod 600 .api_credentials
 
@@ -69,12 +69,12 @@ EOF
 
 sudo docker compose up -d
 
-# Health check (z auth)
+# Health check (with auth)
 sleep 10
 if curl -sf -u "$GOTENBERG_USER:$GOTENBERG_PASS" "http://localhost:$PORT/health" > /dev/null 2>&1; then
-    echo "✅ Gotenberg działa (z Basic Auth)"
+    echo "✅ Gotenberg is running (with Basic Auth)"
 else
-    echo "❌ Gotenberg nie odpowiada!"; sudo docker compose logs --tail 20; exit 1
+    echo "❌ Gotenberg is not responding!"; sudo docker compose logs --tail 20; exit 1
 fi
 
 # Caddy/HTTPS - only for real domains
@@ -87,7 +87,7 @@ fi
 echo ""
 echo "✅ Gotenberg started!"
 echo ""
-echo "🔐 API zabezpieczone Basic Auth:"
+echo "🔐 API secured with Basic Auth:"
 echo "   User: $GOTENBERG_USER"
 echo "   Pass: $GOTENBERG_PASS"
 echo "   Credentials: $STACK_DIR/.api_credentials"
@@ -95,15 +95,14 @@ echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 API: https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 API: http://localhost:$PORT"
 fi
 echo ""
-echo "Przykład użycia (z auth):"
+echo "Usage example (with auth):"
 echo "  curl -u $GOTENBERG_USER:$GOTENBERG_PASS \\"
 echo "    -X POST http://localhost:$PORT/forms/chromium/convert/url \\"
 echo "    -F 'url=https://example.com' -o result.pdf"
 echo ""
-echo "W n8n użyj: HTTP Request z Basic Auth credentials"
-
+echo "In n8n use: HTTP Request with Basic Auth credentials"

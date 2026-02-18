@@ -7,7 +7,7 @@
 set -e
 
 # Configuration
-BACKUP_NAME="mikrus-backup"
+BACKUP_NAME="stackpilot-backup"
 REMOTE_NAME="backup_remote" # Must match what we configure in rclone.conf
 SOURCE_DIRS=(
     "/opt/dockge"
@@ -16,9 +16,9 @@ SOURCE_DIRS=(
     # We avoid full docker volumes backup by default as it can be huge and inconsistent without stopping containers.
     # Ideally, apps should map data to /opt/stacks/app-name/data
 )
-LOG_FILE="/var/log/mikrus-backup.log"
+LOG_FILE="/var/log/stackpilot-backup.log"
 
-# Wykluczenia - pliki które można pobrać/zbudować ponownie
+# Exclusions - files that can be re-downloaded/rebuilt
 EXCLUDES=(
     "node_modules/**"       # npm/bun dependencies
     ".next/**"              # Next.js build output
@@ -49,7 +49,7 @@ if ! rclone listremotes | grep -q "$REMOTE_NAME"; then
 fi
 
 # 2. Prepare Backup Staging (Optional - direct sync is better for bandwidth)
-# We will sync directly from filesystem to remote to save local disk space (Mikrus has small disk)
+# We will sync directly from filesystem to remote to save local disk space (small VPS has limited disk)
 
 # 3. Build exclude flags
 EXCLUDE_FLAGS=""

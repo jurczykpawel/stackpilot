@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # StackPilot - Dockge Installation
-# A lightweight Docker Compose manager (Perfect for Mikrus)
+# A lightweight Docker Compose manager (Perfect for small VPS)
 # Author: Paweł (Lazy Engineer)
 #
 # IMAGE_SIZE_MB=150  # louislam/dockge:1
@@ -49,13 +49,13 @@ sudo docker compose up -d
 export STACK_DIR="$DOCKGE_DIR"
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "dockge" "$PORT" 45 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "dockge" "$PORT" 45 || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Dockge działa na porcie $PORT"
+        echo "✅ Dockge is running on port $PORT"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 echo ""

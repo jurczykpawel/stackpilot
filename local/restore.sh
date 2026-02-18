@@ -4,14 +4,14 @@
 # Trigger a full system restore from the latest cloud backup.
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Użycie: $0 [ssh_alias]"
+    echo "Usage: $0 [ssh_alias]"
     echo ""
-    echo "Przywraca dane z chmury (wymaga wcześniejszej konfiguracji backupu)."
+    echo "Restores data from the cloud (requires prior backup configuration)."
     echo "Default SSH alias: vps"
     exit 0
 fi
 
-VPS_HOST="${1:-vps}" # First argument or default to 'mikrus'
+VPS_HOST="${1:-vps}" # First argument or default to 'vps'
 SSH_ALIAS="$VPS_HOST"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,20 +25,20 @@ echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║  🚨  EMERGENCY RESTORE PROTOCOL                                ║"
 echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║  Serwer:  $REMOTE_USER@$REMOTE_HOST"
+echo "║  Server:  $REMOTE_USER@$REMOTE_HOST"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
-echo "UWAGA: To przywróci dane z chmury i NADPISZE obecne pliki!"
-echo "Wszystkie zmiany od ostatniego backupu zostaną UTRACONE."
+echo "WARNING: This will restore data from the cloud and OVERWRITE current files!"
+echo "All changes since the last backup will be LOST."
 echo ""
-read -p "Czy na pewno chcesz kontynuować? (t/N) " -n 1 -r
+read -p "Are you sure you want to continue? (y/N) " -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-    echo "Anulowano."
+    echo "Cancelled."
     exit 1
 fi
 
-read -p "Naciśnij [Enter] aby połączyć się z serwerem..."
+read -p "Press [Enter] to connect to the server..."
 
 # 1. Deploy the restore core script (ensure it's up to date)
 REPO_ROOT="$SCRIPT_DIR/.."

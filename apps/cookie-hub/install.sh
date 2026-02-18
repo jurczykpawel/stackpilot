@@ -15,13 +15,13 @@ echo "Centralized server for Cookie Consent scripts."
 
 # Required: DOMAIN
 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ]; then
-    echo "Brak wymaganej zmiennej: DOMAIN"
-    echo "   Uzycie: DOMAIN=assets.example.com ./install.sh"
+    echo "Missing required variable: DOMAIN"
+    echo "   Usage: DOMAIN=assets.example.com ./install.sh"
     exit 1
 fi
-echo "Domena: $DOMAIN"
+echo "Domain: $DOMAIN"
 
-# Detect domain type: Cytrus (*.byst.re, *.mikr.us) vs Cloudflare
+# Detect domain type: Cytrus (*.byst.re, etc.) vs Cloudflare
 is_cytrus_domain() {
     case "$1" in
         *.byst.re|*.mikr.us|*.srv24.pl|*.vxm.pl) return 0 ;;
@@ -38,12 +38,12 @@ fi
 
 # Determine paths based on mode
 if is_cytrus_domain "$DOMAIN"; then
-    echo "Tryb: Cytrus (Docker + nginx)"
+    echo "Mode: Cytrus (Docker + nginx)"
     STACK_DIR="/opt/stacks/$APP_NAME"
     PUBLIC_DIR="$STACK_DIR/public"
     PORT="${PORT:-8091}"
 else
-    echo "Tryb: Cloudflare (Caddy file_server)"
+    echo "Mode: Cloudflare (Caddy file_server)"
     STACK_DIR="/var/www/$APP_NAME"
     PUBLIC_DIR="$STACK_DIR"
 fi
@@ -81,33 +81,33 @@ if [ ! -f "$PUBLIC_DIR/config.js" ]; then
 var klaroConfig = {
     elementID: 'klaro',
     storageMethod: 'cookie',
-    cookieName: 'mikrus_consent',
+    cookieName: 'stackpilot_consent',
     cookieExpiresAfterDays: 365,
     default: false,
     mustConsent: false,
     acceptAll: true,
     hideDeclineAll: false,
     hideLearnMore: false,
-    lang: 'pl',
+    lang: 'en',
 
     translations: {
-        pl: {
+        en: {
             consentModal: {
-                title: 'Szanujemy Twoja prywatnosc',
-                description: 'Uzywamy plikow cookie i innych technologii, aby zapewnic najlepsza jakosc korzystania z naszej strony.'
+                title: 'We respect your privacy',
+                description: 'We use cookies and other technologies to ensure the best experience on our site.'
             },
             consentNotice: {
-                description: 'Uzywamy plikow cookie do analizy ruchu i personalizacji tresci.',
-                learnMore: 'Dostosuj zgody'
+                description: 'We use cookies for analytics and content personalization.',
+                learnMore: 'Customize preferences'
             },
             purposes: {
-                analytics: 'Analityka',
-                security: 'Bezpieczenstwo',
+                analytics: 'Analytics',
+                security: 'Security',
                 marketing: 'Marketing'
             },
-            ok: 'Zaakceptuj wszystko',
-            save: 'Zapisz wybrane',
-            decline: 'Odrzuc'
+            ok: 'Accept all',
+            save: 'Save selection',
+            decline: 'Decline'
         }
     },
 
@@ -164,12 +164,12 @@ EOF
 
     sleep 3
     if curl -sf "http://localhost:$PORT/klaro.js" > /dev/null 2>&1; then
-        echo "Cookie Hub dziala na porcie $PORT"
+        echo "Cookie Hub is running on port $PORT"
     else
-        echo "Blad uruchomienia!"; sudo docker compose logs --tail 10; exit 1
+        echo "Failed to start!"; sudo docker compose logs --tail 10; exit 1
     fi
 
-    # Zapisz port dla deploy.sh (do konfiguracji domeny)
+    # Save port for deploy.sh (for domain configuration)
     echo "$PORT" > /tmp/app_port
 
     echo ""
@@ -196,5 +196,5 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "<script defer src=\"https://$DOMAIN/config.js\"></script>"
     echo "<script defer src=\"https://$DOMAIN/klaro.js\"></script>"
 else
-    echo "(domena zostanie wyświetlona po konfiguracji)"
+    echo "(domain will be displayed after configuration)"
 fi

@@ -7,11 +7,11 @@
 #
 # IMAGE_SIZE_MB=40  # filebrowser/filebrowser + nginx:alpine (~70MB total)
 #
-# Zmienne środowiskowe:
-#   DOMAIN - domena dla File Manager (admin panel)
-#   DOMAIN_PUBLIC - domena dla public static hosting (opcjonalne)
-#   PORT - port dla FileBrowser (domyślnie 8095)
-#   PORT_PUBLIC - port dla static hosting (domyślnie 8096)
+# Environment variables:
+#   DOMAIN - domain for File Manager (admin panel)
+#   DOMAIN_PUBLIC - domain for public static hosting (optional)
+#   PORT - port for FileBrowser (default 8095)
+#   PORT_PUBLIC - port for static hosting (default 8096)
 
 set -e
 
@@ -23,11 +23,11 @@ PORT_PUBLIC=${PORT_PUBLIC:-8096}
 
 echo "--- 📂 FileBrowser Setup ---"
 echo ""
-echo "Instaluję:"
-echo "  • FileBrowser (panel zarządzania plikami)"
-echo "  • Static Hosting (publiczne pliki - Tiiny.host killer)"
+echo "Installing:"
+echo "  • FileBrowser (file management panel)"
+echo "  • Static Hosting (public files - Tiiny.host killer)"
 echo ""
-echo "Pliki: $DATA_DIR"
+echo "Files: $DATA_DIR"
 
 # Detect domain type: Cytrus (*.byst.re, etc.) vs Cloudflare
 is_cytrus_domain() {
@@ -72,7 +72,7 @@ fi
 
 if [ -n "$DOMAIN_PUBLIC" ] && is_cytrus_domain "$DOMAIN_PUBLIC"; then
     # === CYTRUS MODE: FileBrowser + nginx for static files ===
-    echo "🍊 Tryb Cytrus: nginx dla plików statycznych"
+    echo "🍊 Cytrus mode: nginx for static files"
 
     cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
@@ -108,7 +108,7 @@ EOF
 
 else
     # === CLOUDFLARE MODE: Only FileBrowser (Caddy serves static) ===
-    echo "☁️  Tryb Cloudflare: Caddy dla plików statycznych"
+    echo "☁️  Cloudflare mode: Caddy for static files"
 
     cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
@@ -142,25 +142,25 @@ fi
 # =============================================================================
 
 echo ""
-echo "🚀 Uruchamiam kontenery..."
+echo "🚀 Starting containers..."
 sudo docker compose pull --quiet
 sudo docker compose up -d
 
 # Health check
 sleep 3
 if curl -sf "http://localhost:$PORT" > /dev/null 2>&1; then
-    echo "✅ FileBrowser działa na porcie $PORT"
+    echo "✅ FileBrowser is running on port $PORT"
 else
-    echo "❌ FileBrowser nie odpowiada!"
+    echo "❌ FileBrowser is not responding!"
     sudo docker compose logs --tail 10
     exit 1
 fi
 
 if [ -n "$DOMAIN_PUBLIC" ] && is_cytrus_domain "$DOMAIN_PUBLIC"; then
     if curl -sf "http://localhost:$PORT_PUBLIC" > /dev/null 2>&1; then
-        echo "✅ Static Server działa na porcie $PORT_PUBLIC"
+        echo "✅ Static Server is running on port $PORT_PUBLIC"
     else
-        echo "⚠️  Static Server jeszcze startuje..."
+        echo "⚠️  Static Server is still starting..."
     fi
 fi
 
@@ -173,28 +173,28 @@ echo "$PORT" > /tmp/app_port
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ FileBrowser zainstalowany!"
+echo "✅ FileBrowser installed!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "📁 Panel Admin (wymaga logowania):"
+echo "📁 Admin Panel (requires login):"
 if [ -n "$DOMAIN_ADMIN" ] && [ "$DOMAIN_ADMIN" != "-" ]; then
     echo "   https://$DOMAIN_ADMIN"
 elif [ "$DOMAIN_ADMIN" = "-" ]; then
-    echo "   (domena zostanie skonfigurowana automatycznie)"
+    echo "   (domain will be configured automatically)"
 else
-    echo "   http://localhost:$PORT (użyj tunelu SSH)"
+    echo "   http://localhost:$PORT (use SSH tunnel)"
 fi
 echo "   👤 Login: admin / admin"
-echo "   ⚠️  ZMIEŃ HASŁO PO PIERWSZYM LOGOWANIU!"
+echo "   ⚠️  CHANGE PASSWORD AFTER FIRST LOGIN!"
 echo ""
 
 if [ -n "$DOMAIN_PUBLIC" ]; then
-    echo "🌍 Public Hosting (dostępne publicznie):"
+    echo "🌍 Public Hosting (publicly accessible):"
     echo "   https://$DOMAIN_PUBLIC"
     echo ""
-    echo "   Przykład: wrzuć ebook.pdf → https://$DOMAIN_PUBLIC/ebook.pdf"
+    echo "   Example: upload ebook.pdf → https://$DOMAIN_PUBLIC/ebook.pdf"
 fi
 
 echo ""
-echo "📂 Pliki przechowywane w: $DATA_DIR"
+echo "📂 Files stored in: $DATA_DIR"
 echo ""

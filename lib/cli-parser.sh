@@ -1,25 +1,25 @@
 #!/bin/bash
 
 # StackPilot - CLI Parser
-# Uniwersalny parser argumentów dla wszystkich skryptów.
+# Universal argument parser for all scripts.
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   source "$REPO_ROOT/lib/cli-parser.sh"
 #   parse_args "$@"
 #
-# Priorytet wartości:
-#   1. Flagi CLI (--db-host=...)     ← najwyższy
-#   2. Zmienne środowiskowe (DB_HOST=...)
+# Value priority:
+#   1. CLI flags (--db-host=...)          <- highest
+#   2. Environment variables (DB_HOST=...)
 #   3. Config file (~/.config/stackpilot/defaults.sh)
-#   4. Pytania interaktywne          ← fallback
+#   4. Interactive prompts                <- fallback
 #
-# Dostępne po parse_args():
+# Available after parse_args():
 #   $SSH_ALIAS, $DB_SOURCE, $DB_HOST, $DB_PORT, $DB_NAME, $DB_SCHEMA,
 #   $DB_USER, $DB_PASS, $DOMAIN, $DOMAIN_TYPE, $YES_MODE, $DRY_RUN,
 #   ${POSITIONAL_ARGS[@]}
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -27,16 +27,16 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # =============================================================================
-# DETEKCJA ŚRODOWISKA (Git Bash / WSL / etc.)
+# ENVIRONMENT DETECTION (Git Bash / WSL / etc.)
 # =============================================================================
 
 detect_environment() {
-    # Wykryj Git Bash / MINGW / MSYS
+    # Detect Git Bash / MINGW / MSYS
     if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "mingw"* ]] || [[ -n "$MSYSTEM" ]]; then
         IS_GITBASH=true
 
-        # Sprawdź czy to MinTTY (problematyczny) czy Windows Terminal (OK)
-        # MinTTY nie ustawia WT_SESSION, Windows Terminal tak
+        # Check if this is MinTTY (problematic) or Windows Terminal (OK)
+        # MinTTY does not set WT_SESSION, Windows Terminal does
         if [[ -z "$WT_SESSION" ]] && [[ "$TERM_PROGRAM" != "vscode" ]]; then
             IS_MINTTY=true
         else
@@ -50,34 +50,34 @@ detect_environment() {
     export IS_GITBASH IS_MINTTY
 }
 
-# Pokaż ostrzeżenie dla Git Bash + MinTTY (tylko raz, tylko interaktywnie)
+# Show warning for Git Bash + MinTTY (only once, only in interactive mode)
 warn_gitbash_mintty() {
-    # Pomiń jeśli już pokazano, w trybie --yes, lub nie Git Bash
+    # Skip if already shown, in --yes mode, or not Git Bash
     if [[ "$GITBASH_WARNING_SHOWN" == "true" ]] || [[ "$YES_MODE" == "true" ]] || [[ "$IS_MINTTY" != "true" ]]; then
         return 0
     fi
 
     echo ""
     echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║  ⚠️  Wykryto Git Bash z MinTTY                                  ║${NC}"
+    echo -e "${YELLOW}║  ⚠️  Git Bash with MinTTY detected                              ║${NC}"
     echo -e "${YELLOW}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${YELLOW}║  Tryb interaktywny może nie działać poprawnie.                 ║${NC}"
+    echo -e "${YELLOW}║  Interactive mode may not work correctly.                       ║${NC}"
     echo -e "${YELLOW}║                                                                ║${NC}"
-    echo -e "${YELLOW}║  Rozwiązania:                                                  ║${NC}"
-    echo -e "${YELLOW}║  1. Użyj Windows Terminal zamiast MinTTY                       ║${NC}"
-    echo -e "${YELLOW}║  2. Uruchom: winpty ./local/deploy.sh ...                      ║${NC}"
-    echo -e "${YELLOW}║  3. Użyj trybu automatycznego: --yes                           ║${NC}"
-    echo -e "${YELLOW}║  4. Zainstaluj WSL2 (najlepsze rozwiązanie)                    ║${NC}"
+    echo -e "${YELLOW}║  Solutions:                                                     ║${NC}"
+    echo -e "${YELLOW}║  1. Use Windows Terminal instead of MinTTY                      ║${NC}"
+    echo -e "${YELLOW}║  2. Run: winpty ./local/deploy.sh ...                           ║${NC}"
+    echo -e "${YELLOW}║  3. Use automatic mode: --yes                                   ║${NC}"
+    echo -e "${YELLOW}║  4. Install WSL2 (best solution)                                ║${NC}"
     echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
     export GITBASH_WARNING_SHOWN=true
 }
 
-# Uruchom detekcję od razu
+# Run detection immediately
 detect_environment
 
-# Globalne zmienne (nie resetuj jeśli już ustawione przez env)
+# Global variables (don't reset if already set by env)
 export SSH_ALIAS="${SSH_ALIAS:-}"
 export DB_SOURCE="${DB_SOURCE:-}"
 export DB_HOST="${DB_HOST:-}"
@@ -97,20 +97,20 @@ export UPDATE_MODE="${UPDATE_MODE:-false}"
 export RESTART_ONLY="${RESTART_ONLY:-false}"
 export POSITIONAL_ARGS=()
 
-# Ścieżka do config file
+# Config file path
 CONFIG_FILE="$HOME/.config/stackpilot/defaults.sh"
 
 # =============================================================================
-# ŁADOWANIE KONFIGURACJI
+# LOADING CONFIGURATION
 # =============================================================================
 
 load_defaults() {
-    # Załaduj config file jeśli istnieje
+    # Load config file if it exists
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
     fi
 
-    # Ustaw domyślne wartości z config lub hardcoded defaults
+    # Set default values from config or hardcoded defaults
     SSH_ALIAS="${SSH_ALIAS:-${DEFAULT_SSH:-vps}}"
     DB_PORT="${DB_PORT:-${DEFAULT_DB_PORT:-5432}}"
     DB_SCHEMA="${DB_SCHEMA:-${DEFAULT_DB_SCHEMA:-public}}"
@@ -118,7 +118,7 @@ load_defaults() {
 }
 
 # =============================================================================
-# PARSER ARGUMENTÓW
+# ARGUMENT PARSER
 # =============================================================================
 
 parse_args() {
@@ -173,8 +173,8 @@ parse_args() {
 
             # Unknown options
             --*)
-                echo -e "${RED}Nieznana opcja: $1${NC}" >&2
-                echo "Użyj --help aby zobaczyć dostępne opcje." >&2
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Use --help to see available options." >&2
                 exit 1
                 ;;
 
@@ -186,7 +186,7 @@ parse_args() {
         shift
     done
 
-    # Eksportuj zmienne
+    # Export variables
     export SSH_ALIAS DB_SOURCE DB_HOST DB_PORT DB_NAME DB_SCHEMA DB_USER DB_PASS
     export DOMAIN DOMAIN_TYPE SUPABASE_PROJECT INSTANCE APP_PORT
     export YES_MODE DRY_RUN UPDATE_MODE RESTART_ONLY BUILD_FILE
@@ -201,52 +201,52 @@ show_help() {
     cat <<EOF
 StackPilot - $SCRIPT_NAME
 
-Użycie:
-  $SCRIPT_NAME APP [opcje]
+Usage:
+  $SCRIPT_NAME APP [options]
 
-Opcje SSH:
-  --ssh=ALIAS          SSH alias z ~/.ssh/config (domyślnie: mikrus)
+SSH options:
+  --ssh=ALIAS          SSH alias from ~/.ssh/config (default: vps)
 
-Opcje bazy danych:
-  --db-source=TYPE     Źródło bazy: shared (API Mikrus) lub custom
-  --db-host=HOST       Host bazy danych
-  --db-port=PORT       Port bazy (domyślnie: 5432)
-  --db-name=NAME       Nazwa bazy danych
-  --db-schema=SCHEMA   Schema PostgreSQL (domyślnie: public)
-  --db-user=USER       Użytkownik bazy
-  --db-pass=PASS       Hasło bazy
+Database options:
+  --db-source=TYPE     Database source: shared (provider API) or custom
+  --db-host=HOST       Database host
+  --db-port=PORT       Database port (default: 5432)
+  --db-name=NAME       Database name
+  --db-schema=SCHEMA   PostgreSQL schema (default: public)
+  --db-user=USER       Database user
+  --db-pass=PASS       Database password
 
-Opcje domeny:
-  --domain=DOMAIN      Domena aplikacji (np. app.example.com)
-  --domain-type=TYPE   Typ: cytrus, cloudflare, local
+Domain options:
+  --domain=DOMAIN      Application domain (e.g. app.example.com)
+  --domain-type=TYPE   Type: cytrus, cloudflare, local
 
-Opcje GateFlow:
-  --supabase-project=REF  Project ref Supabase (pomija wybór interaktywny)
-  --instance=NAME         Nazwa instancji (dla multi-instance, np. --instance=shop)
-  --port=PORT             Port aplikacji (domyślnie: auto-increment od 3333)
+GateFlow options:
+  --supabase-project=REF  Supabase project ref (skips interactive selection)
+  --instance=NAME         Instance name (for multi-instance, e.g. --instance=shop)
+  --port=PORT             Application port (default: auto-increment from 3333)
 
-Tryby:
-  --yes, -y            Pomiń wszystkie potwierdzenia (wymaga pełnych parametrów)
-  --dry-run            Pokaż co się wykona bez wykonania
-  --update             Aktualizuj istniejącą aplikację
-  --restart            Restart bez aktualizacji (np. po zmianie .env) - używany z --update
-  --help, -h           Pokaż tę pomoc
+Modes:
+  --yes, -y            Skip all confirmations (requires full parameters)
+  --dry-run            Show what would be executed without running it
+  --update             Update an existing application
+  --restart            Restart without updating (e.g. after .env change) - used with --update
+  --help, -h           Show this help
 
-Przykłady:
-  # Interaktywny (pytania o brakujące dane)
-  $SCRIPT_NAME n8n --ssh=mikrus
+Examples:
+  # Interactive (prompts for missing data)
+  $SCRIPT_NAME n8n --ssh=vps
 
-  # Pełna automatyzacja
-  $SCRIPT_NAME n8n --ssh=mikrus --db-source=shared --domain=n8n.example.com --yes
+  # Full automation
+  $SCRIPT_NAME n8n --ssh=vps --db-source=shared --domain=n8n.example.com --yes
 
   # Custom database
-  $SCRIPT_NAME n8n --ssh=mikrus --db-source=custom --db-host=psql.example.com \\
+  $SCRIPT_NAME n8n --ssh=vps --db-source=custom --db-host=psql.example.com \\
     --db-name=n8n --db-user=myuser --db-pass=secret --domain=n8n.example.com --yes
 
 Config file:
   ~/.config/stackpilot/defaults.sh
-  Przykład:
-    export DEFAULT_SSH="mikrus"
+  Example:
+    export DEFAULT_SSH="vps"
     export DEFAULT_DB_PORT="5432"
     export DEFAULT_DOMAIN_TYPE="cytrus"
 
@@ -254,37 +254,37 @@ EOF
 }
 
 # =============================================================================
-# HELPER: PYTAJ TYLKO GDY BRAK WARTOŚCI
+# HELPER: ASK ONLY WHEN VALUE IS MISSING
 # =============================================================================
 
 # ask_if_empty VAR_NAME "Prompt" [default] [secret]
-# Przykład: ask_if_empty DB_HOST "Host bazy danych"
-# Przykład: ask_if_empty DB_PORT "Port" "5432"
-# Przykład: ask_if_empty DB_PASS "Hasło" "" true
+# Example: ask_if_empty DB_HOST "Database host"
+# Example: ask_if_empty DB_PORT "Port" "5432"
+# Example: ask_if_empty DB_PASS "Password" "" true
 ask_if_empty() {
     local VAR_NAME="$1"
     local PROMPT="$2"
     local DEFAULT="${3:-}"
     local SECRET="${4:-false}"
 
-    # Sprawdź czy zmienna już ma wartość
+    # Check if variable already has a value
     if [ -n "${!VAR_NAME}" ]; then
         return 0
     fi
 
-    # Tryb --yes bez wartości = błąd
+    # --yes mode without value = error
     if [ "$YES_MODE" = true ]; then
-        echo -e "${RED}Błąd: --${VAR_NAME,,} jest wymagane w trybie --yes${NC}" >&2
+        echo -e "${RED}Error: --${VAR_NAME,,} is required in --yes mode${NC}" >&2
         exit 1
     fi
 
-    # Dry-run - nie pytaj
+    # Dry-run - don't ask
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[dry-run] Brak wartości dla $VAR_NAME${NC}"
+        echo -e "${YELLOW}[dry-run] Missing value for $VAR_NAME${NC}"
         return 0
     fi
 
-    # Pytaj interaktywnie
+    # Ask interactively
     local VALUE
     if [ "$SECRET" = true ]; then
         read -sp "$PROMPT: " VALUE
@@ -296,41 +296,41 @@ ask_if_empty() {
         read -p "$PROMPT: " VALUE
     fi
 
-    # Ustaw zmienną (printf -v zamiast eval — bezpieczne dla wartości z apostrof)
+    # Set variable (printf -v instead of eval - safe for values with quotes)
     printf -v "$VAR_NAME" '%s' "$VALUE"
     export "$VAR_NAME"
 }
 
 # =============================================================================
-# HELPER: WYBÓR Z OPCJI
+# HELPER: CHOICE FROM OPTIONS
 # =============================================================================
 
 # ask_choice VAR_NAME "Prompt" "opt1|opt2|opt3" [default_index]
-# Przykład: ask_choice DB_SOURCE "Wybierz źródło bazy" "shared|custom" 1
+# Example: ask_choice DB_SOURCE "Choose database source" "shared|custom" 1
 ask_choice() {
     local VAR_NAME="$1"
     local PROMPT="$2"
     local OPTIONS="$3"
     local DEFAULT_INDEX="${4:-}"
 
-    # Sprawdź czy zmienna już ma wartość
+    # Check if variable already has a value
     if [ -n "${!VAR_NAME}" ]; then
         return 0
     fi
 
-    # Tryb --yes bez wartości = błąd
+    # --yes mode without value = error
     if [ "$YES_MODE" = true ]; then
-        echo -e "${RED}Błąd: --${VAR_NAME,,} jest wymagane w trybie --yes${NC}" >&2
+        echo -e "${RED}Error: --${VAR_NAME,,} is required in --yes mode${NC}" >&2
         exit 1
     fi
 
-    # Dry-run - nie pytaj
+    # Dry-run - don't ask
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[dry-run] Brak wartości dla $VAR_NAME${NC}"
+        echo -e "${YELLOW}[dry-run] Missing value for $VAR_NAME${NC}"
         return 0
     fi
 
-    # Parsuj opcje
+    # Parse options
     IFS='|' read -ra OPTS <<< "$OPTIONS"
 
     echo ""
@@ -340,7 +340,7 @@ ask_choice() {
     for opt in "${OPTS[@]}"; do
         local marker=""
         if [ "$i" = "$DEFAULT_INDEX" ]; then
-            marker=" (domyślnie)"
+            marker=" (default)"
         fi
         echo "  $i) $opt$marker"
         ((i++))
@@ -348,46 +348,46 @@ ask_choice() {
     echo ""
 
     local CHOICE
-    read -p "Wybierz [1-${#OPTS[@]}]: " CHOICE
+    read -p "Choose [1-${#OPTS[@]}]: " CHOICE
 
-    # Użyj default jeśli puste
+    # Use default if empty
     if [ -z "$CHOICE" ] && [ -n "$DEFAULT_INDEX" ]; then
         CHOICE="$DEFAULT_INDEX"
     fi
 
-    # Walidacja
+    # Validation
     if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "${#OPTS[@]}" ]; then
-        echo -e "${RED}Nieprawidłowy wybór${NC}" >&2
+        echo -e "${RED}Invalid choice${NC}" >&2
         return 1
     fi
 
-    # Ustaw zmienną (printf -v zamiast eval — bezpieczne dla wartości ze znakami specjalnymi)
+    # Set variable (printf -v instead of eval - safe for values with special characters)
     local VALUE="${OPTS[$((CHOICE-1))]}"
     printf -v "$VAR_NAME" '%s' "$VALUE"
     export "$VAR_NAME"
 }
 
 # =============================================================================
-# HELPER: POTWIERDZENIE
+# HELPER: CONFIRMATION
 # =============================================================================
 
-# confirm "Czy kontynuować?"
-# Zwraca 0 (true) lub 1 (false)
+# confirm "Continue?"
+# Returns 0 (true) or 1 (false)
 confirm() {
     local MESSAGE="$1"
 
-    # Tryb --yes = zawsze tak
+    # --yes mode = always yes
     if [ "$YES_MODE" = true ]; then
         return 0
     fi
 
-    # Dry-run = zawsze tak (ale nic nie robimy)
+    # Dry-run = always yes (but we don't do anything)
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[dry-run] Auto-potwierdzenie: $MESSAGE${NC}"
+        echo -e "${YELLOW}[dry-run] Auto-confirmed: $MESSAGE${NC}"
         return 0
     fi
 
-    read -p "$MESSAGE (t/N) " -n 1 -r
+    read -p "$MESSAGE (y/N) " -n 1 -r
     echo
     [[ $REPLY =~ ^[TtYy]$ ]]
 }
@@ -396,8 +396,8 @@ confirm() {
 # HELPER: DRY-RUN OUTPUT
 # =============================================================================
 
-# dry_run_cmd "opis" "komenda"
-# W trybie dry-run wyświetla komendę, w normalnym wykonuje
+# dry_run_cmd "description" "command"
+# In dry-run mode displays the command, in normal mode executes it
 dry_run_cmd() {
     local DESC="$1"
     local CMD="$2"
@@ -408,12 +408,12 @@ dry_run_cmd() {
         return 0
     fi
 
-    # Bezpośrednie wywołanie (bez eval — unikamy command injection)
+    # Direct invocation (without eval - avoids command injection)
     bash -c "$CMD"
 }
 
 # =============================================================================
-# EKSPORT FUNKCJI
+# EXPORT FUNCTIONS
 # =============================================================================
 
 export -f detect_environment

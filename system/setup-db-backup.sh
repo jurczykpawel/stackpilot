@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # StackPilot - Database Backup Setup
-# Konfiguruje automatyczny backup bazy danych PostgreSQL/MySQL
+# Configures automatic PostgreSQL/MySQL database backup
 # Author: Paweł (Lazy Engineer)
 #
-# Obsługuje:
-# - Współdzielone bazy  (credentials pobierane z API)
-# - Dedykowane/kupione bazy (credentials zapisywane lokalnie)
+# Supports:
+# - Shared databases (credentials fetched from API)
+# - Dedicated/purchased databases (credentials saved locally)
 #
-# Użycie:
-#   Na serwerze: ./setup-db-backup.sh
+# Usage:
+#   On the server: ./setup-db-backup.sh
 
 set -e
 
@@ -17,13 +17,13 @@ BACKUP_DIR="/opt/backups/db"
 BACKUP_SCRIPT="/opt/stackpilot/scripts/db-backup.sh"
 CREDENTIALS_DIR="/opt/stackpilot/config"
 CREDENTIALS_FILE="$CREDENTIALS_DIR/db-credentials.conf"
-CRON_FILE="/etc/cron.d/mikrus-db-backup"
+CRON_FILE="/etc/cron.d/stackpilot-db-backup"
 
-echo "--- 🗄️ Konfiguracja backupu bazy danych ---"
+echo "--- 🗄️ Database Backup Configuration ---"
 echo ""
 
 # =============================================================================
-# FAZA 1: Wykrycie baz współdzielonych (z API)
+# PHASE 1: Detect shared databases (from API)
 # =============================================================================
 
 API_KEY=$(cat /klucz_api 2>/dev/null || true)
@@ -33,7 +33,7 @@ HAS_SHARED_POSTGRES=false
 HAS_SHARED_MYSQL=false
 
 if [ -n "$API_KEY" ]; then
-    echo "🔑 Pobieram dane współdzielonych baz z API..."
+    echo "🔑 Fetching shared database credentials from API..."
 
     RESPONSE=$(curl -s -d "srv=$HOSTNAME&key=$API_KEY" https://api.mikr.us/db.bash 2>/dev/null)
 
@@ -65,74 +65,73 @@ if [ -n "$API_KEY" ]; then
         fi
     fi
 else
-    echo "⚠️  Brak klucza API - pominięto wykrywanie współdzielonych baz"
+    echo "⚠️  No API key found - skipping shared database detection"
 fi
 
 # =============================================================================
-# FAZA 2: Konfiguracja baz dedykowanych/kupionych
+# PHASE 2: Configure dedicated/purchased databases
 # =============================================================================
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  Czy masz dedykowane/kupione bazy danych?                      ║"
-echo "║  (np. z https://mikr.us/panel/?a=cloud)                        ║"
+echo "║  Do you have dedicated/purchased databases?                    ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Wczytaj istniejące credentials jeśli są
+# Load existing credentials if available
 CUSTOM_DATABASES=()
 if [ -f "$CREDENTIALS_FILE" ]; then
-    echo "📂 Znaleziono istniejący plik credentials"
+    echo "📂 Found existing credentials file"
     source "$CREDENTIALS_FILE"
     if [ ${#CUSTOM_DATABASES[@]} -gt 0 ]; then
-        echo "   Skonfigurowane bazy: ${#CUSTOM_DATABASES[@]}"
+        echo "   Configured databases: ${#CUSTOM_DATABASES[@]}"
     fi
 fi
 
-read -p "Czy chcesz dodać/edytować dedykowaną bazę? (t/N): " ADD_CUSTOM || true
-if [[ "$ADD_CUSTOM" =~ ^[tTyY] ]]; then
+read -p "Do you want to add/edit a dedicated database? (y/N): " ADD_CUSTOM || true
+if [[ "$ADD_CUSTOM" =~ ^[yYtT] ]]; then
 
     while true; do
         echo ""
-        echo "Typ bazy:"
+        echo "Database type:"
         echo "  1) PostgreSQL"
         echo "  2) MySQL"
-        read -p "Wybierz [1-2]: " DB_TYPE_CHOICE
+        read -p "Choose [1-2]: " DB_TYPE_CHOICE
 
         case $DB_TYPE_CHOICE in
             1) CUSTOM_DB_TYPE="postgres" ;;
             2) CUSTOM_DB_TYPE="mysql" ;;
-            *) echo "❌ Nieprawidłowy wybór"; continue ;;
+            *) echo "❌ Invalid choice"; continue ;;
         esac
 
-        read -p "Nazwa (identyfikator, np. 'n8n-db'): " CUSTOM_DB_ID
+        read -p "Name (identifier, e.g. 'n8n-db'): " CUSTOM_DB_ID
         read -p "Host: " CUSTOM_DB_HOST
         read -p "Port [5432/3306]: " CUSTOM_DB_PORT
         CUSTOM_DB_PORT=${CUSTOM_DB_PORT:-$([ "$CUSTOM_DB_TYPE" = "postgres" ] && echo "5432" || echo "3306")}
-        read -p "Nazwa bazy: " CUSTOM_DB_NAME
-        read -p "Użytkownik: " CUSTOM_DB_USER
-        read -sp "Hasło: " CUSTOM_DB_PASS
+        read -p "Database name: " CUSTOM_DB_NAME
+        read -p "User: " CUSTOM_DB_USER
+        read -sp "Password: " CUSTOM_DB_PASS
         echo ""
 
-        # Dodaj do tablicy
+        # Add to array
         CUSTOM_DATABASES+=("$CUSTOM_DB_ID:$CUSTOM_DB_TYPE:$CUSTOM_DB_HOST:$CUSTOM_DB_PORT:$CUSTOM_DB_NAME:$CUSTOM_DB_USER:$CUSTOM_DB_PASS")
 
-        echo "✅ Dodano: $CUSTOM_DB_ID ($CUSTOM_DB_TYPE)"
+        echo "✅ Added: $CUSTOM_DB_ID ($CUSTOM_DB_TYPE)"
 
-        read -p "Dodać kolejną bazę? (t/N): " ADD_MORE
-        [[ ! "$ADD_MORE" =~ ^[tTyY] ]] && break
+        read -p "Add another database? (y/N): " ADD_MORE
+        [[ ! "$ADD_MORE" =~ ^[yYtT] ]] && break
     done
 
-    # Zapisz credentials do pliku
+    # Save credentials to file
     echo ""
-    echo "💾 Zapisuję credentials do $CREDENTIALS_FILE..."
+    echo "💾 Saving credentials to $CREDENTIALS_FILE..."
 
     mkdir -p "$CREDENTIALS_DIR"
 
     cat > "$CREDENTIALS_FILE" << 'EOF'
 # StackPilot - Database Credentials
-# Plik wygenerowany przez setup-db-backup.sh
-# UWAGA: Zawiera hasła! Uprawnienia: 600 (tylko root)
+# Generated by setup-db-backup.sh
+# WARNING: Contains passwords! Permissions: 600 (root only)
 #
 # Format: ID:TYPE:HOST:PORT:DATABASE:USER:PASSWORD
 
@@ -145,40 +144,40 @@ EOF
 
     echo ")" >> "$CREDENTIALS_FILE"
 
-    # Ustaw restrykcyjne uprawnienia
+    # Set restrictive permissions
     chmod 600 "$CREDENTIALS_FILE"
     chown root:root "$CREDENTIALS_FILE"
 
-    echo "✅ Credentials zapisane (uprawnienia: 600, właściciel: root)"
+    echo "✅ Credentials saved (permissions: 600, owner: root)"
 fi
 
 # =============================================================================
-# FAZA 3: Generowanie skryptu backupu
+# PHASE 3: Generate backup script
 # =============================================================================
 
 if [ "$HAS_SHARED_POSTGRES" = false ] && [ "$HAS_SHARED_MYSQL" = false ] && [ ${#CUSTOM_DATABASES[@]} -eq 0 ]; then
     echo ""
-    echo "❌ Nie znaleziono żadnych baz danych do backupu!"
-    echo "   - Włącz współdzieloną bazę: https://mikr.us/panel/?a=postgres"
-    echo "   - Lub dodaj dedykowaną bazę uruchamiając ten skrypt ponownie"
+    echo "❌ No databases found to back up!"
+    echo "   - Enable a shared database in your hosting panel"
+    echo "   - Or add a dedicated database by running this script again"
     exit 1
 fi
 
 echo ""
-echo "📁 Tworzę katalog backupów: $BACKUP_DIR"
+echo "📁 Creating backup directory: $BACKUP_DIR"
 mkdir -p "$BACKUP_DIR"
 
-echo "📝 Generuję skrypt backupu..."
+echo "📝 Generating backup script..."
 mkdir -p "$(dirname "$BACKUP_SCRIPT")"
 
 cat > "$BACKUP_SCRIPT" << 'BACKUP_HEADER'
 #!/bin/bash
-# Automatyczny backup baz danych Mikrus
-# Wygenerowane przez setup-db-backup.sh
+# Automatic database backup
+# Generated by setup-db-backup.sh
 #
-# Obsługuje:
-# - Współdzielone bazy (credentials z API - zawsze aktualne)
-# - Dedykowane bazy (credentials z pliku)
+# Supports:
+# - Shared databases (credentials from API - always up to date)
+# - Dedicated databases (credentials from file)
 
 BACKUP_DIR="/opt/backups/db"
 CREDENTIALS_FILE="/opt/stackpilot/config/db-credentials.conf"
@@ -190,17 +189,17 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOG_FILE"
 }
 
-# Usuń stare backupy
+# Remove old backups
 find "$BACKUP_DIR" -name "*.sql.gz" -mtime +$KEEP_DAYS -delete 2>/dev/null
 
 BACKUP_HEADER
 
-# Dodaj backup współdzielonych baz (z API)
+# Add shared database backup (from API)
 if [ "$HAS_SHARED_POSTGRES" = true ] || [ "$HAS_SHARED_MYSQL" = true ]; then
     cat >> "$BACKUP_SCRIPT" << 'SHARED_API'
 
 # =============================================================================
-# BACKUP BAZ WSPÓŁDZIELONYCH (credentials z API)
+# SHARED DATABASE BACKUP (credentials from API)
 # =============================================================================
 
 API_KEY=$(cat /klucz_api 2>/dev/null)
@@ -258,12 +257,12 @@ if [ "$HAS_SHARED_POSTGRES" = true ] || [ "$HAS_SHARED_MYSQL" = true ]; then
     echo "fi" >> "$BACKUP_SCRIPT"
 fi
 
-# Dodaj backup dedykowanych baz (z pliku credentials)
+# Add dedicated database backup (from credentials file)
 if [ ${#CUSTOM_DATABASES[@]} -gt 0 ]; then
     cat >> "$BACKUP_SCRIPT" << 'CUSTOM_BACKUP'
 
 # =============================================================================
-# BACKUP BAZ DEDYKOWANYCH (credentials z pliku)
+# DEDICATED DATABASE BACKUP (credentials from file)
 # =============================================================================
 
 if [ -f "$CREDENTIALS_FILE" ]; then
@@ -295,68 +294,67 @@ fi
 CUSTOM_BACKUP
 fi
 
-# Zakończenie skryptu
+# Script footer
 cat >> "$BACKUP_SCRIPT" << 'BACKUP_FOOTER'
 
-log "Backup zakończony"
+log "Backup completed"
 BACKUP_FOOTER
 
 chmod +x "$BACKUP_SCRIPT"
 
 # =============================================================================
-# FAZA 4: Konfiguracja cron
+# PHASE 4: Configure cron
 # =============================================================================
 
-echo "⏰ Konfiguruję automatyczny backup (codziennie o 3:00)..."
+echo "⏰ Configuring automatic backup (daily at 3:00 AM)..."
 
 cat > "$CRON_FILE" << EOF
-# StackPilot - Automatyczny backup bazy danych
-# Codziennie o 3:00
+# StackPilot - Automatic database backup
+# Daily at 3:00 AM
 0 3 * * * root $BACKUP_SCRIPT >> /var/log/db-backup.log 2>&1
 EOF
 
 chmod 644 "$CRON_FILE"
 
 # =============================================================================
-# FAZA 5: Test
+# PHASE 5: Test
 # =============================================================================
 
 echo ""
-echo "🧪 Wykonuję testowy backup..."
+echo "🧪 Running test backup..."
 if $BACKUP_SCRIPT 2>&1 | tail -5; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ✅ Backup skonfigurowany pomyślnie!                           ║"
+    echo "║  ✅ Backup configured successfully!                            ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    echo "📋 Konfiguracja:"
-    echo "   Katalog backupów:  $BACKUP_DIR"
-    echo "   Skrypt:            $BACKUP_SCRIPT"
-    echo "   Cron:              codziennie o 3:00"
-    echo "   Retencja:          7 dni"
+    echo "📋 Configuration:"
+    echo "   Backup directory:  $BACKUP_DIR"
+    echo "   Script:            $BACKUP_SCRIPT"
+    echo "   Cron:              daily at 3:00 AM"
+    echo "   Retention:         7 days"
     if [ -f "$CREDENTIALS_FILE" ]; then
         echo "   Credentials:       $CREDENTIALS_FILE (chmod 600)"
     fi
     echo ""
-    echo "📦 Utworzone backupy:"
-    ls -lh "$BACKUP_DIR"/*.sql.gz 2>/dev/null || echo "   (brak plików)"
+    echo "📦 Created backups:"
+    ls -lh "$BACKUP_DIR"/*.sql.gz 2>/dev/null || echo "   (no files)"
     echo ""
-    echo "💡 Komendy:"
-    echo "   Ręczny backup:     $BACKUP_SCRIPT"
-    echo "   Logi:              tail -f /var/log/db-backup.log"
+    echo "💡 Commands:"
+    echo "   Manual backup:     $BACKUP_SCRIPT"
+    echo "   Logs:              tail -f /var/log/db-backup.log"
     echo ""
-    echo "💡 Przywracanie:"
+    echo "💡 Restore:"
     echo "   PostgreSQL: gunzip -c backup.sql.gz | psql -h HOST -U USER DB"
     echo "   MySQL:      gunzip -c backup.sql.gz | mysql -h HOST -u USER -p DB"
 else
     echo ""
-    echo "⚠️  Testowy backup mógł nie działać poprawnie."
-    echo "   Sprawdź logi: /var/log/db-backup.log"
+    echo "⚠️  Test backup may not have worked correctly."
+    echo "   Check logs: /var/log/db-backup.log"
 fi
 
 echo ""
-echo "⚠️  UWAGA: Backupy są przechowywane lokalnie na serwerze."
-echo "   Dla pełnego bezpieczeństwa, rozważ kopiowanie na zewnętrzny storage:"
-echo "   - Strych  (200MB limit): setup-backup-mikrus.sh"
+echo "⚠️  NOTE: Backups are stored locally on the server."
+echo "   For full safety, consider copying to external storage:"
 echo "   - Google Drive/Dropbox: rclone"
 echo ""

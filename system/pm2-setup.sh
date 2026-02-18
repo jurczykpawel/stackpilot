@@ -20,7 +20,7 @@ echo "--- 2. Installing PM2 ---"
 sudo npm install -p pm2@latest -g
 
 echo "--- 3. Configuring PM2 Log Rotation ---"
-# This is critical for Mikrus to avoid disk exhaustion
+# This is critical for small VPS to avoid disk exhaustion
 pm2 install pm2-logrotate
 pm2 set pm2-logrotate:max_size 10M
 pm2 set pm2-logrotate:retain 5

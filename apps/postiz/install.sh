@@ -7,18 +7,18 @@
 #
 # IMAGE_SIZE_MB=3000  # ghcr.io/gitroomhq/postiz-app:v2.11.3 (1.2GB compressed → ~3GB on disk)
 #
-# ⚠️  UWAGA: Ta aplikacja zaleca minimum 2GB RAM (Mikrus 3.0+)!
+# ⚠️  NOTE: This app recommends at least 2GB RAM (2GB+ VPS)!
 #     Postiz (Next.js) + Redis = ~1-1.5GB RAM
 #
-# Pinujemy v2.11.3 (pre-Temporal). Od v2.12+ Postiz wymaga Temporal + Elasticsearch
-# + drugi PostgreSQL = 7 kontenerów, minimum 4GB RAM. Zbyt ciężkie na Mikrus.
+# Pinning v2.11.3 (pre-Temporal). Since v2.12+ Postiz requires Temporal + Elasticsearch
+# + second PostgreSQL = 7 containers, minimum 4GB RAM. Too heavy for small VPS.
 # https://github.com/gitroomhq/postiz-app/releases/tag/v2.11.3
 #
-# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
-#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS - baza PostgreSQL
-#   DOMAIN (opcjonalne)
-#   POSTIZ_REDIS (opcjonalne): auto|external|bundled (domyślnie: auto)
-#   REDIS_PASS (opcjonalne): hasło do external Redis
+# Required environment variables (passed by deploy.sh):
+#   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS - PostgreSQL database
+#   DOMAIN (optional)
+#   POSTIZ_REDIS (optional): auto|external|bundled (default: auto)
+#   REDIS_PASS (optional): password for external Redis
 
 set -e
 
@@ -30,52 +30,52 @@ echo "--- 📱 Postiz Setup ---"
 echo "AI-powered social media scheduler."
 echo ""
 
-# Port binding: Cytrus wymaga 0.0.0.0, Cloudflare/local → 127.0.0.1
+# Port binding: Cytrus requires 0.0.0.0, Cloudflare/local → 127.0.0.1
 if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
     BIND_ADDR=""
 else
     BIND_ADDR="127.0.0.1:"
 fi
 
-# RAM check - soft warning (nie blokujemy, ale ostrzegamy)
+# RAM check - soft warning (don't block, just warn)
 TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")
 
 if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ⚠️  UWAGA: Postiz zaleca minimum 2GB RAM!                   ║"
+    echo "║  ⚠️  NOTE: Postiz recommends at least 2GB RAM!               ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Zalecane:    2048MB RAM (Mikrus 3.0+)                       ║"
+    echo "║  Your server: ${TOTAL_RAM}MB RAM                             ║"
+    echo "║  Recommended: 2048MB RAM (2GB+ VPS)                          ║"
     echo "║                                                              ║"
     echo "║  Postiz + Redis = ~1-1.5GB RAM                               ║"
-    echo "║  Na małym serwerze może być wolny.                           ║"
+    echo "║  On a small server it may be slow.                           ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 fi
 
 # =============================================================================
-# DETEKCJA REDIS (external vs bundled)
+# REDIS DETECTION (external vs bundled)
 # =============================================================================
-# POSTIZ_REDIS=external  → użyj istniejącego na hoście (localhost:6379)
-# POSTIZ_REDIS=bundled   → zawsze bundluj redis:7.2-alpine w compose
-# POSTIZ_REDIS=auto      → auto-detekcja (domyślne)
+# POSTIZ_REDIS=external  → use existing on host (localhost:6379)
+# POSTIZ_REDIS=bundled   → always bundle redis:7.2-alpine in compose
+# POSTIZ_REDIS=auto      → auto-detect (default)
 
 source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
     detect_redis "${POSTIZ_REDIS:-auto}" "postiz-redis"
 else
     REDIS_HOST="postiz-redis"
-    echo "✅ Redis: bundled (lib/redis-detect.sh niedostępne)"
+    echo "✅ Redis: bundled (lib/redis-detect.sh unavailable)"
 fi
 
-# Hasło Redis (user podaje przez REDIS_PASS env var)
+# Redis password (user provides via REDIS_PASS env var)
 REDIS_PASS="${REDIS_PASS:-}"
 if [ -n "$REDIS_PASS" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
-    echo "   🔑 Hasło Redis: ustawione"
+    echo "   🔑 Redis password: set"
 fi
 
-# Buduj REDIS_URL
+# Build REDIS_URL
 if [ "$REDIS_HOST" = "host-gateway" ]; then
     if [ -n "$REDIS_PASS" ]; then
         REDIS_URL="redis://:${REDIS_PASS}@host-gateway:6379"
@@ -86,28 +86,27 @@ else
     REDIS_URL="redis://postiz-redis:6379"
 fi
 
-# Check for shared Mikrus DB (doesn't support gen_random_uuid on PG 12)
+# Check for shared DB (doesn't support gen_random_uuid on PG 12)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Postiz NIE działa ze współdzieloną bazą !    ║"
+    echo "║  ❌ ERROR: Postiz does NOT work with a shared database!      ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Postiz (Prisma) wymaga gen_random_uuid(), które nie jest      ║"
-    echo "║  dostępne w PostgreSQL 12 (shared Mikrus).                     ║"
-    echo "║                                                                ║"
-    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
-    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "║  Postiz (Prisma) requires gen_random_uuid(), which is not    ║"
+    echo "║  available in PostgreSQL 12 (shared database).               ║"
+    echo "║                                                              ║"
+    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
 fi
 
-# Sprawdź dane bazy PostgreSQL
+# Check PostgreSQL credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
-    echo "❌ Brak danych bazy PostgreSQL!"
-    echo "   Wymagane: DB_HOST, DB_USER, DB_PASS, DB_NAME"
+    echo "❌ Missing PostgreSQL credentials!"
+    echo "   Required: DB_HOST, DB_USER, DB_PASS, DB_NAME"
     echo ""
-    echo "   Użyj deploy.sh - automatycznie skonfiguruje bazę:"
+    echo "   Use deploy.sh - it will configure the database automatically:"
     echo "   ./local/deploy.sh postiz --ssh=mikrus"
     exit 1
 fi
@@ -115,27 +114,27 @@ fi
 DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-postiz}
 
-echo "✅ Baza PostgreSQL: $DB_HOST:$DB_PORT/$DB_NAME (user: $DB_USER)"
+echo "✅ PostgreSQL: $DB_HOST:$DB_PORT/$DB_NAME (user: $DB_USER)"
 
-# Buduj DATABASE_URL
+# Build DATABASE_URL
 DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
 
-# Generuj sekrety
+# Generate secrets
 JWT_SECRET=$(openssl rand -hex 32)
 
 # Domain / URLs
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
     MAIN_URL="https://$DOMAIN"
     FRONTEND_URL="https://$DOMAIN"
     BACKEND_URL="https://$DOMAIN/api"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus) — URL-e zostaną zaktualizowane"
+    echo "✅ Domain: automatic (Cytrus) — URLs will be updated"
     MAIN_URL="http://localhost:$PORT"
     FRONTEND_URL="http://localhost:$PORT"
     BACKEND_URL="http://localhost:$PORT/api"
 else
-    echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
+    echo "⚠️  No domain - use --domain=... or access via SSH tunnel"
     MAIN_URL="http://localhost:$PORT"
     FRONTEND_URL="http://localhost:$PORT"
     BACKEND_URL="http://localhost:$PORT/api"
@@ -144,7 +143,7 @@ fi
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-# --- Docker Compose: warunkowe bloki Redis ---
+# --- Docker Compose: conditional Redis blocks ---
 POSTIZ_DEPENDS=""
 POSTIZ_EXTRA_HOSTS=""
 REDIS_SERVICE=""
@@ -171,7 +170,7 @@ if [ "$REDIS_HOST" = "postiz-redis" ]; then
         limits:
           memory: 128M"
 else
-    # External Redis - łącz z hostem
+    # External Redis - connect to host
     POSTIZ_EXTRA_HOSTS="    extra_hosts:
       - \"host-gateway:host-gateway\""
 fi
@@ -216,21 +215,21 @@ EOF
 
 sudo docker compose up -d
 
-# Health check - Next.js potrzebuje ~60-90s na start
-echo "⏳ Czekam na uruchomienie Postiz (~60-90s, Next.js)..."
+# Health check - Next.js needs ~60-90s to start
+echo "⏳ Waiting for Postiz to start (~60-90s, Next.js)..."
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Installation failed!"; exit 1; }
 else
     for i in $(seq 1 9); do
         sleep 10
         if curl -sf "http://localhost:$PORT" > /dev/null 2>&1; then
-            echo "✅ Postiz działa (po $((i*10))s)"
+            echo "✅ Postiz is running (after $((i*10))s)"
             break
         fi
         echo "   ... $((i*10))s"
         if [ "$i" -eq 9 ]; then
-            echo "❌ Kontener nie wystartował w 90s!"
+            echo "❌ Container failed to start within 90s!"
             sudo docker compose logs --tail 30
             exit 1
         fi
@@ -239,21 +238,21 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ Postiz zainstalowany!"
+echo "✅ Postiz installed!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "🔗 Otwórz https://$DOMAIN"
+    echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
-    echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
-echo "📝 Następne kroki:"
-echo "   1. Utwórz konto administratora w przeglądarce"
-echo "   2. Podłącz konta social media (Twitter/X, LinkedIn, Instagram...)"
-echo "   3. Zaplanuj pierwsze posty!"
+echo "📝 Next steps:"
+echo "   1. Create an admin account in the browser"
+echo "   2. Connect social media accounts (Twitter/X, LinkedIn, Instagram...)"
+echo "   3. Schedule your first posts!"
 echo ""
-echo "🔒 Po utworzeniu konta wyłącz rejestrację:"
+echo "🔒 After creating your account, disable registration:"
 echo "   ssh <server> 'cd $STACK_DIR && grep -q DISABLE_REGISTRATION docker-compose.yaml || sed -i \"/IS_GENERAL/a\\      - DISABLE_REGISTRATION=true\" docker-compose.yaml && docker compose up -d'"

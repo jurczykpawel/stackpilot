@@ -1,63 +1,63 @@
 #!/bin/bash
 
 # StackPilot - Supabase SMTP Setup
-# Konfiguruje SMTP dla wysyłki emaili w GateFlow
+# Configures SMTP for sending emails in GateFlow
 # Author: Paweł (Lazy Engineer)
 #
-# UWAGA: Szablony email są konfigurowane automatycznie przez deploy.sh
-# Ten skrypt służy tylko do konfiguracji SMTP (własnego serwera email)
+# NOTE: Email templates are configured automatically by deploy.sh
+# This script is only for configuring SMTP (custom email server)
 #
-# Używa Supabase Management API
+# Uses Supabase Management API
 #
-# Użycie:
+# Usage:
 #   ./local/setup-supabase-email.sh
 
 set -e
 
-# Załaduj bibliotekę Supabase
+# Load Supabase library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$REPO_ROOT/lib/gateflow-setup.sh"
 
 echo ""
-echo -e "${BLUE}📮 Konfiguracja SMTP dla Supabase${NC}"
+echo -e "${BLUE}📮 SMTP Configuration for Supabase${NC}"
 echo ""
 
 # =============================================================================
-# 1. TOKEN SUPABASE
+# 1. SUPABASE TOKEN
 # =============================================================================
 
 if ! check_saved_supabase_token; then
     if ! supabase_manual_token_flow; then
-        echo -e "${RED}❌ Nie udało się uzyskać tokena${NC}"
+        echo -e "${RED}❌ Failed to obtain token${NC}"
         exit 1
     fi
     save_supabase_token "$SUPABASE_TOKEN"
 fi
 
 # =============================================================================
-# 2. WYBÓR PROJEKTU SUPABASE
+# 2. SELECT SUPABASE PROJECT
 # =============================================================================
 
 if ! select_supabase_project; then
-    echo -e "${RED}❌ Nie udało się wybrać projektu${NC}"
+    echo -e "${RED}❌ Failed to select project${NC}"
     exit 1
 fi
 
-# Użyj SUPABASE_TOKEN zamiast SUPABASE_ACCESS_TOKEN (kompatybilność z resztą skryptu)
+# Use SUPABASE_TOKEN instead of SUPABASE_ACCESS_TOKEN (compatibility with rest of script)
 SUPABASE_ACCESS_TOKEN="$SUPABASE_TOKEN"
 
 # =============================================================================
-# 3. KONFIGURACJA SMTP
+# 3. SMTP CONFIGURATION
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "📮 KONFIGURACJA SMTP"
+echo "📮 SMTP CONFIGURATION"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Popularne opcje:"
-echo "   • Gmail: smtp.gmail.com (wymaga App Password)"
+echo "Popular options:"
+echo "   • Gmail: smtp.gmail.com (requires App Password)"
 echo "   • Resend: smtp.resend.com"
 echo "   • SendGrid: smtp.sendgrid.net"
 echo ""
@@ -65,11 +65,11 @@ echo ""
 read -p "SMTP Host: " SMTP_HOST
 
 if [ -z "$SMTP_HOST" ]; then
-    echo -e "${YELLOW}⚠️  Anulowano${NC}"
+    echo -e "${YELLOW}⚠️  Cancelled${NC}"
     exit 0
 fi
 
-# Domyślny port
+# Default port
 DEFAULT_PORT="587"
 if [[ "$SMTP_HOST" == *"resend"* ]]; then
     DEFAULT_PORT="465"
@@ -82,18 +82,18 @@ read -p "SMTP Username (email): " SMTP_USER
 read -sp "SMTP Password: " SMTP_PASS
 echo ""
 
-read -p "Adres nadawcy (np. noreply@twojadomena.pl): " SMTP_SENDER_EMAIL
-read -p "Nazwa nadawcy [GateFlow]: " SMTP_SENDER_NAME
+read -p "Sender email address (e.g. noreply@yourdomain.com): " SMTP_SENDER_EMAIL
+read -p "Sender name [GateFlow]: " SMTP_SENDER_NAME
 SMTP_SENDER_NAME="${SMTP_SENDER_NAME:-GateFlow}"
 
 # =============================================================================
-# 4. ZAPISZ KONFIGURACJĘ
+# 4. SAVE CONFIGURATION
 # =============================================================================
 
 echo ""
-echo "🚀 Zapisuję konfigurację SMTP w Supabase..."
+echo "🚀 Saving SMTP configuration in Supabase..."
 
-# Buduj JSON payload
+# Build JSON payload
 CONFIG_JSON=$(jq -n \
     --arg host "$SMTP_HOST" \
     --arg port "$SMTP_PORT" \
@@ -110,7 +110,7 @@ CONFIG_JSON=$(jq -n \
         smtp_sender_name: $name
     }')
 
-# Wyślij do API
+# Send to API
 RESPONSE=$(curl -s -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
@@ -118,27 +118,27 @@ RESPONSE=$(curl -s -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/c
 
 if echo "$RESPONSE" | grep -q '"error"'; then
     ERROR=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
-    echo -e "${RED}❌ Błąd: $ERROR${NC}"
+    echo -e "${RED}❌ Error: $ERROR${NC}"
     exit 1
 fi
 
 # =============================================================================
-# 5. PODSUMOWANIE
+# 5. SUMMARY
 # =============================================================================
 
 echo ""
-echo -e "${GREEN}✅ SMTP skonfigurowany!${NC}"
+echo -e "${GREEN}✅ SMTP configured!${NC}"
 echo ""
-echo "📮 Ustawienia:"
+echo "📮 Settings:"
 echo "   Host: $SMTP_HOST:$SMTP_PORT"
-echo "   Nadawca: $SMTP_SENDER_NAME <$SMTP_SENDER_EMAIL>"
+echo "   Sender: $SMTP_SENDER_NAME <$SMTP_SENDER_EMAIL>"
 echo ""
 
 if [[ "$SMTP_HOST" == *"gmail"* ]]; then
-    echo -e "${YELLOW}💡 Dla Gmail użyj App Password:${NC}"
+    echo -e "${YELLOW}💡 For Gmail use an App Password:${NC}"
     echo "   https://myaccount.google.com/apppasswords"
     echo ""
 fi
 
-echo "Emaile będą wysyłane przez Twój serwer SMTP zamiast domyślnego Supabase."
+echo "Emails will be sent through your SMTP server instead of the default Supabase."
 echo ""

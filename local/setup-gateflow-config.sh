@@ -1,23 +1,23 @@
 #!/bin/bash
 
 # StackPilot - GateFlow Configuration Setup
-# Zbiera i zapisuje wszystkie klucze potrzebne do automatycznego deploymentu GateFlow
+# Collects and saves all keys needed for automatic GateFlow deployment
 # Author: Paweł (Lazy Engineer)
 #
-# Po uruchomieniu tego skryptu można odpalić:
+# After running this script you can run:
 #   ./local/deploy.sh gateflow --ssh=ALIAS --yes
 #
-# Użycie:
+# Usage:
 #   ./local/setup-gateflow-config.sh [--ssh=ALIAS]
 
 set -e
 
-# Załaduj biblioteki
+# Load libraries
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$REPO_ROOT/lib/gateflow-setup.sh"
 
-# Parsuj argumenty
+# Parse arguments
 SSH_ALIAS=""
 DOMAIN=""
 DOMAIN_TYPE=""
@@ -37,28 +37,28 @@ for arg in "$@"; do
         --no-turnstile) NO_TURNSTILE=true ;;
         --help|-h)
             cat <<EOF
-Użycie: ./local/setup-gateflow-config.sh [opcje]
+Usage: ./local/setup-gateflow-config.sh [options]
 
-Opcje:
-  --ssh=ALIAS              SSH alias serwera
-  --domain=DOMAIN          Domena (lub 'auto' dla automatycznej Cytrus)
-  --domain-type=TYPE       Typ domeny: cytrus, cloudflare
-  --supabase-project=REF   Project ref Supabase (pomija wybór interaktywny)
-  --no-supabase            Bez konfiguracji Supabase
-  --no-stripe              Bez konfiguracji Stripe
-  --no-turnstile           Bez konfiguracji Turnstile
+Options:
+  --ssh=ALIAS              SSH alias for the server
+  --domain=DOMAIN          Domain (or 'auto' for automatic Cytrus)
+  --domain-type=TYPE       Domain type: cytrus, cloudflare
+  --supabase-project=REF   Supabase project ref (skips interactive selection)
+  --no-supabase            Skip Supabase configuration
+  --no-stripe              Skip Stripe configuration
+  --no-turnstile           Skip Turnstile configuration
 
-Przykłady:
-  # Pełna interaktywna konfiguracja
+Examples:
+  # Full interactive configuration
   ./local/setup-gateflow-config.sh
 
-  # Z domeną i SSH
-  ./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto --domain-type=cytrus
+  # With domain and SSH
+  ./local/setup-gateflow-config.sh --ssh=vps --domain=auto --domain-type=cytrus
 
-  # Z konkretnym projektem Supabase
-  ./local/setup-gateflow-config.sh --ssh=mikrus --supabase-project=abcdefghijk --domain=auto
+  # With a specific Supabase project
+  ./local/setup-gateflow-config.sh --ssh=vps --supabase-project=abcdefghijk --domain=auto
 
-  # Tylko Supabase (bez Stripe i Turnstile)
+  # Supabase only (without Stripe and Turnstile)
   ./local/setup-gateflow-config.sh --no-stripe --no-turnstile
 EOF
             exit 0
@@ -66,36 +66,36 @@ EOF
     esac
 done
 
-# Walidacja domain-type
+# Validate domain-type
 if [ -n "$DOMAIN_TYPE" ]; then
     case "$DOMAIN_TYPE" in
         cytrus|cloudflare) ;;
         *)
-            echo -e "${RED}❌ Nieprawidłowy --domain-type: $DOMAIN_TYPE${NC}"
-            echo "   Dozwolone: cytrus, cloudflare"
+            echo -e "${RED}❌ Invalid --domain-type: $DOMAIN_TYPE${NC}"
+            echo "   Allowed: cytrus, cloudflare"
             exit 1
             ;;
     esac
 fi
 
-# Konwertuj --domain=auto na "-" (marker dla automatycznej Cytrus)
+# Convert --domain=auto to "-" (marker for automatic Cytrus)
 if [ "$DOMAIN" = "auto" ]; then
     DOMAIN="-"
     DOMAIN_TYPE="${DOMAIN_TYPE:-cytrus}"
 fi
 
-# Konfiguracja
+# Configuration
 CONFIG_FILE="$HOME/.config/gateflow/deploy-config.env"
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo -e "${BLUE}🔧 GateFlow - Konfiguracja kluczy${NC}"
+echo -e "${BLUE}🔧 GateFlow - Key Configuration${NC}"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Ten skrypt zbierze wszystkie klucze potrzebne do deploymentu."
-echo "Każdy krok jest opcjonalny - naciśnij Enter aby pominąć."
+echo "This script will collect all keys needed for deployment."
+echo "Each step is optional - press Enter to skip."
 echo ""
-echo "Po zakończeniu będziesz mógł uruchomić deployment automatycznie:"
+echo "After completion you can run the deployment automatically:"
 echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=ALIAS --yes${NC}"
 echo ""
 
@@ -104,21 +104,21 @@ echo ""
 # =============================================================================
 
 echo "════════════════════════════════════════════════════════════════"
-echo "1️⃣  SSH - Serwer docelowy"
+echo "1️⃣  SSH - Target Server"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
 if [ -z "$SSH_ALIAS" ]; then
-    echo "Dostępne aliasy SSH (z ~/.ssh/config):"
+    echo "Available SSH aliases (from ~/.ssh/config):"
     grep -E "^Host " ~/.ssh/config 2>/dev/null | awk '{print "   • " $2}' | head -10
     echo ""
-    read -p "SSH alias [Enter aby pominąć]: " SSH_ALIAS
+    read -p "SSH alias [Enter to skip]: " SSH_ALIAS
 fi
 
 if [ -n "$SSH_ALIAS" ]; then
     echo -e "${GREEN}   ✅ SSH: $SSH_ALIAS${NC}"
 else
-    echo -e "${YELLOW}   ⏭️  Pominięto - podasz przy deployu${NC}"
+    echo -e "${YELLOW}   ⏭️  Skipped - you'll provide it during deployment${NC}"
 fi
 
 # =============================================================================
@@ -127,22 +127,22 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "2️⃣  Supabase - Baza danych i Auth"
+echo "2️⃣  Supabase - Database and Auth"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
 SUPABASE_CONFIGURED=false
 
 if [ "$NO_SUPABASE" = true ]; then
-    echo -e "${YELLOW}   ⏭️  Pominięto (--no-supabase)${NC}"
+    echo -e "${YELLOW}   ⏭️  Skipped (--no-supabase)${NC}"
 elif [ -n "$SUPABASE_PROJECT" ]; then
-    # Podano project ref przez CLI - pobierz klucze automatycznie
-    echo "   Projekt: $SUPABASE_PROJECT"
+    # Project ref provided via CLI - fetch keys automatically
+    echo "   Project: $SUPABASE_PROJECT"
 
-    # Upewnij się że mamy token
+    # Make sure we have a token
     if ! check_saved_supabase_token; then
         if ! supabase_manual_token_flow; then
-            echo -e "${RED}   ❌ Brak tokena Supabase${NC}"
+            echo -e "${RED}   ❌ Missing Supabase token${NC}"
         fi
         if [ -n "$SUPABASE_TOKEN" ]; then
             save_supabase_token "$SUPABASE_TOKEN"
@@ -152,16 +152,16 @@ elif [ -n "$SUPABASE_PROJECT" ]; then
     if [ -n "$SUPABASE_TOKEN" ]; then
         if fetch_supabase_keys_by_ref "$SUPABASE_PROJECT"; then
             SUPABASE_CONFIGURED=true
-            echo -e "${GREEN}   ✅ Supabase skonfigurowany${NC}"
+            echo -e "${GREEN}   ✅ Supabase configured${NC}"
         fi
     fi
 else
-    read -p "Skonfigurować Supabase teraz? [T/n]: " SETUP_SUPABASE
+    read -p "Configure Supabase now? [Y/n]: " SETUP_SUPABASE
     if [[ ! "$SETUP_SUPABASE" =~ ^[Nn]$ ]]; then
         # Token
         if ! check_saved_supabase_token; then
             if ! supabase_login_flow; then
-                echo -e "${YELLOW}   ⚠️  Logowanie nieudane, spróbuj ręcznie${NC}"
+                echo -e "${YELLOW}   ⚠️  Login failed, try manually${NC}"
                 supabase_manual_token_flow
             fi
             if [ -n "$SUPABASE_TOKEN" ]; then
@@ -169,15 +169,15 @@ else
             fi
         fi
 
-        # Wybór projektu
+        # Project selection
         if [ -n "$SUPABASE_TOKEN" ]; then
             if select_supabase_project; then
                 SUPABASE_CONFIGURED=true
-                echo -e "${GREEN}   ✅ Supabase skonfigurowany${NC}"
+                echo -e "${GREEN}   ✅ Supabase configured${NC}"
             fi
         fi
     else
-        echo -e "${YELLOW}   ⏭️  Pominięto${NC}"
+        echo -e "${YELLOW}   ⏭️  Skipped${NC}"
     fi
 fi
 
@@ -187,7 +187,7 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "3️⃣  Stripe - Płatności"
+echo "3️⃣  Stripe - Payments"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
@@ -196,24 +196,24 @@ STRIPE_SK="${STRIPE_SK:-}"
 STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-}"
 
 if [ "$NO_STRIPE" = true ]; then
-    echo -e "${YELLOW}   ⏭️  Pominięto (--no-stripe)${NC}"
+    echo -e "${YELLOW}   ⏭️  Skipped (--no-stripe)${NC}"
 else
-    read -p "Skonfigurować Stripe teraz? [T/n]: " SETUP_STRIPE
+    read -p "Configure Stripe now? [Y/n]: " SETUP_STRIPE
     if [[ ! "$SETUP_STRIPE" =~ ^[Nn]$ ]]; then
         echo ""
-        echo "   Otwórz: https://dashboard.stripe.com/apikeys"
+        echo "   Open: https://dashboard.stripe.com/apikeys"
         echo ""
         read -p "STRIPE_PUBLISHABLE_KEY (pk_...): " STRIPE_PK
 
         if [ -n "$STRIPE_PK" ]; then
             read -p "STRIPE_SECRET_KEY (sk_...): " STRIPE_SK
-            read -p "STRIPE_WEBHOOK_SECRET (whsec_..., opcjonalne): " STRIPE_WEBHOOK_SECRET
-            echo -e "${GREEN}   ✅ Stripe skonfigurowany${NC}"
+            read -p "STRIPE_WEBHOOK_SECRET (whsec_..., optional): " STRIPE_WEBHOOK_SECRET
+            echo -e "${GREEN}   ✅ Stripe configured${NC}"
         else
-            echo -e "${YELLOW}   ⏭️  Pominięto${NC}"
+            echo -e "${YELLOW}   ⏭️  Skipped${NC}"
         fi
     else
-        echo -e "${YELLOW}   ⏭️  Pominięto - skonfigurujesz w panelu GateFlow${NC}"
+        echo -e "${YELLOW}   ⏭️  Skipped - you can configure it in the GateFlow panel${NC}"
     fi
 fi
 
@@ -223,7 +223,7 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "4️⃣  Cloudflare Turnstile - CAPTCHA (opcjonalne)"
+echo "4️⃣  Cloudflare Turnstile - CAPTCHA (optional)"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
@@ -231,26 +231,26 @@ TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-}"
 TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}"
 
 if [ "$NO_TURNSTILE" = true ]; then
-    echo -e "${YELLOW}   ⏭️  Pominięto (--no-turnstile)${NC}"
-elif [[ "$SETUP_TURNSTILE" =~ ^[TtYy]$ ]] || { read -p "Skonfigurować Turnstile teraz? [t/N]: " SETUP_TURNSTILE; [[ "$SETUP_TURNSTILE" =~ ^[TtYy]$ ]]; }; then
+    echo -e "${YELLOW}   ⏭️  Skipped (--no-turnstile)${NC}"
+elif [[ "$SETUP_TURNSTILE" =~ ^[TtYy]$ ]] || { read -p "Configure Turnstile now? [y/N]: " SETUP_TURNSTILE; [[ "$SETUP_TURNSTILE" =~ ^[TtYy]$ ]]; }; then
     echo ""
-    echo "   Turnstile możesz skonfigurować na dwa sposoby:"
-    echo "   a) Automatycznie przez API (wymaga tokena Cloudflare)"
-    echo "   b) Ręcznie - skopiuj klucze z dashboard"
+    echo "   You can configure Turnstile in two ways:"
+    echo "   a) Automatically via API (requires Cloudflare token)"
+    echo "   b) Manually - copy keys from the dashboard"
     echo ""
-    read -p "Użyć API Cloudflare? [T/n]: " USE_CF_API
+    read -p "Use Cloudflare API? [Y/n]: " USE_CF_API
 
     if [[ ! "$USE_CF_API" =~ ^[Nn]$ ]]; then
-        # Sprawdź czy mamy token Cloudflare
+        # Check if we have a Cloudflare token
         CF_TOKEN_FILE="$HOME/.config/cloudflare/api_token"
         if [ -f "$CF_TOKEN_FILE" ]; then
-            echo "   🔑 Znaleziono zapisany token Cloudflare"
+            echo "   🔑 Found saved Cloudflare token"
         else
             echo ""
-            echo "   Potrzebujesz API Token z uprawnieniami:"
+            echo "   You need an API Token with permissions:"
             echo "   • Account > Turnstile > Edit"
             echo ""
-            echo "   Otwórz: https://dash.cloudflare.com/profile/api-tokens"
+            echo "   Open: https://dash.cloudflare.com/profile/api-tokens"
             echo ""
             read -p "Cloudflare API Token: " CF_API_TOKEN
 
@@ -261,83 +261,83 @@ elif [[ "$SETUP_TURNSTILE" =~ ^[TtYy]$ ]] || { read -p "Skonfigurować Turnstile
             fi
         fi
 
-        echo -e "${YELLOW}   ℹ️  Turnstile zostanie skonfigurowany podczas deploymentu${NC}"
-        echo "   (wymaga znajomości domeny)"
+        echo -e "${YELLOW}   ℹ️  Turnstile will be configured during deployment${NC}"
+        echo "   (requires knowing the domain)"
     else
         echo ""
-        echo "   Otwórz: https://dash.cloudflare.com/?to=/:account/turnstile"
+        echo "   Open: https://dash.cloudflare.com/?to=/:account/turnstile"
         echo ""
         read -p "TURNSTILE_SITE_KEY: " TURNSTILE_SITE_KEY
 
         if [ -n "$TURNSTILE_SITE_KEY" ]; then
             read -p "TURNSTILE_SECRET_KEY: " TURNSTILE_SECRET_KEY
-            echo -e "${GREEN}   ✅ Turnstile skonfigurowany${NC}"
+            echo -e "${GREEN}   ✅ Turnstile configured${NC}"
         else
-            echo -e "${YELLOW}   ⏭️  Pominięto${NC}"
+            echo -e "${YELLOW}   ⏭️  Skipped${NC}"
         fi
     fi
 else
-    echo -e "${YELLOW}   ⏭️  Pominięto${NC}"
+    echo -e "${YELLOW}   ⏭️  Skipped${NC}"
 fi
 
 # =============================================================================
-# 5. DOMENA (opcjonalne)
+# 5. DOMAIN (optional)
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "5️⃣  Domena (opcjonalne)"
+echo "5️⃣  Domain (optional)"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
-# Jeśli DOMAIN podano przez CLI, pomiń pytania
+# If DOMAIN was provided via CLI, skip questions
 if [ -n "$DOMAIN" ]; then
     if [ "$DOMAIN" = "-" ]; then
-        echo -e "${GREEN}   ✅ Automatyczna domena Cytrus (--domain=auto)${NC}"
+        echo -e "${GREEN}   ✅ Automatic Cytrus domain (--domain=auto)${NC}"
     else
-        echo -e "${GREEN}   ✅ Domena: $DOMAIN ($DOMAIN_TYPE)${NC}"
+        echo -e "${GREEN}   ✅ Domain: $DOMAIN ($DOMAIN_TYPE)${NC}"
     fi
 else
-    echo "   1) Automatyczna domena Cytrus (np. xyz123.byst.re)"
-    echo "   2) Własna domena (wymaga konfiguracji DNS)"
-    echo "   3) Pomiń - wybiorę podczas deploymentu"
+    echo "   1) Automatic Cytrus domain (e.g. xyz123.byst.re)"
+    echo "   2) Custom domain (requires DNS configuration)"
+    echo "   3) Skip - I'll choose during deployment"
     echo ""
-    read -p "Wybierz [1-3, domyślnie 3]: " DOMAIN_CHOICE
+    read -p "Choose [1-3, default 3]: " DOMAIN_CHOICE
 
     case "$DOMAIN_CHOICE" in
         1)
             DOMAIN="-"
             DOMAIN_TYPE="cytrus"
-            echo -e "${GREEN}   ✅ Automatyczna domena Cytrus${NC}"
+            echo -e "${GREEN}   ✅ Automatic Cytrus domain${NC}"
             ;;
         2)
-            read -p "Podaj domenę (np. app.example.com): " DOMAIN
+            read -p "Enter domain (e.g. app.example.com): " DOMAIN
             if [ -n "$DOMAIN" ]; then
-                echo "   Typ domeny:"
-                echo "   a) Cytrus (subdomena *.byst.re, *.bieda.it, etc.)"
-                echo "   b) Cloudflare (własna domena)"
-                read -p "Wybierz [a/b]: " DTYPE
+                echo "   Domain type:"
+                echo "   a) Cytrus (subdomain *.byst.re, *.bieda.it, etc.)"
+                echo "   b) Cloudflare (custom domain)"
+                read -p "Choose [a/b]: " DTYPE
                 if [[ "$DTYPE" =~ ^[Bb]$ ]]; then
                     DOMAIN_TYPE="cloudflare"
                 else
                     DOMAIN_TYPE="cytrus"
                 fi
-                echo -e "${GREEN}   ✅ Domena: $DOMAIN ($DOMAIN_TYPE)${NC}"
+                echo -e "${GREEN}   ✅ Domain: $DOMAIN ($DOMAIN_TYPE)${NC}"
             fi
             ;;
         *)
-            echo -e "${YELLOW}   ⏭️  Pominięto - wybierzesz podczas deploymentu${NC}"
+            echo -e "${YELLOW}   ⏭️  Skipped - you'll choose during deployment${NC}"
             ;;
     esac
 fi
 
 # =============================================================================
-# 6. ZAPISZ KONFIGURACJĘ
+# 6. SAVE CONFIGURATION
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "💾 Zapisuję konfigurację..."
+echo "💾 Saving configuration..."
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
@@ -345,17 +345,17 @@ mkdir -p "$(dirname "$CONFIG_FILE")"
 
 cat > "$CONFIG_FILE" << EOF
 # GateFlow Deploy Configuration
-# Wygenerowane przez setup-gateflow-config.sh
-# Data: $(date)
+# Generated by setup-gateflow-config.sh
+# Date: $(date)
 
 # SSH
 SSH_ALIAS="$SSH_ALIAS"
 
-# Supabase (klucze w osobnych plikach dla bezpieczeństwa)
+# Supabase (keys in separate files for security)
 SUPABASE_CONFIGURED=$SUPABASE_CONFIGURED
 EOF
 
-# Dodaj Supabase jeśli skonfigurowane
+# Add Supabase if configured
 if [ "$SUPABASE_CONFIGURED" = true ]; then
     cat >> "$CONFIG_FILE" << EOF
 SUPABASE_URL="$SUPABASE_URL"
@@ -365,7 +365,7 @@ SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY"
 EOF
 fi
 
-# Dodaj Stripe jeśli podane
+# Add Stripe if provided
 if [ -n "$STRIPE_PK" ]; then
     cat >> "$CONFIG_FILE" << EOF
 
@@ -376,7 +376,7 @@ STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET"
 EOF
 fi
 
-# Dodaj Turnstile jeśli podane ręcznie
+# Add Turnstile if provided manually
 if [ -n "$TURNSTILE_SITE_KEY" ]; then
     cat >> "$CONFIG_FILE" << EOF
 
@@ -386,11 +386,11 @@ CLOUDFLARE_TURNSTILE_SECRET_KEY="$TURNSTILE_SECRET_KEY"
 EOF
 fi
 
-# Dodaj domenę jeśli podana
+# Add domain if provided
 if [ -n "$DOMAIN" ]; then
     cat >> "$CONFIG_FILE" << EOF
 
-# Domena
+# Domain
 DOMAIN="$DOMAIN"
 DOMAIN_TYPE="$DOMAIN_TYPE"
 EOF
@@ -398,50 +398,50 @@ fi
 
 chmod 600 "$CONFIG_FILE"
 
-echo -e "${GREEN}✅ Konfiguracja zapisana do:${NC}"
+echo -e "${GREEN}✅ Configuration saved to:${NC}"
 echo "   $CONFIG_FILE"
 echo ""
 
 # =============================================================================
-# 7. PODSUMOWANIE
+# 7. SUMMARY
 # =============================================================================
 
 echo "════════════════════════════════════════════════════════════════"
-echo "📋 Podsumowanie"
+echo "📋 Summary"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Skonfigurowane:"
+echo "Configured:"
 [ -n "$SSH_ALIAS" ] && echo -e "   ${GREEN}✅${NC} SSH: $SSH_ALIAS"
 [ "$SUPABASE_CONFIGURED" = true ] && echo -e "   ${GREEN}✅${NC} Supabase: $PROJECT_REF"
 [ -n "$STRIPE_PK" ] && echo -e "   ${GREEN}✅${NC} Stripe"
 [ -n "$TURNSTILE_SITE_KEY" ] && echo -e "   ${GREEN}✅${NC} Turnstile"
-[ -n "$DOMAIN" ] && echo -e "   ${GREEN}✅${NC} Domena: $DOMAIN"
+[ -n "$DOMAIN" ] && echo -e "   ${GREEN}✅${NC} Domain: $DOMAIN"
 
 echo ""
-echo "Pominięte (można skonfigurować później):"
+echo "Skipped (can be configured later):"
 [ -z "$SSH_ALIAS" ] && echo -e "   ${YELLOW}⏭️${NC}  SSH"
 [ "$SUPABASE_CONFIGURED" != true ] && echo -e "   ${YELLOW}⏭️${NC}  Supabase"
-[ -z "$STRIPE_PK" ] && echo -e "   ${YELLOW}⏭️${NC}  Stripe (skonfigurujesz w panelu)"
+[ -z "$STRIPE_PK" ] && echo -e "   ${YELLOW}⏭️${NC}  Stripe (configure in the panel)"
 [ -z "$TURNSTILE_SITE_KEY" ] && echo -e "   ${YELLOW}⏭️${NC}  Turnstile"
-[ -z "$DOMAIN" ] && echo -e "   ${YELLOW}⏭️${NC}  Domena"
+[ -z "$DOMAIN" ] && echo -e "   ${YELLOW}⏭️${NC}  Domain"
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "🚀 Następny krok - deployment"
+echo "🚀 Next step - deployment"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 
 if [ -n "$SSH_ALIAS" ] && [ "$SUPABASE_CONFIGURED" = true ]; then
-    echo "Możesz teraz uruchomić deployment automatycznie:"
+    echo "You can now run the deployment automatically:"
     echo ""
     echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=$SSH_ALIAS --yes${NC}"
 else
-    echo "Uruchom deployment (odpowie na brakujące pytania):"
+    echo "Run deployment (it will ask about missing details):"
     echo ""
     if [ -n "$SSH_ALIAS" ]; then
         echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=$SSH_ALIAS${NC}"
     else
-        echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=TWOJ_ALIAS${NC}"
+        echo -e "   ${BLUE}./local/deploy.sh gateflow --ssh=YOUR_ALIAS${NC}"
     fi
 fi
 echo ""

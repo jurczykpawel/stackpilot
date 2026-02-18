@@ -5,15 +5,15 @@
 #
 # IMAGE_SIZE_MB=500  # ghcr.io/umami-software/umami:postgresql-latest (Next.js ~500MB)
 #
-# WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
-#     Współdzielona baza  NIE działa (brak uprawnień do tworzenia rozszerzeń).
-#     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
+# REQUIREMENTS: PostgreSQL with pgcrypto extension!
+#     Shared database does NOT work (no permissions to create extensions).
+#     Use: a dedicated PostgreSQL instance
 #
 # Author: Paweł (Lazy Engineer)
 #
-# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+# Required environment variables (passed by deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
-#   DB_SCHEMA (opcjonalne - domyślnie public)
+#   DB_SCHEMA (optional - default public)
 
 set -e
 
@@ -26,32 +26,31 @@ echo "Requires PostgreSQL Database with pgcrypto extension."
 
 # Validate database credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
-    echo "❌ Błąd: Brak danych bazy danych!"
-    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    echo "❌ Error: Missing database credentials!"
+    echo "   Required variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
     exit 1
 fi
 
-echo "✅ Dane bazy danych:"
+echo "✅ Database credentials:"
 echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 DB_SCHEMA=${DB_SCHEMA:-umami}
 
 if [ "$DB_SCHEMA" != "public" ]; then
-    echo "   Schemat: $DB_SCHEMA"
+    echo "   Schema: $DB_SCHEMA"
 fi
 
-# Check for shared Mikrus DB (doesn't support pgcrypto)
+# Check for shared DB (doesn't support pgcrypto)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Umami NIE działa ze współdzieloną bazą !      ║"
+    echo "║  ❌ ERROR: Umami does NOT work with a shared database!       ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Umami wymaga rozszerzenia 'pgcrypto', które nie jest          ║"
-    echo "║  dostępne w darmowej bazie .                            ║"
-    echo "║                                                                ║"
-    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
-    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "║  Umami requires the 'pgcrypto' extension, which is not       ║"
+    echo "║  available on the free shared database.                      ║"
+    echo "║                                                              ║"
+    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
@@ -62,7 +61,7 @@ if [ "$DB_SCHEMA" = "public" ]; then
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
 else
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME?schema=$DB_SCHEMA"
-    echo "ℹ️  Używam schematu: $DB_SCHEMA"
+    echo "ℹ️  Using schema: $DB_SCHEMA"
 fi
 
 # Generate random hash salt
@@ -94,27 +93,27 @@ sudo docker compose up -d
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     if ! wait_for_healthy "$APP_NAME" "$PORT" 60; then
-        echo "❌ Instalacja nie powiodła się!"
+        echo "❌ Installation failed!"
         exit 1
     fi
 else
-    echo "Sprawdzam czy kontener wystartował..."
+    echo "Checking if container started..."
     sleep 5
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Kontener działa"
+        echo "✅ Container is running"
     else
-        echo "❌ Kontener nie wystartował!"
+        echo "❌ Container failed to start!"
         sudo docker compose logs --tail 20
         exit 1
     fi
 fi
 
 echo ""
-echo "✅ Umami zainstalowane pomyślnie"
+echo "✅ Umami installed successfully"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Open https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi

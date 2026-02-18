@@ -5,17 +5,17 @@
 # Requires External PostgreSQL.
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=3000  # 2x obrazy Next.js (~1.5GB każdy)
-# UWAGA: Typebot wymaga minimum ~12GB dysku i 600MB RAM.
-#        Zalecany plan: Mikrus 3.0+ lub VPS z większym dyskiem.
+# IMAGE_SIZE_MB=3000  # 2x Next.js images (~1.5GB each)
+# NOTE: Typebot requires at least ~12GB disk and 600MB RAM.
+#        Recommended: 2GB+ VPS or VPS with larger disk.
 #
-# Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
+# Required environment variables (passed by deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
-#   DOMAIN (opcjonalne - używane do generowania builder.$DOMAIN i $DOMAIN)
+#   DOMAIN (optional - used to generate builder.$DOMAIN and $DOMAIN)
 #
-# Opcjonalne zmienne (jeśli chcesz własne domeny):
-#   DOMAIN_BUILDER - domena dla Builder UI
-#   DOMAIN_VIEWER - domena dla Viewer
+# Optional variables (if you want custom domains):
+#   DOMAIN_BUILDER - domain for Builder UI
+#   DOMAIN_VIEWER - domain for Viewer
 
 set -e
 
@@ -27,17 +27,16 @@ PORT_VIEWER=8082
 echo "--- 🤖 Typebot Setup ---"
 echo "Requires PostgreSQL Database."
 
-# Check for shared Mikrus DB (doesn't support gen_random_uuid on PG 12)
+# Check for shared DB (doesn't support gen_random_uuid on PG 12)
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Typebot NIE działa ze współdzieloną bazą !   ║"
+    echo "║  ❌ ERROR: Typebot does NOT work with a shared database!     ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Typebot (Prisma) wymaga gen_random_uuid(), które nie jest      ║"
-    echo "║  dostępne w PostgreSQL 12 (shared Mikrus).                     ║"
-    echo "║                                                                ║"
-    echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
-    echo "║  https://mikr.us/panel/?a=cloud                                ║"
+    echo "║  Typebot (Prisma) requires gen_random_uuid(), which is not   ║"
+    echo "║  available in PostgreSQL 12 (shared database).               ║"
+    echo "║                                                              ║"
+    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
@@ -45,12 +44,12 @@ fi
 
 # Validate database credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
-    echo "❌ Błąd: Brak danych bazy danych!"
-    echo "   Wymagane zmienne: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
+    echo "❌ Error: Missing database credentials!"
+    echo "   Required variables: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS"
     exit 1
 fi
 
-echo "✅ Dane bazy danych:"
+echo "✅ Database credentials:"
 echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
@@ -61,7 +60,7 @@ if [ "$DB_SCHEMA" = "public" ]; then
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
 else
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME?schema=$DB_SCHEMA"
-    echo "   Schemat: $DB_SCHEMA"
+    echo "   Schema: $DB_SCHEMA"
 fi
 
 # Domain configuration
@@ -77,7 +76,7 @@ elif [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Builder: $DOMAIN_BUILDER (auto)"
     echo "✅ Viewer:  $DOMAIN_VIEWER (auto)"
 else
-    echo "⚠️  Brak domen - używam localhost"
+    echo "⚠️  No domains - using localhost"
     DOMAIN_BUILDER=""
     DOMAIN_VIEWER=""
 fi
@@ -142,15 +141,15 @@ sudo docker compose up -d
 # Health check (check both ports)
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT_BUILDER" 60 || { echo "❌ Builder nie wystartował!"; exit 1; }
-    echo "Sprawdzam Viewer..."
-    curl -s -o /dev/null --max-time 5 "http://localhost:$PORT_VIEWER" && echo "✅ Viewer odpowiada" || echo "⚠️  Viewer może potrzebować więcej czasu"
+    wait_for_healthy "$APP_NAME" "$PORT_BUILDER" 60 || { echo "❌ Builder failed to start!"; exit 1; }
+    echo "Checking Viewer..."
+    curl -s -o /dev/null --max-time 5 "http://localhost:$PORT_VIEWER" && echo "✅ Viewer is responding" || echo "⚠️  Viewer may need more time"
 else
     sleep 8
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Typebot kontenery działają"
+        echo "✅ Typebot containers are running"
     else
-        echo "❌ Kontenery nie wystartowały!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Containers failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
@@ -168,7 +167,7 @@ if [ -n "$DOMAIN_BUILDER" ] && [ "$DOMAIN_BUILDER" != "-" ]; then
     echo "   Builder: https://$DOMAIN_BUILDER"
     echo "   Viewer:  https://$DOMAIN_VIEWER"
 elif [ "$DOMAIN_BUILDER" = "-" ]; then
-    echo "   Domeny zostaną skonfigurowane automatycznie po instalacji"
+    echo "   Domains will be configured automatically after installation"
 else
     echo "   Builder: ssh -L $PORT_BUILDER:localhost:$PORT_BUILDER <server>"
     echo "   Viewer:  ssh -L $PORT_VIEWER:localhost:$PORT_VIEWER <server>"

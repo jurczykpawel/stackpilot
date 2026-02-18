@@ -3,38 +3,38 @@
 # StackPilot - Remote Deployer
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   ./local/deploy.sh APP [--ssh=ALIAS] [--db-source=shared|custom] [--domain=DOMAIN] [--yes]
 #
-# Przykłady:
-#   ./local/deploy.sh n8n --ssh=mikrus                              # interaktywny
-#   ./local/deploy.sh n8n --ssh=mikrus --db-source=shared --domain=auto --yes  # automatyczny
-#   ./local/deploy.sh uptime-kuma --domain-type=local --yes        # bez domeny
+# Examples:
+#   ./local/deploy.sh n8n --ssh=vps                                # interactive
+#   ./local/deploy.sh n8n --ssh=vps --db-source=shared --domain=auto --yes  # automatic
+#   ./local/deploy.sh uptime-kuma --domain-type=local --yes        # no domain
 #
 # FLOW:
-#   1. Parsowanie argumentów CLI
-#   2. Potwierdzenie użytkownika (skip z --yes)
-#   3. FAZA ZBIERANIA - pytania o DB i domenę (skip z CLI)
-#   4. "Teraz się zrelaksuj - pracuję..."
-#   5. FAZA WYKONANIA - API calls, Docker, instalacja
-#   6. Konfiguracja domeny (PO uruchomieniu usługi!)
-#   7. Podsumowanie
+#   1. Parse CLI arguments
+#   2. User confirmation (skip with --yes)
+#   3. GATHER PHASE - questions about DB and domain (skip with CLI)
+#   4. "Now sit back and relax - working..."
+#   5. EXECUTION PHASE - API calls, Docker, installation
+#   6. Domain configuration (AFTER service is running!)
+#   7. Summary
 
 set -e
 
-# Znajdź katalog repo
+# Find repo directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Załaduj biblioteki
+# Load libraries
 source "$REPO_ROOT/lib/cli-parser.sh"
 source "$REPO_ROOT/lib/db-setup.sh"
 source "$REPO_ROOT/lib/domain-setup.sh"
-source "$REPO_ROOT/lib/gateflow-setup.sh" 2>/dev/null || true  # Opcjonalna dla GateFlow
+source "$REPO_ROOT/lib/gateflow-setup.sh" 2>/dev/null || true  # Optional for GateFlow
 source "$REPO_ROOT/lib/port-utils.sh"
 
-# Placeholder wstawiany do docker-compose gdy DOMAIN="-" (automatyczny Cytrus).
-# Po przydzieleniu domeny przez Cytrus API, sed zamienia placeholder na prawdziwą domenę.
+# Placeholder inserted into docker-compose when DOMAIN="-" (automatic Cytrus).
+# After Cytrus API assigns a domain, sed replaces the placeholder with the real domain.
 CYTRUS_PLACEHOLDER="__CYTRUS_PENDING__"
 
 # =============================================================================
@@ -45,152 +45,152 @@ show_deploy_help() {
     cat <<EOF
 StackPilot - Deploy
 
-Użycie:
-  ./local/deploy.sh APP [opcje]
+Usage:
+  ./local/deploy.sh APP [options]
 
-Argumenty:
-  APP                  Nazwa aplikacji (np. n8n, uptime-kuma) lub ścieżka do skryptu
+Arguments:
+  APP                  Application name (e.g. n8n, uptime-kuma) or path to script
 
-Opcje SSH:
-  --ssh=ALIAS          SSH alias z ~/.ssh/config (domyślnie: mikrus)
+SSH Options:
+  --ssh=ALIAS          SSH alias from ~/.ssh/config (default: vps)
 
-Opcje bazy danych:
-  --db-source=TYPE     Źródło bazy: shared (API Mikrus) lub custom
-  --db-host=HOST       Host bazy danych
-  --db-port=PORT       Port bazy (domyślnie: 5432)
-  --db-name=NAME       Nazwa bazy danych
-  --db-schema=SCHEMA   Schema PostgreSQL (domyślnie: public)
-  --db-user=USER       Użytkownik bazy
-  --db-pass=PASS       Hasło bazy
+Database Options:
+  --db-source=TYPE     Database source: shared or custom
+  --db-host=HOST       Database host
+  --db-port=PORT       Database port (default: 5432)
+  --db-name=NAME       Database name
+  --db-schema=SCHEMA   PostgreSQL schema (default: public)
+  --db-user=USER       Database user
+  --db-pass=PASS       Database password
 
-Opcje domeny:
-  --domain=DOMAIN      Domena aplikacji (lub 'auto' dla Cytrus automatyczny)
-  --domain-type=TYPE   Typ: cytrus, cloudflare, local
+Domain Options:
+  --domain=DOMAIN      Application domain (or 'auto' for automatic Cytrus)
+  --domain-type=TYPE   Type: cytrus, cloudflare, local
 
-Tryby:
-  --yes, -y            Pomiń wszystkie potwierdzenia
-  --dry-run            Pokaż co się wykona bez wykonania
-  --update             Aktualizuj istniejącą aplikację (zamiast instalować)
-  --restart            Restart bez aktualizacji (np. po zmianie .env) - używany z --update
-  --build-file=PATH    Użyj lokalnego pliku tar.gz (dla --update, gdy repo jest prywatne)
-  --help, -h           Pokaż tę pomoc
+Modes:
+  --yes, -y            Skip all confirmations
+  --dry-run            Show what would be executed without running
+  --update             Update existing application (instead of installing)
+  --restart            Restart without updating (e.g. after .env change) - used with --update
+  --build-file=PATH    Use local tar.gz file (for --update, when repo is private)
+  --help, -h           Show this help
 
-Przykłady:
-  # Interaktywny (pytania o brakujące dane)
-  ./local/deploy.sh n8n --ssh=mikrus
+Examples:
+  # Interactive (prompts for missing data)
+  ./local/deploy.sh n8n --ssh=vps
 
-  # Automatyczny z Cytrus
-  ./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=cytrus --domain=auto --yes
+  # Automatic with Cytrus
+  ./local/deploy.sh uptime-kuma --ssh=vps --domain-type=cytrus --domain=auto --yes
 
-  # Automatyczny z Cloudflare
-  ./local/deploy.sh n8n --ssh=mikrus \\
+  # Automatic with Cloudflare
+  ./local/deploy.sh n8n --ssh=vps \\
     --db-source=custom --db-host=psql.example.com \\
     --db-name=n8n --db-user=user --db-pass=secret \\
     --domain-type=cloudflare --domain=n8n.example.com --yes
 
-  # Tylko lokalnie (bez domeny)
-  ./local/deploy.sh dockge --ssh=mikrus --domain-type=local --yes
+  # Local only (no domain)
+  ./local/deploy.sh dockge --ssh=vps --domain-type=local --yes
 
-  # Dry-run (podgląd bez wykonania)
-  ./local/deploy.sh n8n --ssh=mikrus --dry-run
+  # Dry-run (preview without executing)
+  ./local/deploy.sh n8n --ssh=vps --dry-run
 
-  # Aktualizacja istniejącej aplikacji
-  ./local/deploy.sh gateflow --ssh=mikrus --update
+  # Update existing application
+  ./local/deploy.sh gateflow --ssh=vps --update
 
-  # Aktualizacja z lokalnego pliku (gdy repo jest prywatne)
-  ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
+  # Update from local file (when repo is private)
+  ./local/deploy.sh gateflow --ssh=vps --update --build-file=~/Downloads/gateflow-build.tar.gz
 
-  # Restart bez aktualizacji (np. po zmianie .env)
-  ./local/deploy.sh gateflow --ssh=mikrus --update --restart
+  # Restart without updating (e.g. after .env change)
+  ./local/deploy.sh gateflow --ssh=vps --update --restart
 
 EOF
 }
 
-# Override show_help z cli-parser
+# Override show_help from cli-parser
 show_help() {
     show_deploy_help
 }
 
 # =============================================================================
-# PARSOWANIE ARGUMENTÓW
+# ARGUMENT PARSING
 # =============================================================================
 
 load_defaults
 parse_args "$@"
 
-# Pierwszy argument pozycyjny = APP
+# First positional argument = APP
 SCRIPT_PATH="${POSITIONAL_ARGS[0]:-}"
 
 if [ -z "$SCRIPT_PATH" ]; then
-    echo "Błąd: Nie podano nazwy aplikacji."
+    echo "Error: No application name provided."
     echo ""
     show_deploy_help
     exit 1
 fi
 
-# SSH_ALIAS z --ssh lub default
+# SSH_ALIAS from --ssh or default
 SSH_ALIAS="${SSH_ALIAS:-vps}"
 
 # =============================================================================
-# SPRAWDZANIE POŁĄCZENIA SSH
+# SSH CONNECTION CHECK
 # =============================================================================
 
 if ! is_on_server; then
-    # Sprawdź czy alias SSH jest skonfigurowany (ssh -G parsuje config bez łączenia)
+    # Check if SSH alias is configured (ssh -G parses config without connecting)
     _SSH_RESOLVED_HOST=$(ssh -G "$SSH_ALIAS" 2>/dev/null | awk '/^hostname / {print $2}')
 
     if [ -z "$_SSH_RESOLVED_HOST" ] || [ "$_SSH_RESOLVED_HOST" = "$SSH_ALIAS" ]; then
-        # Alias nie jest skonfigurowany w ~/.ssh/config
+        # Alias is not configured in ~/.ssh/config
         echo ""
-        echo -e "${RED}❌ Alias SSH '$SSH_ALIAS' nie jest skonfigurowany${NC}"
+        echo -e "${RED}❌ SSH alias '$SSH_ALIAS' is not configured${NC}"
         echo ""
-        echo "   Potrzebujesz danych z maila od : host, port i hasło."
+        echo "   You need the server connection details: host, port, and password."
         echo ""
 
         SETUP_SCRIPT="$REPO_ROOT/local/setup-ssh.sh"
         if [[ "$IS_GITBASH" == "true" ]] || [[ "$YES_MODE" == "true" ]]; then
-            # Windows (Git Bash) lub tryb --yes — pokaż instrukcje
-            echo "   Uruchom konfigurację SSH:"
+            # Windows (Git Bash) or --yes mode — show instructions
+            echo "   Run SSH configuration:"
             echo -e "   ${BLUE}bash local/setup-ssh.sh${NC}"
             exit 1
         elif [ -f "$SETUP_SCRIPT" ]; then
-            # macOS/Linux — zaproponuj automatyczne uruchomienie
-            if confirm "   Skonfigurować połączenie SSH teraz?"; then
+            # macOS/Linux — offer automatic setup
+            if confirm "   Configure SSH connection now?"; then
                 echo ""
                 bash "$SETUP_SCRIPT"
-                # Po konfiguracji sprawdź ponownie
+                # After configuration, check again
                 if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_ALIAS" "echo ok" &>/dev/null; then
                     echo ""
-                    echo -e "${RED}❌ Połączenie nadal nie działa. Sprawdź dane i spróbuj ponownie.${NC}"
+                    echo -e "${RED}❌ Connection still not working. Check the details and try again.${NC}"
                     exit 1
                 fi
             else
                 exit 1
             fi
         else
-            echo "   Skonfiguruj SSH:"
+            echo "   Configure SSH:"
             echo -e "   ${BLUE}bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)${NC}"
             exit 1
         fi
     else
-        # Alias skonfigurowany — sprawdź czy połączenie działa
-        echo -n "🔗 Sprawdzam połączenie SSH ($SSH_ALIAS)... "
+        # Alias configured — check if connection works
+        echo -n "🔗 Checking SSH connection ($SSH_ALIAS)... "
         if ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_ALIAS" "echo ok" &>/dev/null; then
             echo -e "${GREEN}✓${NC}"
         else
             echo -e "${RED}✗${NC}"
             echo ""
-            echo -e "${RED}❌ Nie mogę połączyć się z serwerem '$SSH_ALIAS' ($_SSH_RESOLVED_HOST)${NC}"
+            echo -e "${RED}❌ Cannot connect to server '$SSH_ALIAS' ($_SSH_RESOLVED_HOST)${NC}"
             echo ""
-            echo "   Możliwe przyczyny:"
-            echo "   - Serwer jest wyłączony lub nie odpowiada"
-            echo "   - Klucz SSH nie jest autoryzowany na serwerze"
-            echo "   - Nieprawidłowy host lub port w ~/.ssh/config"
+            echo "   Possible causes:"
+            echo "   - Server is down or not responding"
+            echo "   - SSH key is not authorized on the server"
+            echo "   - Invalid host or port in ~/.ssh/config"
             echo ""
-            echo "   Diagnostyka:"
+            echo "   Diagnostics:"
             echo -e "   ${BLUE}ssh -v $SSH_ALIAS${NC}"
             echo ""
-            echo "   Ponowna konfiguracja:"
+            echo "   Reconfigure:"
             echo -e "   ${BLUE}bash local/setup-ssh.sh${NC}"
             exit 1
         fi
@@ -198,29 +198,29 @@ if ! is_on_server; then
 fi
 
 # =============================================================================
-# ZAŁADUJ ZAPISANĄ KONFIGURACJĘ (dla GateFlow)
+# LOAD SAVED CONFIGURATION (for GateFlow)
 # =============================================================================
 
 GATEFLOW_CONFIG="$HOME/.config/gateflow/deploy-config.env"
 if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
-    # Zachowaj wartości z CLI (mają priorytet nad configiem)
+    # Preserve CLI values (they take priority over config)
     CLI_SSH_ALIAS="$SSH_ALIAS"
     CLI_DOMAIN="$DOMAIN"
     CLI_DOMAIN_TYPE="$DOMAIN_TYPE"
     CLI_SUPABASE_PROJECT="$SUPABASE_PROJECT"
 
-    # Załaduj config
+    # Load config
     source "$GATEFLOW_CONFIG"
 
-    # Przywróć wartości CLI jeśli były podane (CLI > config)
+    # Restore CLI values if provided (CLI > config)
     [ -n "$CLI_SSH_ALIAS" ] && SSH_ALIAS="$CLI_SSH_ALIAS"
     [ -n "$CLI_DOMAIN" ] && DOMAIN="$CLI_DOMAIN"
     [ -n "$CLI_DOMAIN_TYPE" ] && DOMAIN_TYPE="$CLI_DOMAIN_TYPE"
     [ -n "$CLI_SUPABASE_PROJECT" ] && SUPABASE_PROJECT="$CLI_SUPABASE_PROJECT"
 
     if [ "$YES_MODE" = true ]; then
-        # Tryb --yes: używaj zapisanej konfiguracji (z override z CLI)
-        echo "📂 Ładuję zapisaną konfigurację GateFlow (tryb --yes)..."
+        # --yes mode: use saved configuration (with CLI overrides)
+        echo "📂 Loading saved GateFlow configuration (--yes mode)..."
 
         # Supabase
         [ -n "$SUPABASE_URL" ] && export SUPABASE_URL
@@ -237,12 +237,12 @@ if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
         [ -n "$CLOUDFLARE_TURNSTILE_SITE_KEY" ] && export CLOUDFLARE_TURNSTILE_SITE_KEY
         [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ] && export CLOUDFLARE_TURNSTILE_SECRET_KEY
 
-        echo "   ✅ Konfiguracja załadowana"
+        echo "   ✅ Configuration loaded"
     else
-        # Tryb interaktywny: pytaj o wszystko, tylko zachowaj token Supabase
-        echo "📂 Tryb interaktywny - będę pytać o konfigurację"
+        # Interactive mode: ask about everything, only keep Supabase token
+        echo "📂 Interactive mode - will ask about configuration"
 
-        # Wyczyść wszystko oprócz tokena (żeby nie trzeba było się ponownie logować)
+        # Clear everything except token (so you don't have to log in again)
         unset SUPABASE_URL PROJECT_REF SUPABASE_ANON_KEY SUPABASE_SERVICE_KEY
         unset STRIPE_PK STRIPE_SK STRIPE_WEBHOOK_SECRET
         unset CLOUDFLARE_TURNSTILE_SITE_KEY CLOUDFLARE_TURNSTILE_SECRET_KEY
@@ -251,79 +251,79 @@ if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
 fi
 
 # =============================================================================
-# TRYB AKTUALIZACJI (--update)
+# UPDATE MODE (--update)
 # =============================================================================
 
 if [ "$UPDATE_MODE" = true ]; then
     APP_NAME="$SCRIPT_PATH"
 
-    # Sprawdź czy aplikacja ma skrypt update.sh
+    # Check if the application has an update.sh script
     UPDATE_SCRIPT="$REPO_ROOT/apps/$APP_NAME/update.sh"
     if [ ! -f "$UPDATE_SCRIPT" ]; then
-        echo -e "${RED}❌ Aplikacja '$APP_NAME' nie ma skryptu aktualizacji${NC}"
-        echo "   Brak: apps/$APP_NAME/update.sh"
+        echo -e "${RED}❌ Application '$APP_NAME' does not have an update script${NC}"
+        echo "   Missing: apps/$APP_NAME/update.sh"
         exit 1
     fi
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  🔄 AKTUALIZACJA: $APP_NAME"
+    echo "║  🔄 UPDATE: $APP_NAME"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Serwer: $SSH_ALIAS"
+    echo "║  Server: $SSH_ALIAS"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
-    if ! confirm "Zaktualizować $APP_NAME na serwerze $SSH_ALIAS?"; then
-        echo "Anulowano."
+    if ! confirm "Update $APP_NAME on server $SSH_ALIAS?"; then
+        echo "Cancelled."
         exit 0
     fi
 
     echo ""
-    echo "🚀 Uruchamiam aktualizację..."
+    echo "🚀 Starting update..."
 
-    # Skopiuj skrypt na serwer
+    # Copy script to server
     REMOTE_SCRIPT="/tmp/mikrus-update-$$.sh"
     server_copy "$UPDATE_SCRIPT" "$REMOTE_SCRIPT"
 
-    # Jeśli mamy lokalny plik builda, skopiuj go na serwer
+    # If we have a local build file, copy it to the server
     REMOTE_BUILD_FILE=""
     if [ -n "$BUILD_FILE" ]; then
-        # Rozwiń ~ do pełnej ścieżki
+        # Expand ~ to full path
         BUILD_FILE="${BUILD_FILE/#\~/$HOME}"
 
         if [ ! -f "$BUILD_FILE" ]; then
-            echo -e "${RED}❌ Plik nie istnieje: $BUILD_FILE${NC}"
+            echo -e "${RED}❌ File does not exist: $BUILD_FILE${NC}"
             exit 1
         fi
 
-        echo "📤 Kopiuję plik buildu na serwer..."
+        echo "📤 Copying build file to server..."
         REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
         server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
-        echo "   ✅ Skopiowano"
+        echo "   ✅ Copied"
     fi
 
-    # Przekaż zmienne środowiskowe
-    ENV_VARS="SKIP_MIGRATIONS=1"  # Migracje uruchomimy lokalnie przez API
+    # Pass environment variables
+    ENV_VARS="SKIP_MIGRATIONS=1"  # Migrations will be run locally via API
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         ENV_VARS="$ENV_VARS BUILD_FILE='$REMOTE_BUILD_FILE'"
     fi
 
-    # Dla multi-instance: przekaż nazwę instancji (z --instance lub --domain)
+    # For multi-instance: pass instance name (from --instance or --domain)
     if [ -n "$INSTANCE" ]; then
         ENV_VARS="$ENV_VARS INSTANCE='$INSTANCE'"
     elif [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-        # Wyznacz instancję z domeny
+        # Derive instance from domain
         UPDATE_INSTANCE="${DOMAIN%%.*}"
         ENV_VARS="$ENV_VARS INSTANCE='$UPDATE_INSTANCE'"
     fi
 
-    # Przygotuj argumenty dla update.sh
+    # Prepare arguments for update.sh
     UPDATE_SCRIPT_ARGS=""
     if [ "$RESTART_ONLY" = true ]; then
         UPDATE_SCRIPT_ARGS="--restart"
     fi
 
-    # Uruchom skrypt i posprzątaj
+    # Run script and clean up
     CLEANUP_CMD="rm -f '$REMOTE_SCRIPT'"
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_BUILD_FILE'"
@@ -332,20 +332,20 @@ if [ "$UPDATE_MODE" = true ]; then
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
         echo ""
         if [ "$RESTART_ONLY" = true ]; then
-            echo -e "${GREEN}✅ GateFlow zrestartowany!${NC}"
+            echo -e "${GREEN}✅ GateFlow restarted!${NC}"
         else
-            echo -e "${GREEN}✅ Pliki zaktualizowane${NC}"
+            echo -e "${GREEN}✅ Files updated${NC}"
         fi
     else
         echo ""
-        echo -e "${RED}❌ Aktualizacja nie powiodła się${NC}"
+        echo -e "${RED}❌ Update failed${NC}"
         exit 1
     fi
 
-    # Dla GateFlow - uruchom migracje przez API (lokalnie) - tylko w trybie update, nie restart
+    # For GateFlow - run migrations via API (locally) - only in update mode, not restart
     if [ "$APP_NAME" = "gateflow" ] && [ "$RESTART_ONLY" = false ]; then
         echo ""
-        echo "🗄️  Aktualizuję bazę danych..."
+        echo "🗄️  Updating database..."
 
         if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
             SSH_ALIAS="$SSH_ALIAS" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
@@ -354,9 +354,9 @@ if [ "$UPDATE_MODE" = true ]; then
 
     echo ""
     if [ "$RESTART_ONLY" = true ]; then
-        echo -e "${GREEN}✅ Restart zakończony!${NC}"
+        echo -e "${GREEN}✅ Restart completed!${NC}"
     else
-        echo -e "${GREEN}✅ Aktualizacja zakończona!${NC}"
+        echo -e "${GREEN}✅ Update completed!${NC}"
     fi
 
     exit 0
@@ -368,7 +368,7 @@ fi
 
 APP_NAME=""
 if [ -f "$REPO_ROOT/apps/$SCRIPT_PATH/install.sh" ]; then
-    echo "💡 Wykryto aplikację: '$SCRIPT_PATH'"
+    echo "💡 Detected application: '$SCRIPT_PATH'"
     APP_NAME="$SCRIPT_PATH"
     SCRIPT_PATH="$REPO_ROOT/apps/$SCRIPT_PATH/install.sh"
 elif [ -f "$SCRIPT_PATH" ]; then
@@ -376,15 +376,15 @@ elif [ -f "$SCRIPT_PATH" ]; then
 elif [ -f "$REPO_ROOT/$SCRIPT_PATH" ]; then
     SCRIPT_PATH="$REPO_ROOT/$SCRIPT_PATH"
 else
-    echo "Błąd: Skrypt lub aplikacja '$SCRIPT_PATH' nie znaleziona."
-    echo "   Szukano:"
+    echo "Error: Script or application '$SCRIPT_PATH' not found."
+    echo "   Searched:"
     echo "   - apps/$SCRIPT_PATH/install.sh"
     echo "   - $SCRIPT_PATH"
     exit 1
 fi
 
 # =============================================================================
-# POTWIERDZENIE
+# CONFIRMATION
 # =============================================================================
 
 REMOTE_HOST=$(server_hostname)
@@ -394,52 +394,52 @@ SCRIPT_DISPLAY="${SCRIPT_PATH#$REPO_ROOT/}"
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 if is_on_server; then
-echo "║  ⚠️   UWAGA: INSTALACJA NA TYM SERWERZE!                       ║"
+echo "║  ⚠️   WARNING: INSTALLING ON THIS SERVER!                        ║"
 else
-echo "║  ⚠️   UWAGA: INSTALACJA NA ZDALNYM SERWERZE!                   ║"
+echo "║  ⚠️   WARNING: INSTALLING ON REMOTE SERVER!                    ║"
 fi
 echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║  Serwer:  $REMOTE_USER@$REMOTE_HOST"
-echo "║  Skrypt:  $SCRIPT_DISPLAY"
+echo "║  Server:  $REMOTE_USER@$REMOTE_HOST"
+echo "║  Script:  $SCRIPT_DISPLAY"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Ostrzeżenie dla Git Bash + MinTTY (przed interaktywnymi pytaniami)
+# Warning for Git Bash + MinTTY (before interactive prompts)
 warn_gitbash_mintty
 
-if ! confirm "Czy na pewno chcesz uruchomić ten skrypt na ZDALNYM serwerze?"; then
-    echo "Anulowano."
+if ! confirm "Are you sure you want to run this script on the REMOTE server?"; then
+    echo "Cancelled."
     exit 1
 fi
 
 # =============================================================================
-# FAZA 0: SPRAWDZANIE ZASOBÓW SERWERA
+# PHASE 0: SERVER RESOURCE CHECK
 # =============================================================================
 
-# Wykryj wymagania RAM z docker-compose (memory limit)
-REQUIRED_RAM=256  # domyślnie
+# Detect RAM requirements from docker-compose (memory limit)
+REQUIRED_RAM=256  # default
 if grep -q "memory:" "$SCRIPT_PATH" 2>/dev/null; then
-    # Przenośna wersja (bez grep -P który nie działa na macOS)
+    # Portable version (without grep -P which doesn't work on macOS)
     MEM_LIMIT=$(grep "memory:" "$SCRIPT_PATH" | sed -E 's/[^0-9]*([0-9]+).*/\1/' | head -1)
     if [ -n "$MEM_LIMIT" ]; then
         REQUIRED_RAM=$MEM_LIMIT
     fi
 fi
 
-# Wykryj rozmiar obrazu Docker
-# 1. Próbuj Docker Hub API (dynamicznie)
-# 2. Fallback na IMAGE_SIZE_MB z nagłówka skryptu
-REQUIRED_DISK=500  # domyślnie 500MB
+# Detect Docker image size
+# 1. Try Docker Hub API (dynamically)
+# 2. Fallback to IMAGE_SIZE_MB from script header
+REQUIRED_DISK=500  # default 500MB
 IMAGE_SIZE=""
 IMAGE_SIZE_SOURCE=""
 
-# Wyciągnij nazwę obrazu z docker-compose w skrypcie
+# Extract image name from docker-compose in the script
 DOCKER_IMAGE=$(grep -E "^[[:space:]]*image:" "$SCRIPT_PATH" 2>/dev/null | head -1 | awk -F'image:' '{gsub(/^[[:space:]]*|[[:space:]]*$/,"",$2); print $2}')
 
 if [ -n "$DOCKER_IMAGE" ]; then
-    # Tylko Docker Hub obsługuje nasze API query (nie ghcr.io, quay.io, etc.)
+    # Only Docker Hub supports our API query (not ghcr.io, quay.io, etc.)
     if [[ "$DOCKER_IMAGE" != *"ghcr.io"* ]] && [[ "$DOCKER_IMAGE" != *"quay.io"* ]] && [[ "$DOCKER_IMAGE" != *"gcr.io"* ]]; then
-        # Parsuj image name: owner/repo:tag lub library/repo:tag
+        # Parse image name: owner/repo:tag or library/repo:tag
         if [[ "$DOCKER_IMAGE" == *"/"* ]]; then
             REPO_OWNER=$(echo "$DOCKER_IMAGE" | cut -d'/' -f1)
             REPO_NAME=$(echo "$DOCKER_IMAGE" | cut -d'/' -f2 | cut -d':' -f1)
@@ -453,7 +453,7 @@ if [ -n "$DOCKER_IMAGE" ]; then
             [ -z "$TAG" ] && TAG="latest"
         fi
 
-        # Próbuj Docker Hub API (timeout 5s)
+        # Try Docker Hub API (timeout 5s)
         API_URL="https://hub.docker.com/v2/repositories/${REPO_OWNER}/${REPO_NAME}/tags/${TAG}"
         COMPRESSED_SIZE=$(curl -sf --max-time 5 "$API_URL" 2>/dev/null | grep -o '"full_size":[0-9]*' | grep -o '[0-9]*')
 
@@ -465,21 +465,21 @@ if [ -n "$DOCKER_IMAGE" ]; then
     fi
 fi
 
-# Fallback na hardcoded IMAGE_SIZE_MB
+# Fallback to hardcoded IMAGE_SIZE_MB
 if [ -z "$IMAGE_SIZE" ]; then
     IMAGE_SIZE=$(grep "^# IMAGE_SIZE_MB=" "$SCRIPT_PATH" 2>/dev/null | sed -E 's/.*IMAGE_SIZE_MB=([0-9]+).*/\1/' | head -1)
-    [ -n "$IMAGE_SIZE" ] && IMAGE_SIZE_SOURCE="skrypt"
+    [ -n "$IMAGE_SIZE" ] && IMAGE_SIZE_SOURCE="script"
 fi
 
 if [ -n "$IMAGE_SIZE" ]; then
-    # Dodaj 20% marginesu na temp files podczas pobierania
+    # Add 20% margin for temp files during download
     REQUIRED_DISK=$((IMAGE_SIZE + IMAGE_SIZE / 5))
 fi
 
-# Sprawdź zasoby na serwerze
+# Check server resources
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  📊 Sprawdzanie zasobów serwera...                             ║"
+echo "║  📊 Checking server resources...                                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 
 RESOURCES=$(server_exec_timeout 10 "free -m | awk '/^Mem:/ {print \$7}'; df -m / | awk 'NR==2 {print \$4}'; free -m | awk '/^Mem:/ {print \$2}'" 2>/dev/null)
@@ -489,103 +489,103 @@ TOTAL_RAM=$(echo "$RESOURCES" | sed -n '3p')
 
 if [ -n "$AVAILABLE_RAM" ] && [ -n "$AVAILABLE_DISK" ]; then
     echo ""
-    echo -n "   RAM: ${AVAILABLE_RAM}MB dostępne (z ${TOTAL_RAM}MB)"
+    echo -n "   RAM: ${AVAILABLE_RAM}MB available (of ${TOTAL_RAM}MB)"
     if [ "$AVAILABLE_RAM" -lt "$REQUIRED_RAM" ]; then
-        echo -e " ${RED}✗ wymagane: ${REQUIRED_RAM}MB${NC}"
+        echo -e " ${RED}✗ required: ${REQUIRED_RAM}MB${NC}"
         if [ "$YES_MODE" != "true" ]; then
             echo ""
-            echo -e "${RED}   ❌ Za mało RAM! Instalacja może zawiesić serwer.${NC}"
-            if ! confirm "   Czy mimo to kontynuować?"; then
-                echo "Anulowano."
+            echo -e "${RED}   ❌ Not enough RAM! Installation may freeze the server.${NC}"
+            if ! confirm "   Continue anyway?"; then
+                echo "Cancelled."
                 exit 1
             fi
         fi
     elif [ "$AVAILABLE_RAM" -lt $((REQUIRED_RAM + 100)) ]; then
-        echo -e " ${YELLOW}⚠ będzie ciasno${NC}"
+        echo -e " ${YELLOW}⚠ tight${NC}"
     else
         echo -e " ${GREEN}✓${NC}"
     fi
 
-    echo -n "   Dysk: ${AVAILABLE_DISK}MB wolne"
+    echo -n "   Disk: ${AVAILABLE_DISK}MB free"
     if [ "$AVAILABLE_DISK" -lt "$REQUIRED_DISK" ]; then
-        echo -e " ${RED}✗ wymagane: ~${REQUIRED_DISK}MB${NC}"
+        echo -e " ${RED}✗ required: ~${REQUIRED_DISK}MB${NC}"
         echo ""
-        echo -e "${RED}   ❌ Za mało miejsca na dysku!${NC}"
+        echo -e "${RED}   ❌ Not enough disk space!${NC}"
         if [ -n "$IMAGE_SIZE_SOURCE" ]; then
-            echo -e "${RED}   Obraz Docker: ~${IMAGE_SIZE}MB (${IMAGE_SIZE_SOURCE}) + temp files${NC}"
+            echo -e "${RED}   Docker image: ~${IMAGE_SIZE}MB (${IMAGE_SIZE_SOURCE}) + temp files${NC}"
         else
-            echo -e "${RED}   Obraz Docker zajmie ~500MB + temp files.${NC}"
+            echo -e "${RED}   Docker image will use ~500MB + temp files.${NC}"
         fi
         if [ "$YES_MODE" == "true" ]; then
-            echo -e "${RED}   Przerywam instalację (--yes mode).${NC}"
+            echo -e "${RED}   Aborting installation (--yes mode).${NC}"
             exit 1
         fi
-        if ! confirm "   Czy mimo to kontynuować?"; then
-            echo "Anulowano."
+        if ! confirm "   Continue anyway?"; then
+            echo "Cancelled."
             exit 1
         fi
     elif [ "$AVAILABLE_DISK" -lt $((REQUIRED_DISK + 500)) ]; then
-        echo -e " ${YELLOW}⚠ mało miejsca (potrzeba ~${REQUIRED_DISK}MB)${NC}"
+        echo -e " ${YELLOW}⚠ low space (need ~${REQUIRED_DISK}MB)${NC}"
     else
         echo -e " ${GREEN}✓${NC}"
     fi
 
-    # Ostrzeżenie dla ciężkich aplikacji na małym RAM
+    # Warning for heavy applications on low RAM
     if [ "$REQUIRED_RAM" -ge 400 ] && [ "$TOTAL_RAM" -lt 2000 ]; then
         echo ""
-        echo -e "   ${YELLOW}⚠ Ta aplikacja wymaga dużo RAM (${REQUIRED_RAM}MB).${NC}"
-        echo -e "   ${YELLOW}  Zalecany plan: Mikrus 3.0+ (2GB RAM)${NC}"
+        echo -e "   ${YELLOW}⚠ This application requires a lot of RAM (${REQUIRED_RAM}MB).${NC}"
+        echo -e "   ${YELLOW}  Recommended: a VPS plan with 2GB+ RAM${NC}"
     fi
 else
-    echo -e "   ${YELLOW}⚠ Nie udało się sprawdzić zasobów${NC}"
+    echo -e "   ${YELLOW}⚠ Could not check resources${NC}"
 fi
 
 # =============================================================================
-# FAZA 0.5: SPRAWDZANIE PORTÓW
+# PHASE 0.5: PORT CHECK
 # =============================================================================
 
-# Pobierz domyślny port z install.sh
-# Obsługuje: PORT=3000 i PORT=${PORT:-3000}
+# Get default port from install.sh
+# Handles: PORT=3000 and PORT=${PORT:-3000}
 DEFAULT_PORT=$(grep -E "^PORT=" "$SCRIPT_PATH" 2>/dev/null | head -1 | sed -E 's/.*[=:-]([0-9]+).*/\1/')
 PORT_OVERRIDE=""
 
 if [ -n "$DEFAULT_PORT" ]; then
-    # Sprawdź czy port jest zajęty na serwerze
+    # Check if port is in use on the server
     PORT_IN_USE=$(server_exec_timeout 5 "ss -tlnp 2>/dev/null | grep -q ':${DEFAULT_PORT} ' && echo 'yes' || echo 'no'" 2>/dev/null)
 
     if [ "$PORT_IN_USE" == "yes" ]; then
         echo ""
-        echo -e "   ${YELLOW}⚠ Port $DEFAULT_PORT jest zajęty!${NC}"
+        echo -e "   ${YELLOW}⚠ Port $DEFAULT_PORT is in use!${NC}"
 
-        # Jedno SSH → lista portów, szukanie w pamięci (bez limitu prób)
+        # Single SSH call → port list, search in memory (no retry limit)
         PORT_OVERRIDE=$(find_free_port_remote "$SSH_ALIAS" $((DEFAULT_PORT + 1)))
         if [ -n "$PORT_OVERRIDE" ]; then
-            echo -e "   ${GREEN}✓ Używam portu $PORT_OVERRIDE zamiast $DEFAULT_PORT${NC}"
+            echo -e "   ${GREEN}✓ Using port $PORT_OVERRIDE instead of $DEFAULT_PORT${NC}"
         fi
     fi
 fi
 
 # =============================================================================
-# FAZA 1: ZBIERANIE INFORMACJI (bez API/ciężkich operacji)
+# PHASE 1: GATHERING INFORMATION (no API/heavy operations)
 # =============================================================================
 
-# Zmienne do przekazania
+# Variables to pass
 DB_ENV_VARS=""
 DB_TYPE=""
 NEEDS_DB=false
 NEEDS_DOMAIN=false
 APP_PORT=""
 
-# Sprawdź czy aplikacja wymaga bazy danych
-# WordPress z WP_DB_MODE=sqlite nie potrzebuje MySQL
+# Check if application requires a database
+# WordPress with WP_DB_MODE=sqlite does not need MySQL
 if grep -qiE "DB_HOST|DATABASE_URL" "$SCRIPT_PATH" 2>/dev/null; then
     if [ "$APP_NAME" = "wordpress" ] && [ "$WP_DB_MODE" = "sqlite" ]; then
         echo ""
-        echo -e "${GREEN}✅ WordPress w trybie SQLite — baza MySQL nie jest wymagana${NC}"
+        echo -e "${GREEN}✅ WordPress in SQLite mode — MySQL database is not required${NC}"
     else
         NEEDS_DB=true
 
-        # Wykryj typ bazy
+        # Detect database type
         if grep -qi "mysql" "$SCRIPT_PATH"; then
             DB_TYPE="mysql"
         elif grep -qi "mongo" "$SCRIPT_PATH"; then
@@ -596,21 +596,21 @@ if grep -qiE "DB_HOST|DATABASE_URL" "$SCRIPT_PATH" 2>/dev/null; then
 
         echo ""
         echo "╔════════════════════════════════════════════════════════════════╗"
-        echo "║  🗄️  Ta aplikacja wymaga bazy danych ($DB_TYPE)                ║"
+        echo "║  🗄️  This application requires a database ($DB_TYPE)             ║"
         echo "╚════════════════════════════════════════════════════════════════╝"
 
         if ! ask_database "$DB_TYPE" "$APP_NAME"; then
-            echo "Błąd: Konfiguracja bazy danych nie powiodła się."
+            echo "Error: Database configuration failed."
             exit 1
         fi
     fi
 fi
 
-# Sprawdź czy to aplikacja i wymaga domeny
+# Check if this is an app and requires a domain
 if [[ "$SCRIPT_DISPLAY" == apps/* ]]; then
     APP_PORT=$(grep -E "^PORT=" "$SCRIPT_PATH" | head -1 | sed -E 's/.*[=:-]([0-9]+).*/\1/')
 
-    # Sprawdź też czy skrypt wymaga DOMAIN (np. static sites bez Dockera)
+    # Also check if script requires DOMAIN (e.g. static sites without Docker)
     REQUIRES_DOMAIN_UPFRONT=false
     if grep -q 'if \[ -z "\$DOMAIN" \]' "$SCRIPT_PATH" 2>/dev/null; then
         REQUIRES_DOMAIN_UPFRONT=true
@@ -622,120 +622,120 @@ if [[ "$SCRIPT_DISPLAY" == apps/* ]]; then
 
         echo ""
         echo "╔════════════════════════════════════════════════════════════════╗"
-        echo "║  🌐 Konfiguracja domeny dla: $APP_NAME                         ║"
+        echo "║  🌐 Domain configuration for: $APP_NAME                         ║"
         echo "╚════════════════════════════════════════════════════════════════╝"
 
         if ! ask_domain "$APP_NAME" "$APP_PORT" "$SSH_ALIAS"; then
             echo ""
-            echo "Błąd: Konfiguracja domeny nie powiodła się."
+            echo "Error: Domain configuration failed."
             exit 1
         fi
     fi
 fi
 
 # =============================================================================
-# FAZA 1.5: KONFIGURACJA GATEFLOW (pytania o Supabase)
+# PHASE 1.5: GATEFLOW CONFIGURATION (Supabase questions)
 # =============================================================================
 
-# Zmienne GateFlow
+# GateFlow variables
 GATEFLOW_TURNSTILE_SECRET=""
 SETUP_TURNSTILE_LATER=false
 TURNSTILE_OFFERED=false
 GATEFLOW_STRIPE_CONFIGURED=false
 
 if [ "$APP_NAME" = "gateflow" ]; then
-    # 1. Zbierz konfigurację Supabase (token + wybór projektu)
-    # Pobierz klucze jeśli:
-    # - Nie mamy SUPABASE_URL, LUB
-    # - Podano --supabase-project i jest inny niż aktualny PROJECT_REF
+    # 1. Collect Supabase configuration (token + project selection)
+    # Fetch keys if:
+    # - We don't have SUPABASE_URL, OR
+    # - --supabase-project was provided and differs from current PROJECT_REF
     NEED_SUPABASE_FETCH=false
     if [ -z "$SUPABASE_URL" ]; then
         NEED_SUPABASE_FETCH=true
     elif [ -n "$SUPABASE_PROJECT" ] && [ "$SUPABASE_PROJECT" != "$PROJECT_REF" ]; then
-        # Podano inny projekt niż zapisany - musimy pobrać nowe klucze
+        # Different project than saved - need to fetch new keys
         NEED_SUPABASE_FETCH=true
-        echo "📦 Zmiana projektu Supabase: $PROJECT_REF → $SUPABASE_PROJECT"
+        echo "📦 Changing Supabase project: $PROJECT_REF → $SUPABASE_PROJECT"
     fi
 
     if [ "$NEED_SUPABASE_FETCH" = true ]; then
         if [ -n "$SUPABASE_PROJECT" ]; then
-            # Podano --supabase-project - pobierz klucze automatycznie
+            # --supabase-project provided - fetch keys automatically
             echo ""
-            echo "📦 Konfiguracja Supabase (projekt: $SUPABASE_PROJECT)"
+            echo "📦 Supabase configuration (project: $SUPABASE_PROJECT)"
 
-            # Upewnij się że mamy token
+            # Make sure we have a token
             if ! check_saved_supabase_token; then
                 if ! supabase_manual_token_flow; then
-                    echo "❌ Brak tokena Supabase"
+                    echo "❌ Missing Supabase token"
                     exit 1
                 fi
                 save_supabase_token "$SUPABASE_TOKEN"
             fi
 
             if ! fetch_supabase_keys_by_ref "$SUPABASE_PROJECT"; then
-                echo "❌ Nie udało się pobrać kluczy dla projektu: $SUPABASE_PROJECT"
+                echo "❌ Failed to fetch keys for project: $SUPABASE_PROJECT"
                 exit 1
             fi
         else
-            # Interaktywny wybór projektu
+            # Interactive project selection
             if ! gateflow_collect_config "$DOMAIN"; then
-                echo "❌ Konfiguracja Supabase nie powiodła się"
+                echo "❌ Supabase configuration failed"
                 exit 1
             fi
         fi
     fi
 
-    # 2. Zbierz konfigurację Stripe (pytanie lokalne)
+    # 2. Collect Stripe configuration (local prompt)
     gateflow_collect_stripe_config
 fi
 
-# Turnstile dla GateFlow - pytanie o konfigurację CAPTCHA
-# Turnstile działa na każdej domenie (nie tylko Cloudflare DNS), wymaga tylko konta Cloudflare
-# Pomijamy tylko dla: local (dev) lub automatycznej domeny Cytrus (DOMAIN="-")
+# Turnstile for GateFlow - CAPTCHA configuration prompt
+# Turnstile works on any domain (not just Cloudflare DNS), only requires a Cloudflare account
+# Skip only for: local (dev) or automatic Cytrus domain (DOMAIN="-")
 if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     TURNSTILE_OFFERED=true
     echo ""
-    echo "🔒 Konfiguracja Turnstile (CAPTCHA)"
+    echo "🔒 Turnstile Configuration (CAPTCHA)"
     echo ""
 
     if [ "$YES_MODE" = true ]; then
-        # W trybie --yes sprawdź czy mamy zapisane klucze
+        # In --yes mode check if we have saved keys
         KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
         if [ -f "$KEYS_FILE" ]; then
             source "$KEYS_FILE"
             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                 GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                echo "   ✅ Użyję zapisanych kluczy Turnstile"
+                echo "   ✅ Using saved Turnstile keys"
             fi
         fi
         if [ -z "$GATEFLOW_TURNSTILE_SECRET" ]; then
-            echo -e "${YELLOW}   ⚠️  Brak zapisanych kluczy Turnstile${NC}"
-            echo "   Skonfiguruj po instalacji: ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
+            echo -e "${YELLOW}   ⚠️  No saved Turnstile keys${NC}"
+            echo "   Configure after installation: ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
             SETUP_TURNSTILE_LATER=true
         fi
     else
-        # Tryb interaktywny - zapytaj
-        read -p "Skonfigurować Turnstile teraz? [T/n]: " SETUP_TURNSTILE
+        # Interactive mode - ask
+        read -p "Configure Turnstile now? [Y/n]: " SETUP_TURNSTILE
         if [[ ! "$SETUP_TURNSTILE" =~ ^[Nn]$ ]]; then
             if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
                 "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN"
 
-                # Czytaj klucze z zapisanego pliku
+                # Read keys from saved file
                 KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
                 if [ -f "$KEYS_FILE" ]; then
                     source "$KEYS_FILE"
                     if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                         GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
-                        echo -e "${GREEN}✅ Klucze Turnstile zostaną przekazane do instalacji${NC}"
+                        echo -e "${GREEN}✅ Turnstile keys will be passed to the installation${NC}"
                     fi
                 fi
             else
-                echo -e "${YELLOW}⚠️  Brak skryptu setup-turnstile.sh${NC}"
+                echo -e "${YELLOW}⚠️  Missing setup-turnstile.sh script${NC}"
             fi
         else
             echo ""
-            echo "⏭️  Pominięto. Możesz skonfigurować później:"
+            echo "⏭️  Skipped. You can configure later:"
             echo "   ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
             SETUP_TURNSTILE_LATER=true
         fi
@@ -744,62 +744,62 @@ if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAI
 fi
 
 # =============================================================================
-# FAZA 2: WYKONANIE (ciężkie operacje)
+# PHASE 2: EXECUTION (heavy operations)
 # =============================================================================
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  ☕ Teraz się zrelaksuj - pracuję...                            ║"
+echo "║  ☕ Now sit back and relax - working...                         ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Pobierz dane bazy z API (jeśli shared)
+# Fetch database credentials from API (if shared)
 if [ "$NEEDS_DB" = true ]; then
     if ! fetch_database "$DB_TYPE" "$SSH_ALIAS"; then
-        echo "Błąd: Nie udało się pobrać danych bazy."
+        echo "Error: Failed to fetch database credentials."
         exit 1
     fi
 
-    # Sprawdź czy schemat już istnieje (ostrzeżenie dla użytkownika)
+    # Check if schema already exists (warning for user)
     if [ "$DB_TYPE" = "postgres" ]; then
         if ! warn_if_schema_exists "$SSH_ALIAS" "$APP_NAME"; then
-            echo "Instalacja anulowana przez użytkownika."
+            echo "Installation cancelled by user."
             exit 1
         fi
     fi
 
-    # Escape single quotes in DB_PASS (zapobieganie shell injection)
+    # Escape single quotes in DB_PASS (prevent shell injection)
     ESCAPED_DB_PASS="${DB_PASS//\'/\'\\\'\'}"
 
-    # Przygotuj zmienne środowiskowe
+    # Prepare environment variables
     DB_ENV_VARS="DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$ESCAPED_DB_PASS'"
 
     echo ""
-    echo "📋 Baza danych:"
+    echo "📋 Database:"
     echo "   Host: $DB_HOST"
-    echo "   Baza: $DB_NAME"
+    echo "   Database: $DB_NAME"
     if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
-        echo "   Schemat: $DB_SCHEMA"
+        echo "   Schema: $DB_SCHEMA"
     fi
     echo ""
 fi
 
-# Przygotuj zmienną DOMAIN do przekazania
-# Przekaż domenę zawsze gdy jest dostępna — nawet w trybie local.
-# install.sh używa domeny do nazewnictwa instancji (np. WordPress multi-instance).
+# Prepare DOMAIN variable for passing
+# Always pass domain when available — even in local mode.
+# install.sh uses domain for instance naming (e.g. WordPress multi-instance).
 DOMAIN_ENV=""
 if [ "$NEEDS_DOMAIN" = true ] && [ -n "$DOMAIN" ]; then
     if [ "$DOMAIN" = "-" ]; then
         if [ "$DOMAIN_TYPE" = "local" ]; then
-            # Tryb local bez konkretnej domeny — nic nie przekazuj
+            # Local mode without specific domain — pass nothing
             :
         elif [ "$APP_NAME" = "gateflow" ]; then
-            # GateFlow ma własny mechanizm — deploy.sh aktualizuje .env.local po Cytrus
+            # GateFlow has its own mechanism — deploy.sh updates .env.local after Cytrus
             DOMAIN_ENV="DOMAIN='-'"
         else
-            # Dla Cytrus z automatyczną domeną, przekaż placeholder zamiast "-".
-            # install.sh zobaczy niepustą domenę i wstawi https://__CYTRUS_PENDING__ do docker-compose.
-            # Po przydzieleniu domeny, sed zamieni placeholder na prawdziwą domenę (linia ~970).
+            # For Cytrus with automatic domain, pass placeholder instead of "-".
+            # install.sh will see a non-empty domain and insert https://__CYTRUS_PENDING__ into docker-compose.
+            # After domain is assigned, sed replaces the placeholder with the real domain (line ~970).
             DOMAIN_ENV="DOMAIN='$CYTRUS_PLACEHOLDER'"
         fi
     else
@@ -807,15 +807,15 @@ if [ "$NEEDS_DOMAIN" = true ] && [ -n "$DOMAIN" ]; then
     fi
 fi
 
-# Przygotuj zmienną PORT do przekazania (jeśli nadpisany)
+# Prepare PORT variable for passing (if overridden)
 PORT_ENV=""
 if [ -n "$PORT_OVERRIDE" ]; then
     PORT_ENV="PORT='$PORT_OVERRIDE'"
-    # Zaktualizuj też APP_PORT dla configure_domain
+    # Also update APP_PORT for configure_domain
     APP_PORT="$PORT_OVERRIDE"
 fi
 
-# Przekaż dodatkowe zmienne środowiskowe (dla specjalnych aplikacji jak Cap)
+# Pass additional environment variables (for special apps like Cap)
 EXTRA_ENV=""
 [ -n "$USE_LOCAL_MINIO" ] && EXTRA_ENV="$EXTRA_ENV USE_LOCAL_MINIO='$USE_LOCAL_MINIO'"
 [ -n "$S3_ENDPOINT" ] && EXTRA_ENV="$EXTRA_ENV S3_ENDPOINT='$S3_ENDPOINT'"
@@ -829,20 +829,20 @@ EXTRA_ENV=""
 [ -n "$DOMAIN_TYPE" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_TYPE='$DOMAIN_TYPE'"
 [ -n "$WP_DB_MODE" ] && EXTRA_ENV="$EXTRA_ENV WP_DB_MODE='$WP_DB_MODE'"
 
-# Dla GateFlow - dodaj zmienne do EXTRA_ENV (zebrane wcześniej w FAZIE 1.5)
+# For GateFlow - add variables to EXTRA_ENV (collected earlier in PHASE 1.5)
 if [ "$APP_NAME" = "gateflow" ]; then
     # Supabase
     if [ -n "$SUPABASE_URL" ]; then
         EXTRA_ENV="$EXTRA_ENV SUPABASE_URL='$SUPABASE_URL' SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY'"
     fi
 
-    # Stripe (jeśli zebrane lokalnie)
+    # Stripe (if collected locally)
     if [ -n "$STRIPE_PK" ] && [ -n "$STRIPE_SK" ]; then
         EXTRA_ENV="$EXTRA_ENV STRIPE_PK='$STRIPE_PK' STRIPE_SK='$STRIPE_SK'"
         [ -n "$STRIPE_WEBHOOK_SECRET" ] && EXTRA_ENV="$EXTRA_ENV STRIPE_WEBHOOK_SECRET='$STRIPE_WEBHOOK_SECRET'"
     fi
 
-    # Turnstile (jeśli zebrane)
+    # Turnstile (if collected)
     if [ -n "$GATEFLOW_TURNSTILE_SECRET" ]; then
         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
     fi
@@ -850,7 +850,7 @@ fi
 
 # Dry-run mode
 if [ "$DRY_RUN" = true ]; then
-    echo -e "${BLUE}[dry-run] Symulacja wykonania:${NC}"
+    echo -e "${BLUE}[dry-run] Execution simulation:${NC}"
     if is_on_server; then
         echo "  bash $SCRIPT_PATH"
         echo "  env: DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV"
@@ -859,44 +859,44 @@ if [ "$DRY_RUN" = true ]; then
         echo "  ssh -t $SSH_ALIAS \"export DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '/tmp/mikrus-deploy-$$.sh'\""
     fi
     echo ""
-    echo -e "${BLUE}[dry-run] Po instalacji:${NC}"
+    echo -e "${BLUE}[dry-run] After installation:${NC}"
     if [ "$NEEDS_DOMAIN" = true ]; then
         echo "  configure_domain $APP_PORT $SSH_ALIAS"
     fi
     echo ""
-    echo -e "${GREEN}[dry-run] Zakończono symulację.${NC}"
+    echo -e "${GREEN}[dry-run] Simulation completed.${NC}"
     exit 0
 fi
 
 # Upload script to server and execute
-echo "🚀 Uruchamiam instalację na serwerze..."
+echo "🚀 Starting installation on server..."
 echo ""
 
 # =============================================================================
-# BUILD FILE (dla GateFlow z prywatnego repo)
+# BUILD FILE (for GateFlow from private repo)
 # =============================================================================
 
 REMOTE_BUILD_FILE=""
 if [ -n "$BUILD_FILE" ]; then
-    # Rozwiń ~ do pełnej ścieżki
+    # Expand ~ to full path
     BUILD_FILE="${BUILD_FILE/#\~/$HOME}"
 
     if [ ! -f "$BUILD_FILE" ]; then
-        echo -e "${RED}❌ Plik nie istnieje: $BUILD_FILE${NC}"
+        echo -e "${RED}❌ File does not exist: $BUILD_FILE${NC}"
         exit 1
     fi
 
-    echo "📦 Przesyłam plik instalacyjny na serwer..."
+    echo "📦 Uploading installation file to server..."
     REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
     server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
-    echo "   ✅ Plik przesłany"
+    echo "   ✅ File uploaded"
 
     EXTRA_ENV="$EXTRA_ENV BUILD_FILE='$REMOTE_BUILD_FILE'"
 fi
 
 DEPLOY_SUCCESS=false
 if is_on_server; then
-    # Na serwerze: uruchom skrypt bezpośrednio (bez scp/cleanup)
+    # On server: run script directly (no scp/cleanup)
     if (export DEPLOY_SSH_ALIAS="$SSH_ALIAS" SSH_ALIAS="$SSH_ALIAS" YES_MODE="$YES_MODE" $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash "$SCRIPT_PATH"); then
         DEPLOY_SUCCESS=true
     fi
@@ -917,64 +917,64 @@ else
 fi
 
 if [ "$DEPLOY_SUCCESS" = true ]; then
-    : # Sukces - kontynuuj do przygotowania bazy i konfiguracji domeny
+    : # Success - continue to database preparation and domain configuration
 else
     echo ""
-    echo -e "${RED}❌ Instalacja NIEUDANA! Sprawdź błędy powyżej.${NC}"
+    echo -e "${RED}❌ Installation FAILED! Check errors above.${NC}"
     exit 1
 fi
 
 # =============================================================================
-# KONFIGURACJA GATEFLOW PO INSTALACJI
+# GATEFLOW POST-INSTALLATION CONFIGURATION
 # =============================================================================
 
 if [ "$APP_NAME" = "gateflow" ]; then
-    # 1. Migracje bazy danych
+    # 1. Database migrations
     echo ""
-    echo "🗄️  Przygotowanie bazy danych..."
+    echo "🗄️  Preparing database..."
 
     if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
         SSH_ALIAS="$SSH_ALIAS" PROJECT_REF="$PROJECT_REF" SUPABASE_URL="$SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || {
-            echo -e "${YELLOW}⚠️  Nie udało się przygotować bazy - możesz uruchomić później:${NC}"
+            echo -e "${YELLOW}⚠️  Failed to prepare database - you can run later:${NC}"
             echo "   SSH_ALIAS=$SSH_ALIAS ./local/setup-supabase-migrations.sh"
         }
     else
-        echo -e "${YELLOW}⚠️  Brak skryptu przygotowania bazy${NC}"
+        echo -e "${YELLOW}⚠️  Missing database preparation script${NC}"
     fi
 
-    # 2. Skonsolidowana konfiguracja Supabase (Site URL, CAPTCHA, email templates)
+    # 2. Consolidated Supabase configuration (Site URL, CAPTCHA, email templates)
     if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
-        # Użyj funkcji z lib/gateflow-setup.sh
-        # Przekazuje: domenę, secret turnstile, SSH alias (do pobrania szablonów email)
+        # Use function from lib/gateflow-setup.sh
+        # Passes: domain, turnstile secret, SSH alias (for fetching email templates)
         configure_supabase_settings "$DOMAIN" "$GATEFLOW_TURNSTILE_SECRET" "$SSH_ALIAS" || {
-            echo -e "${YELLOW}⚠️  Częściowa konfiguracja Supabase${NC}"
+            echo -e "${YELLOW}⚠️  Partial Supabase configuration${NC}"
         }
     fi
-    # Przypomnienia (Stripe, Turnstile, SMTP) będą wyświetlone na końcu
+    # Reminders (Stripe, Turnstile, SMTP) will be displayed at the end
 fi
 
 # =============================================================================
-# FAZA 3: KONFIGURACJA DOMENY (po uruchomieniu usługi!)
+# PHASE 3: DOMAIN CONFIGURATION (after service is running!)
 # =============================================================================
 
-# Sprawdź czy install.sh zapisał port (dla dynamicznych portów jak Docker static sites)
+# Check if install.sh saved a port (for dynamic ports like Docker static sites)
 INSTALLED_PORT=$(server_exec "cat /tmp/app_port 2>/dev/null; rm -f /tmp/app_port" 2>/dev/null)
 if [ -n "$INSTALLED_PORT" ]; then
     APP_PORT="$INSTALLED_PORT"
 fi
 
-# Sprawdź czy install.sh zapisał STACK_DIR (dla multi-instance apps jak WordPress)
+# Check if install.sh saved STACK_DIR (for multi-instance apps like WordPress)
 INSTALLED_STACK_DIR=$(server_exec "cat /tmp/app_stack_dir 2>/dev/null; rm -f /tmp/app_stack_dir" 2>/dev/null)
 APP_STACK_DIR="${INSTALLED_STACK_DIR:-/opt/stacks/$APP_NAME}"
 
 if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
     echo ""
-    ORIGINAL_DOMAIN="$DOMAIN"  # Zapamiętaj czy był "-" (automatyczny)
+    ORIGINAL_DOMAIN="$DOMAIN"  # Remember if it was "-" (automatic)
     if configure_domain "$APP_PORT" "$SSH_ALIAS"; then
-        # Dla Cytrus z automatyczną domeną - zaktualizuj config prawdziwą domeną
-        # Po configure_domain(), zmienna DOMAIN zawiera przydzieloną domenę
+        # For Cytrus with automatic domain - update config with real domain
+        # After configure_domain(), DOMAIN variable contains the assigned domain
         if [ "$ORIGINAL_DOMAIN" = "-" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-            echo "🔄 Aktualizuję konfigurację z prawdziwą domeną: $DOMAIN"
+            echo "🔄 Updating configuration with real domain: $DOMAIN"
             if [ "$REQUIRES_DOMAIN_UPFRONT" = true ]; then
                 # Static sites - update Caddyfile
                 server_exec "sudo sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' /etc/caddy/Caddyfile && sudo systemctl reload caddy" 2>/dev/null || true
@@ -984,32 +984,32 @@ if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
             fi
         fi
 
-        # Dla GateFlow z Cytrus - zaktualizuj .env.local, Supabase i zapytaj o Turnstile
+        # For GateFlow with Cytrus - update .env.local, Supabase and ask about Turnstile
         if [ "$APP_NAME" = "gateflow" ] && [ "$ORIGINAL_DOMAIN" = "-" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-            # 1. Dodaj konfigurację domeny do .env.local (install.sh pominął dla DOMAIN="-")
-            echo "📝 Aktualizuję .env.local z prawdziwą domeną..."
+            # 1. Add domain configuration to .env.local (install.sh skipped for DOMAIN="-")
+            echo "📝 Updating .env.local with real domain..."
             server_exec "
                 cd /opt/stacks/gateflow/admin-panel
-                # Dodaj konfigurację domeny
+                # Add domain configuration
                 cat >> .env.local <<'DOMAIN_EOF'
 
-# Site URLs (dodane po przydzieleniu domeny Cytrus)
+# Site URLs (added after Cytrus domain assignment)
 SITE_URL=https://$DOMAIN
 MAIN_DOMAIN=$DOMAIN
 NEXT_PUBLIC_SITE_URL=https://$DOMAIN
 NEXT_PUBLIC_BASE_URL=https://$DOMAIN
 DISABLE_HSTS=true
 DOMAIN_EOF
-                # Skopiuj do standalone
+                # Copy to standalone
                 if [ -d '.next/standalone/admin-panel' ]; then
                     cp .env.local .next/standalone/admin-panel/.env.local
                 fi
             " 2>/dev/null || true
 
-            # 2. Restart PM2 żeby załadować nową konfigurację
-            # Dla auto-cytrus początkowa instalacja używa PM2_NAME="gateflow"
-            # Po poznaniu domeny możemy zachować tę nazwę (single instance)
-            echo "🔄 Restartuję GateFlow..."
+            # 2. Restart PM2 to load new configuration
+            # For auto-cytrus, initial installation uses PM2_NAME="gateflow"
+            # After learning the domain we can keep that name (single instance)
+            echo "🔄 Restarting GateFlow..."
             server_exec "
                 export PATH=\"\$HOME/.bun/bin:\$PATH\"
                 cd /opt/stacks/gateflow/admin-panel/.next/standalone/admin-panel
@@ -1022,26 +1022,26 @@ DOMAIN_EOF
                 pm2 save
             " 2>/dev/null || true
 
-            # 3. Zaktualizuj Site URL w Supabase
+            # 3. Update Site URL in Supabase
             update_supabase_site_url "$DOMAIN" || true
 
-            # Turnstile nie był oferowany wcześniej (nie znaliśmy domeny) - zapytaj teraz
+            # Turnstile was not offered earlier (domain was unknown) - ask now
             if [ "$TURNSTILE_OFFERED" != true ] && [ "$YES_MODE" != true ]; then
                 echo ""
-                echo "🔒 Konfiguracja Turnstile (CAPTCHA)"
-                echo "   Domena: $DOMAIN"
+                echo "🔒 Turnstile Configuration (CAPTCHA)"
+                echo "   Domain: $DOMAIN"
                 echo ""
-                read -p "Skonfigurować Turnstile teraz? [T/n]: " SETUP_TURNSTILE_NOW
+                read -p "Configure Turnstile now? [Y/n]: " SETUP_TURNSTILE_NOW
                 if [[ ! "$SETUP_TURNSTILE_NOW" =~ ^[Nn]$ ]]; then
                     if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
                         "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN" "$SSH_ALIAS"
-                        # Sprawdź czy klucze zostały zapisane
+                        # Check if keys were saved
                         KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
                         if [ -f "$KEYS_FILE" ]; then
                             source "$KEYS_FILE"
                             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                                 GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                                echo -e "${GREEN}✅ Turnstile skonfigurowany!${NC}"
+                                echo -e "${GREEN}✅ Turnstile configured!${NC}"
                             fi
                         fi
                     fi
@@ -1049,29 +1049,29 @@ DOMAIN_EOF
                     SETUP_TURNSTILE_LATER=true
                 fi
             elif [ "$YES_MODE" = true ]; then
-                # W trybie --yes - sprawdź zapisane klucze lub utwórz automatycznie
+                # In --yes mode - check saved keys or create automatically
                 KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
                 CF_TOKEN_FILE="$HOME/.config/cloudflare/turnstile_token"
 
                 if [ -f "$KEYS_FILE" ]; then
-                    # Mamy zapisane klucze dla tej domeny
+                    # We have saved keys for this domain
                     source "$KEYS_FILE"
                     if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                         GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                         configure_supabase_settings "$DOMAIN" "$GATEFLOW_TURNSTILE_SECRET" "" || true
                     fi
                 elif [ -f "$CF_TOKEN_FILE" ]; then
-                    # Mamy token Cloudflare - utwórz klucze automatycznie
+                    # We have Cloudflare token - create keys automatically
                     echo ""
-                    echo "🔒 Automatyczna konfiguracja Turnstile..."
+                    echo "🔒 Automatic Turnstile configuration..."
                     if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
                         "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN" "$SSH_ALIAS"
-                        # Sprawdź czy klucze zostały utworzone
+                        # Check if keys were created
                         if [ -f "$KEYS_FILE" ]; then
                             source "$KEYS_FILE"
                             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                                 GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                                echo -e "${GREEN}✅ Turnstile skonfigurowany automatycznie${NC}"
+                                echo -e "${GREEN}✅ Turnstile configured automatically${NC}"
                             fi
                         fi
                     fi
@@ -1080,21 +1080,21 @@ DOMAIN_EOF
                 fi
             fi
         fi
-        # Poczekaj aż domena zacznie odpowiadać (timeout 90s)
+        # Wait for domain to start responding (timeout 90s)
         wait_for_domain 90
     else
         echo ""
-        echo -e "${YELLOW}⚠️  Usługa działa, ale konfiguracja domeny nie powiodła się.${NC}"
-        echo "   Możesz skonfigurować domenę ręcznie później."
+        echo -e "${YELLOW}⚠️  Service is running, but domain configuration failed.${NC}"
+        echo "   You can configure the domain manually later."
     fi
 fi
 
-# Konfiguracja DOMAIN_PUBLIC (dla FileBrowser i podobnych)
+# DOMAIN_PUBLIC configuration (for FileBrowser and similar)
 if [ -n "$DOMAIN_PUBLIC" ]; then
     echo ""
-    echo "🌍 Konfiguruję domenę publiczną: $DOMAIN_PUBLIC"
+    echo "🌍 Configuring public domain: $DOMAIN_PUBLIC"
 
-    # Sprawdź typ domeny
+    # Check domain type
     is_cytrus_domain() {
         case "$1" in
             *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl) return 0 ;;
@@ -1102,24 +1102,24 @@ if [ -n "$DOMAIN_PUBLIC" ]; then
         esac
     }
 
-    # Pobierz port dla public (domyślnie 8096)
+    # Get port for public (default 8096)
     PUBLIC_PORT=$(server_exec "cat /tmp/app_public_port 2>/dev/null || echo 8096")
 
     if is_cytrus_domain "$DOMAIN_PUBLIC"; then
-        # Cytrus: rejestruj domenę przez API
-        echo "   🍊 Rejestruję w Cytrus na porcie $PUBLIC_PORT..."
+        # Cytrus: register domain via API
+        echo "   🍊 Registering in Cytrus on port $PUBLIC_PORT..."
         "$REPO_ROOT/local/cytrus-domain.sh" "$DOMAIN_PUBLIC" "$PUBLIC_PORT" "$SSH_ALIAS"
     else
-        # Cloudflare: skonfiguruj DNS i Caddy file_server
-        echo "   ☁️  Konfiguruję przez Cloudflare..."
+        # Cloudflare: configure DNS and Caddy file_server
+        echo "   ☁️  Configuring via Cloudflare..."
         WEBROOT=$(server_exec "cat /tmp/domain_public_webroot 2>/dev/null || echo /var/www/public")
-        # DNS może już istnieć - to OK, kontynuujemy z Caddy
-        "$REPO_ROOT/local/dns-add.sh" "$DOMAIN_PUBLIC" "$SSH_ALIAS" || echo "   DNS już skonfigurowany lub błąd - kontynuuję"
-        # Konfiguruj Caddy file_server
+        # DNS may already exist - that's OK, continue with Caddy
+        "$REPO_ROOT/local/dns-add.sh" "$DOMAIN_PUBLIC" "$SSH_ALIAS" || echo "   DNS already configured or error - continuing"
+        # Configure Caddy file_server
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
-            echo -e "   ${GREEN}✅ Static hosting skonfigurowany: https://$DOMAIN_PUBLIC${NC}"
+            echo -e "   ${GREEN}✅ Static hosting configured: https://$DOMAIN_PUBLIC${NC}"
         else
-            echo -e "   ${YELLOW}⚠️  Nie udało się skonfigurować Caddy dla $DOMAIN_PUBLIC${NC}"
+            echo -e "   ${YELLOW}⚠️  Failed to configure Caddy for $DOMAIN_PUBLIC${NC}"
         fi
         # Cleanup
         server_exec "rm -f /tmp/domain_public_webroot" 2>/dev/null
@@ -1127,48 +1127,48 @@ if [ -n "$DOMAIN_PUBLIC" ]; then
 fi
 
 # =============================================================================
-# PODSUMOWANIE
+# SUMMARY
 # =============================================================================
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🎉 GOTOWE!                                                    ║"
+echo "║  🎉 DONE!                                                      ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 
 if [ "$DOMAIN_TYPE" = "local" ]; then
     echo ""
-    echo "📋 Dostęp przez tunel SSH:"
+    echo "📋 Access via SSH tunnel:"
     echo -e "   ${BLUE}ssh -L $APP_PORT:localhost:$APP_PORT $SSH_ALIAS${NC}"
-    echo "   Potem otwórz: http://localhost:$APP_PORT"
+    echo "   Then open: http://localhost:$APP_PORT"
 elif [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo ""
-    echo -e "🌐 Aplikacja dostępna pod: ${BLUE}https://$DOMAIN${NC}"
+    echo -e "🌐 Application available at: ${BLUE}https://$DOMAIN${NC}"
 fi
 
-# Sugestia backupu dla aplikacji z bazą danych
+# Backup suggestion for database applications
 if [ "$NEEDS_DB" = true ]; then
     echo ""
-    echo -e "${YELLOW}💾 WAŻNE: Twoje dane są przechowywane w bazie danych!${NC}"
-    echo "   Jeśli nie masz skonfigurowanego backupu bazy, rozważ:"
+    echo -e "${YELLOW}💾 IMPORTANT: Your data is stored in a database!${NC}"
+    echo "   If you don't have database backups configured, consider:"
     echo ""
-    echo "   Konfiguracja automatycznego backupu:"
+    echo "   Configure automatic backup:"
     echo -e "      ${BLUE}ssh $SSH_ALIAS \"bash /opt/stackpilot/system/setup-db-backup.sh\"${NC}"
     echo ""
 fi
 
-# Przypomnienia post-instalacyjne dla GateFlow
+# Post-installation reminders for GateFlow
 if [ "$APP_NAME" = "gateflow" ]; then
-    # Określ czy Turnstile jest skonfigurowany
+    # Determine if Turnstile is configured
     TURNSTILE_CONFIGURED=false
     [ -n "$GATEFLOW_TURNSTILE_SECRET" ] && TURNSTILE_CONFIGURED=true
 
     echo ""
-    echo -e "${YELLOW}📋 Następne kroki:${NC}"
+    echo -e "${YELLOW}📋 Next steps:${NC}"
     gateflow_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$GATEFLOW_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
 fi
 
 # =============================================================================
-# KONDYCJA SERWERA (po instalacji)
+# SERVER HEALTH (after installation)
 # =============================================================================
 
 POST_RESOURCES=$(server_exec_timeout 10 "free -m | awk '/^Mem:/ {print \$2, \$7}'; df -m / | awk 'NR==2 {print \$2, \$4}'" 2>/dev/null)
@@ -1190,10 +1190,10 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 
     # RAM label
     if [ "$RAM_USED_PCT" -gt 80 ]; then
-        RAM_LABEL="${RED}KRYTYCZNIE${NC}"
+        RAM_LABEL="${RED}CRITICAL${NC}"
         RAM_LEVEL=2
     elif [ "$RAM_USED_PCT" -gt 60 ]; then
-        RAM_LABEL="${YELLOW}CIASNO${NC}"
+        RAM_LABEL="${YELLOW}TIGHT${NC}"
         RAM_LEVEL=1
     else
         RAM_LABEL="${GREEN}OK${NC}"
@@ -1202,10 +1202,10 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 
     # Disk label
     if [ "$DISK_USED_PCT" -gt 85 ]; then
-        DISK_LABEL="${RED}KRYTYCZNIE${NC}"
+        DISK_LABEL="${RED}CRITICAL${NC}"
         DISK_LEVEL=2
     elif [ "$DISK_USED_PCT" -gt 60 ]; then
-        DISK_LABEL="${YELLOW}CIASNO${NC}"
+        DISK_LABEL="${YELLOW}TIGHT${NC}"
         DISK_LEVEL=1
     else
         DISK_LABEL="${GREEN}OK${NC}"
@@ -1218,36 +1218,35 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  📊 Kondycja serwera po instalacji                             ║"
+    echo "║  📊 Server health after installation                            ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    echo -e "   RAM:  ${POST_RAM_AVAIL}MB / ${POST_RAM_TOTAL}MB wolne (${RAM_USED_PCT}% zajęte) — $RAM_LABEL"
-    echo -e "   Dysk: ${DISK_AVAIL_GB}GB / ${DISK_TOTAL_GB}GB wolne (${DISK_USED_PCT}% zajęte) — $DISK_LABEL"
+    echo -e "   RAM:  ${POST_RAM_AVAIL}MB / ${POST_RAM_TOTAL}MB free (${RAM_USED_PCT}% used) — $RAM_LABEL"
+    echo -e "   Disk: ${DISK_AVAIL_GB}GB / ${DISK_TOTAL_GB}GB free (${DISK_USED_PCT}% used) — $DISK_LABEL"
     echo ""
 
     if [ "$HEALTH_LEVEL" -eq 0 ]; then
-        echo -e "   ${GREEN}✅ Serwer w dobrej kondycji. Możesz spokojnie dodawać kolejne usługi.${NC}"
+        echo -e "   ${GREEN}✅ Server is in good shape. You can safely add more services.${NC}"
     elif [ "$HEALTH_LEVEL" -eq 1 ]; then
-        echo -e "   ${YELLOW}⚠️  Robi się ciasno. Rozważ upgrade przed dodawaniem ciężkich usług.${NC}"
+        echo -e "   ${YELLOW}⚠️  Getting tight. Consider upgrading before adding heavy services.${NC}"
     else
-        echo -e "   ${RED}❌ Serwer mocno obciążony! Rozważ upgrade lub usunięcie nieużywanych usług.${NC}"
+        echo -e "   ${RED}❌ Server is heavily loaded! Consider upgrading or removing unused services.${NC}"
     fi
 
-    # Sugestia upgrade
+    # Upgrade suggestion
     if [ "$HEALTH_LEVEL" -ge 1 ]; then
         UPGRADE=""
         if [ "$POST_RAM_TOTAL" -le 1024 ]; then
-            UPGRADE="Mikrus 3.0 (2GB RAM, 130 PLN/rok)"
+            UPGRADE="a VPS plan with 2GB RAM"
         elif [ "$POST_RAM_TOTAL" -le 2048 ]; then
-            UPGRADE="Mikrus 3.5 (4GB RAM, 197 PLN/rok)"
+            UPGRADE="a VPS plan with 4GB RAM"
         elif [ "$POST_RAM_TOTAL" -le 4096 ]; then
-            UPGRADE="Mikrus 4.1 (8GB RAM, 395 PLN/rok)"
+            UPGRADE="a VPS plan with 8GB RAM"
         elif [ "$POST_RAM_TOTAL" -le 8192 ]; then
-            UPGRADE="Mikrus 4.2 (16GB RAM, 790 PLN/rok)"
+            UPGRADE="a VPS plan with 16GB RAM"
         fi
         if [ -n "$UPGRADE" ]; then
-            echo -e "   ${YELLOW}📦 Sugerowany upgrade: $UPGRADE${NC}"
-            echo -e "   ${YELLOW}   https://mikr.us/?r=pavvel#plans${NC}"
+            echo -e "   ${YELLOW}📦 Suggested upgrade: $UPGRADE${NC}"
         fi
     fi
 fi

@@ -6,8 +6,8 @@
 #
 # IMAGE_SIZE_MB=130  # redis:alpine
 #
-# Opcjonalne zmienne środowiskowe:
-#   REDIS_PASS - hasło do Redis (jeśli brak, generowane automatycznie)
+# Optional environment variables:
+#   REDIS_PASS - password for Redis (if not set, generated automatically)
 
 set -e
 
@@ -20,9 +20,9 @@ echo "--- ⚡ Redis Setup ---"
 # Generate password if not provided
 if [ -z "$REDIS_PASS" ]; then
     REDIS_PASS=$(openssl rand -hex 16)
-    echo "✅ Wygenerowano hasło Redis"
+    echo "✅ Redis password generated"
 else
-    echo "✅ Używam hasła z konfiguracji"
+    echo "✅ Using password from configuration"
 fi
 
 sudo mkdir -p "$STACK_DIR"
@@ -55,19 +55,19 @@ sudo docker compose up -d
 # Health check (redis doesn't have HTTP, just check container)
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type check_container_running &>/dev/null; then
-    check_container_running "$APP_NAME" || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    check_container_running "$APP_NAME" || { echo "❌ Installation failed!"; exit 1; }
 else
     sleep 3
     if sudo docker compose ps --format json | grep -q '"State":"running"'; then
-        echo "✅ Redis działa na porcie $PORT"
+        echo "✅ Redis is running on port $PORT"
     else
-        echo "❌ Kontener nie wystartował!"; sudo docker compose logs --tail 20; exit 1
+        echo "❌ Container failed to start!"; sudo docker compose logs --tail 20; exit 1
     fi
 fi
 
 echo ""
-echo "✅ Redis zainstalowany!"
-echo "   Port: 127.0.0.1:$PORT (tylko lokalnie)"
-echo "   Hasło zapisane w: $STACK_DIR/.redis_password"
+echo "✅ Redis installed!"
+echo "   Port: 127.0.0.1:$PORT (local only)"
+echo "   Password saved in: $STACK_DIR/.redis_password"
 echo ""
-echo "   Połączenie: redis-cli -h 127.0.0.1 -p $PORT -a \$(cat $STACK_DIR/.redis_password)"
+echo "   Connection: redis-cli -h 127.0.0.1 -p $PORT -a \$(cat $STACK_DIR/.redis_password)"

@@ -8,12 +8,12 @@
 #
 # IMAGE_SIZE_MB=3500  # unclecode/crawl4ai:latest (1.4GB compressed → ~3.5GB on disk)
 #
-# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 3.0+)!
-#     Crawl4AI uruchamia headless Chromium do crawlowania stron.
-#     Na Mikrus 2.1 (1GB RAM) może powodować zawieszenie serwera.
+# ⚠️  NOTE: This app requires at least 2GB RAM (2GB+ VPS)!
+#     Crawl4AI runs headless Chromium for crawling pages.
+#     On a 1GB VPS it may cause the server to hang.
 #
-# Znany problem: memory leak przy intensywnym użyciu (Chrome procesy się kumulują).
-# PLAYWRIGHT_MAX_CONCURRENCY=2 ogranicza, ale przy dużym ruchu rozważ cron restart.
+# Known issue: memory leak under heavy use (Chrome processes accumulate).
+# PLAYWRIGHT_MAX_CONCURRENCY=2 limits this, but under heavy traffic consider a cron restart.
 
 set -e
 
@@ -22,29 +22,29 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8000}
 
 echo "--- 🕷️ Crawl4AI Setup ---"
-echo "AI-powered web crawler z REST API."
+echo "AI-powered web crawler with REST API."
 echo ""
 
-# Port binding: Cytrus wymaga 0.0.0.0, Cloudflare/local → 127.0.0.1
+# Port binding: Cytrus requires 0.0.0.0, Cloudflare/local → 127.0.0.1
 if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
     BIND_ADDR=""
 else
     BIND_ADDR="127.0.0.1:"
 fi
 
-# Sprawdź dostępny RAM - WYMAGANE minimum 2GB!
+# Check available RAM - REQUIRED minimum 2GB!
 TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")
 
 if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Za mało RAM dla Crawl4AI!                          ║"
+    echo "║  ❌ ERROR: Not enough RAM for Crawl4AI!                      ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Wymagane:    2048MB RAM (Mikrus 3.0+)                       ║"
+    echo "║  Your server: ${TOTAL_RAM}MB RAM                             ║"
+    echo "║  Required:    2048MB RAM (2GB+ VPS)                          ║"
     echo "║                                                              ║"
-    echo "║  Crawl4AI uruchamia headless Chromium (~1-1.5GB RAM).        ║"
-    echo "║  Na Mikrus 2.1 zawiesza serwer!                             ║"
+    echo "║  Crawl4AI runs headless Chromium (~1-1.5GB RAM).             ║"
+    echo "║  On a 1GB VPS it hangs the server!                           ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
@@ -52,23 +52,23 @@ fi
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domena: $DOMAIN"
+    echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domena: automatyczna (Cytrus)"
+    echo "✅ Domain: automatic (Cytrus)"
 else
-    echo "⚠️  Brak domeny - użyj --domain=... lub dostęp przez SSH tunnel"
+    echo "⚠️  No domain - use --domain=... or access via SSH tunnel"
 fi
 
-# Generuj API token
+# Generate API token
 CRAWL4AI_API_TOKEN=$(openssl rand -hex 32)
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
-# Zapisz token
+# Save token
 echo "$CRAWL4AI_API_TOKEN" | sudo tee .api_token > /dev/null
 sudo chmod 600 .api_token
-echo "✅ API token wygenerowany i zapisany"
+echo "✅ API token generated and saved"
 
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
@@ -97,21 +97,21 @@ EOF
 
 sudo docker compose up -d
 
-# Health check - Chromium potrzebuje dużo czasu na start
-echo "⏳ Czekam na uruchomienie Crawl4AI (~60-90s, Chromium się ładuje)..."
+# Health check - Chromium needs a lot of time to start
+echo "⏳ Waiting for Crawl4AI to start (~60-90s, Chromium is loading)..."
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
-    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
+    wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Installation failed!"; exit 1; }
 else
     for i in $(seq 1 9); do
         sleep 10
         if curl -sf "http://localhost:$PORT/health" > /dev/null 2>&1; then
-            echo "✅ Crawl4AI działa (po $((i*10))s)"
+            echo "✅ Crawl4AI is running (after $((i*10))s)"
             break
         fi
         echo "   ... $((i*10))s"
         if [ "$i" -eq 9 ]; then
-            echo "❌ Kontener nie wystartował w 90s!"
+            echo "❌ Container failed to start within 90s!"
             sudo docker compose logs --tail 30
             exit 1
         fi
@@ -120,7 +120,7 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ Crawl4AI zainstalowany!"
+echo "✅ Crawl4AI installed!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
@@ -128,18 +128,18 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "🔗 Playground: https://$DOMAIN/playground"
     echo "🔗 Monitor: https://$DOMAIN/monitor"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "🔗 Domena zostanie skonfigurowana automatycznie po instalacji"
+    echo "🔗 Domain will be configured automatically after installation"
 else
-    echo "🔗 Dostęp przez SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
+    echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
     echo "   API: http://localhost:$PORT"
     echo "   Playground: http://localhost:$PORT/playground"
     echo "   Monitor: http://localhost:$PORT/monitor"
 fi
 echo ""
 echo "🔑 API Token: $CRAWL4AI_API_TOKEN"
-echo "   Zapisany w: $STACK_DIR/.api_token"
+echo "   Saved in: $STACK_DIR/.api_token"
 echo ""
-echo "📋 Przykład użycia:"
+echo "📋 Usage example:"
 echo "   curl -X POST http://localhost:$PORT/crawl \\"
 echo "     -H 'Authorization: Bearer $CRAWL4AI_API_TOKEN' \\"
 echo "     -H 'Content-Type: application/json' \\"

@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # StackPilot - Supabase Setup for GateFlow
-# Konfiguruje Supabase i uruchamia migracje
+# Configures Supabase and runs migrations
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   ./local/setup-supabase-gateflow.sh [ssh_alias]
 #
-# Przykłady:
-#   ./local/setup-supabase-gateflow.sh mikrus    # Konfiguracja + migracje na serwerze
-#   ./local/setup-supabase-gateflow.sh          # Tylko konfiguracja
+# Examples:
+#   ./local/setup-supabase-gateflow.sh vps     # Configuration + migrations on server
+#   ./local/setup-supabase-gateflow.sh          # Configuration only
 
 set -e
 
@@ -17,14 +17,14 @@ SSH_ALIAS="${1:-}"
 GITHUB_REPO="jurczykpawel/gateflow"
 MIGRATIONS_PATH="supabase/migrations"
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Konfiguracja
+# Configuration
 CONFIG_DIR="$HOME/.config/gateflow"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
@@ -33,39 +33,39 @@ echo -e "${BLUE}🗄️  Supabase Setup for GateFlow${NC}"
 echo ""
 
 # =============================================================================
-# 1. SPRAWDŹ ISTNIEJĄCĄ KONFIGURACJĘ
+# 1. CHECK EXISTING CONFIGURATION
 # =============================================================================
 
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
     if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
-        echo -e "${GREEN}✅ Znaleziono zapisaną konfigurację Supabase${NC}"
+        echo -e "${GREEN}✅ Found saved Supabase configuration${NC}"
         echo "   URL: $SUPABASE_URL"
         echo ""
-        read -p "Użyć istniejącej konfiguracji? [T/n]: " USE_EXISTING
+        read -p "Use existing configuration? [Y/n]: " USE_EXISTING
         if [[ ! "$USE_EXISTING" =~ ^[Nn]$ ]]; then
             echo ""
-            echo -e "${GREEN}✅ Używam zapisanej konfiguracji${NC}"
+            echo -e "${GREEN}✅ Using saved configuration${NC}"
 
-            # Przejdź do migracji
+            # Proceed to migrations
             if [ -n "$SSH_ALIAS" ]; then
                 echo ""
-                read -p "Uruchomić migracje na serwerze $SSH_ALIAS? [T/n]: " RUN_MIGRATIONS
+                read -p "Run migrations on server $SSH_ALIAS? [Y/n]: " RUN_MIGRATIONS
                 if [[ ! "$RUN_MIGRATIONS" =~ ^[Nn]$ ]]; then
-                    # Sprawdź DATABASE_URL
+                    # Check DATABASE_URL
                     if [ -z "$DATABASE_URL" ]; then
                         echo ""
-                        echo "Potrzebuję Database URL do uruchomienia migracji."
+                        echo "I need a Database URL to run migrations."
                         echo ""
-                        echo "Gdzie go znaleźć:"
-                        echo "   1. Otwórz: https://supabase.com/dashboard"
-                        echo "   2. Wybierz projekt → Settings → Database"
-                        echo "   3. Sekcja 'Connection string' → URI"
+                        echo "Where to find it:"
+                        echo "   1. Open: https://supabase.com/dashboard"
+                        echo "   2. Select project → Settings → Database"
+                        echo "   3. Section 'Connection string' → URI"
                         echo ""
-                        read -p "Wklej Database URL (postgresql://...): " DATABASE_URL
+                        read -p "Paste Database URL (postgresql://...): " DATABASE_URL
 
                         if [ -n "$DATABASE_URL" ]; then
-                            # Zapisz do konfiga
+                            # Save to config
                             echo "DATABASE_URL='$DATABASE_URL'" >> "$CONFIG_FILE"
                             chmod 600 "$CONFIG_FILE"
                         fi
@@ -79,9 +79,9 @@ if [ -f "$CONFIG_FILE" ]; then
             fi
 
             echo ""
-            echo -e "${GREEN}🎉 Supabase skonfigurowany!${NC}"
+            echo -e "${GREEN}🎉 Supabase configured!${NC}"
             echo ""
-            echo "Zmienne do użycia w deploy.sh:"
+            echo "Variables for deploy.sh:"
             echo "   SUPABASE_URL='$SUPABASE_URL'"
             echo "   SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY'"
             echo "   SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY'"
@@ -91,21 +91,21 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # =============================================================================
-# 2. TWORZENIE PROJEKTU SUPABASE
+# 2. CREATE SUPABASE PROJECT
 # =============================================================================
 
-echo "GateFlow wymaga projektu Supabase (bezpłatny plan wystarczy)."
+echo "GateFlow requires a Supabase project (the free plan is sufficient)."
 echo ""
-echo "Jeśli nie masz jeszcze projektu, stwórz go teraz:"
-echo "   1. Otwórz: https://supabase.com/dashboard"
-echo "   2. Kliknij 'New Project'"
-echo "   3. Wybierz organizację i region (np. Frankfurt)"
-echo "   4. Wpisz nazwę (np. 'gateflow')"
-echo "   5. Wygeneruj silne hasło do bazy"
-echo "   6. Kliknij 'Create new project'"
+echo "If you don't have a project yet, create one now:"
+echo "   1. Open: https://supabase.com/dashboard"
+echo "   2. Click 'New Project'"
+echo "   3. Select organization and region (e.g. Frankfurt)"
+echo "   4. Enter a name (e.g. 'gateflow')"
+echo "   5. Generate a strong database password"
+echo "   6. Click 'Create new project'"
 echo ""
 
-read -p "Naciśnij Enter aby otworzyć Supabase..." _
+read -p "Press Enter to open Supabase..." _
 
 if command -v open &>/dev/null; then
     open "https://supabase.com/dashboard"
@@ -114,30 +114,30 @@ elif command -v xdg-open &>/dev/null; then
 fi
 
 # =============================================================================
-# 3. POBIERZ KLUCZE API
+# 3. GET API KEYS
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "📋 KLUCZE API"
+echo "📋 API KEYS"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Znajdziesz je w: Project Settings → API"
+echo "Find them in: Project Settings → API"
 echo ""
 
 # SUPABASE_URL
-echo "1. Project URL (np. https://xxxxx.supabase.co)"
+echo "1. Project URL (e.g. https://xxxxx.supabase.co)"
 read -p "   SUPABASE_URL: " SUPABASE_URL
 
 if [ -z "$SUPABASE_URL" ]; then
-    echo -e "${RED}❌ SUPABASE_URL jest wymagany${NC}"
+    echo -e "${RED}❌ SUPABASE_URL is required${NC}"
     exit 1
 fi
 
-# Walidacja URL
+# URL validation
 if [[ ! "$SUPABASE_URL" =~ ^https://.*\.supabase\.co$ ]]; then
-    echo -e "${YELLOW}⚠️  URL wygląda nietypowo (powinien być https://xxx.supabase.co)${NC}"
-    read -p "   Kontynuować? [t/N]: " CONTINUE
+    echo -e "${YELLOW}⚠️  URL looks unusual (should be https://xxx.supabase.co)${NC}"
+    read -p "   Continue? [y/N]: " CONTINUE
     if [[ ! "$CONTINUE" =~ ^[TtYy]$ ]]; then
         exit 1
     fi
@@ -145,53 +145,53 @@ fi
 
 # ANON KEY
 echo ""
-echo "2. anon public (zaczyna się od eyJ...)"
+echo "2. anon public (starts with eyJ...)"
 read -p "   SUPABASE_ANON_KEY: " SUPABASE_ANON_KEY
 
 if [ -z "$SUPABASE_ANON_KEY" ]; then
-    echo -e "${RED}❌ SUPABASE_ANON_KEY jest wymagany${NC}"
+    echo -e "${RED}❌ SUPABASE_ANON_KEY is required${NC}"
     exit 1
 fi
 
 # SERVICE KEY
 echo ""
-echo "3. service_role (też zaczyna się od eyJ..., UWAGA: to jest secret!)"
+echo "3. service_role (also starts with eyJ..., NOTE: this is a secret!)"
 read -p "   SUPABASE_SERVICE_KEY: " SUPABASE_SERVICE_KEY
 
 if [ -z "$SUPABASE_SERVICE_KEY" ]; then
-    echo -e "${RED}❌ SUPABASE_SERVICE_KEY jest wymagany${NC}"
+    echo -e "${RED}❌ SUPABASE_SERVICE_KEY is required${NC}"
     exit 1
 fi
 
 echo ""
-echo -e "${GREEN}✅ Klucze API pobrane${NC}"
+echo -e "${GREEN}✅ API keys obtained${NC}"
 
 # =============================================================================
-# 4. POBIERZ DATABASE URL (dla migracji)
+# 4. GET DATABASE URL (for migrations)
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "📋 DATABASE URL (dla migracji)"
+echo "📋 DATABASE URL (for migrations)"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Znajdziesz go w: Project Settings → Database → Connection string → URI"
-echo "(zaczyna się od postgresql://)"
+echo "Find it in: Project Settings → Database → Connection string → URI"
+echo "(starts with postgresql://)"
 echo ""
-read -p "DATABASE_URL (lub Enter aby pominąć migracje): " DATABASE_URL
+read -p "DATABASE_URL (or Enter to skip migrations): " DATABASE_URL
 
 # =============================================================================
-# 5. ZAPISZ KONFIGURACJĘ
+# 5. SAVE CONFIGURATION
 # =============================================================================
 
 echo ""
-echo "💾 Zapisuję konfigurację..."
+echo "💾 Saving configuration..."
 
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_FILE" <<EOF
 # GateFlow - Supabase Configuration
-# Wygenerowano: $(date)
+# Generated: $(date)
 
 SUPABASE_URL='$SUPABASE_URL'
 SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY'
@@ -203,22 +203,22 @@ if [ -n "$DATABASE_URL" ]; then
 fi
 
 chmod 600 "$CONFIG_FILE"
-echo -e "${GREEN}✅ Konfiguracja zapisana w $CONFIG_FILE${NC}"
+echo -e "${GREEN}✅ Configuration saved in $CONFIG_FILE${NC}"
 
 # =============================================================================
-# 6. URUCHOM MIGRACJE (opcjonalne)
+# 6. RUN MIGRATIONS (optional)
 # =============================================================================
 
 if [ -n "$DATABASE_URL" ] && [ -n "$SSH_ALIAS" ]; then
     echo ""
-    read -p "Uruchomić migracje na serwerze $SSH_ALIAS? [T/n]: " RUN_MIGRATIONS
+    read -p "Run migrations on server $SSH_ALIAS? [Y/n]: " RUN_MIGRATIONS
     if [[ ! "$RUN_MIGRATIONS" =~ ^[Nn]$ ]]; then
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
         DATABASE_URL="$DATABASE_URL" "$SCRIPT_DIR/setup-supabase-migrations.sh" "$SSH_ALIAS"
     fi
 elif [ -n "$DATABASE_URL" ]; then
     echo ""
-    read -p "Uruchomić migracje lokalnie (wymaga Docker)? [T/n]: " RUN_MIGRATIONS
+    read -p "Run migrations locally (requires Docker)? [Y/n]: " RUN_MIGRATIONS
     if [[ ! "$RUN_MIGRATIONS" =~ ^[Nn]$ ]]; then
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
         DATABASE_URL="$DATABASE_URL" "$SCRIPT_DIR/setup-supabase-migrations.sh"
@@ -226,23 +226,23 @@ elif [ -n "$DATABASE_URL" ]; then
 fi
 
 # =============================================================================
-# 7. PODSUMOWANIE
+# 7. SUMMARY
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo -e "${GREEN}🎉 Supabase skonfigurowany!${NC}"
+echo -e "${GREEN}🎉 Supabase configured!${NC}"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Konfiguracja zapisana w: $CONFIG_FILE"
+echo "Configuration saved in: $CONFIG_FILE"
 echo ""
-echo "Użycie z deploy.sh:"
+echo "Usage with deploy.sh:"
 echo "   source ~/.config/gateflow/supabase.env"
-echo "   ./local/deploy.sh gateflow --ssh=mikrus --domain=gf.example.com"
+echo "   ./local/deploy.sh gateflow --ssh=vps --domain=gf.example.com"
 echo ""
-echo "Lub ręcznie:"
+echo "Or manually:"
 echo "   SUPABASE_URL='$SUPABASE_URL' \\"
 echo "   SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' \\"
 echo "   SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY' \\"
-echo "   ./local/deploy.sh gateflow --ssh=mikrus --domain=gf.example.com"
+echo "   ./local/deploy.sh gateflow --ssh=vps --domain=gf.example.com"
 echo ""

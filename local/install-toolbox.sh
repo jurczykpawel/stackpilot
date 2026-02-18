@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # StackPilot - Install Toolbox on Server
-# Kopiuje toolbox na serwer Mikrus, żeby skrypty działały bezpośrednio.
+# Copies the toolbox to the server so scripts can run directly.
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   ./local/install-toolbox.sh [ssh_alias]
 #
-# Po instalacji na serwerze:
+# After installation on the server:
 #   ssh vps
 #   deploy.sh uptime-kuma
 #   cytrus-domain.sh - 3001
@@ -19,31 +19,31 @@ SSH_ALIAS="${1:-vps}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Ten skrypt działa tylko z komputera lokalnego
+# This script only runs from the local machine
 if [ -f /klucz_api ]; then
-    echo "Ten skrypt działa tylko na komputerze lokalnym."
-    echo "Toolbox jest już zainstalowany na tym serwerze."
+    echo "This script only runs on the local machine."
+    echo "The toolbox is already installed on this server."
     exit 1
 fi
 
 echo ""
-echo "📦 Instalacja StackPilot na serwerze"
+echo "📦 Installing StackPilot on server"
 echo ""
-echo "   Serwer: $SSH_ALIAS"
-echo "   Źródło: $REPO_ROOT"
-echo "   Cel:    /opt/stackpilot/"
+echo "   Server: $SSH_ALIAS"
+echo "   Source: $REPO_ROOT"
+echo "   Target: /opt/stackpilot/"
 echo ""
 
-# Sprawdź rsync
+# Check rsync
 if ! command -v rsync &>/dev/null; then
-    echo "❌ rsync nie jest zainstalowany"
+    echo "❌ rsync is not installed"
     echo "   Mac:   brew install rsync"
     echo "   Linux: sudo apt install rsync"
     exit 1
 fi
 
-# Kopiuj toolbox na serwer
-echo "🚀 Kopiuję pliki..."
+# Copy toolbox to server
+echo "🚀 Copying files..."
 rsync -az --delete \
     --exclude '.git' \
     --exclude 'node_modules' \
@@ -52,10 +52,10 @@ rsync -az --delete \
     --exclude '*.md' \
     "$REPO_ROOT/" "$SSH_ALIAS:/opt/stackpilot/"
 
-# Dodaj do PATH — wykryj shell na serwerze i użyj właściwego pliku
-# zsh: ~/.zshenv (czytany ZAWSZE — interactive, non-interactive, login, non-login)
-# bash: ~/.bashrc (czytany przy ssh host "cmd" + interactive)
-echo "🔧 Konfiguruję PATH..."
+# Add to PATH — detect shell on the server and use the appropriate file
+# zsh: ~/.zshenv (read ALWAYS — interactive, non-interactive, login, non-login)
+# bash: ~/.bashrc (read on ssh host "cmd" + interactive)
+echo "🔧 Configuring PATH..."
 TOOLBOX_LINE='export PATH=/opt/stackpilot/local:$PATH'
 ssh "$SSH_ALIAS" "
     REMOTE_SHELL=\$(basename \"\$SHELL\" 2>/dev/null)
@@ -69,26 +69,26 @@ ssh "$SSH_ALIAS" "
         fi
     fi
 
-    # bash → ~/.bashrc (na początku, przed guardem interaktywnym)
+    # bash → ~/.bashrc (at the beginning, before the interactive guard)
     if [ -f ~/.bashrc ]; then
         if ! grep -q 'stackpilot/local' ~/.bashrc 2>/dev/null; then
             sed -i '1i\\# StackPilot\nexport PATH=/opt/stackpilot/local:\$PATH\n' ~/.bashrc
         fi
     fi
 
-    # Wyczyść stare wpisy z .profile
+    # Clean up old entries from .profile
     if grep -q 'stackpilot/local' ~/.profile 2>/dev/null; then
         sed -i '/# StackPilot/d; /stackpilot\/local/d' ~/.profile
     fi
 "
 
 echo ""
-echo "✅ Toolbox zainstalowany!"
+echo "✅ Toolbox installed!"
 echo ""
-echo "Teraz możesz:"
+echo "Now you can:"
 echo "   ssh $SSH_ALIAS"
 echo "   deploy.sh uptime-kuma"
 echo "   cytrus-domain.sh - 3001"
 echo ""
-echo "Aktualizacja: uruchom ten skrypt ponownie"
+echo "To update: run this script again"
 echo ""

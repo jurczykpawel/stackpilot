@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # StackPilot - Stripe Setup for GateFlow
-# Konfiguruje Stripe do obsługi płatności
+# Configures Stripe for payment processing
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
-#   ./local/setup-stripe-gateflow.sh [domena]
+# Usage:
+#   ./local/setup-stripe-gateflow.sh [domain]
 #
-# Przykłady:
+# Examples:
 #   ./local/setup-stripe-gateflow.sh app.example.com
 #   ./local/setup-stripe-gateflow.sh
 
@@ -15,14 +15,14 @@ set -e
 
 DOMAIN="${1:-}"
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Konfiguracja
+# Configuration
 CONFIG_DIR="$HOME/.config/gateflow"
 CONFIG_FILE="$CONFIG_DIR/stripe.env"
 
@@ -31,23 +31,23 @@ echo -e "${BLUE}💳 Stripe Setup for GateFlow${NC}"
 echo ""
 
 # =============================================================================
-# 1. SPRAWDŹ ISTNIEJĄCĄ KONFIGURACJĘ
+# 1. CHECK EXISTING CONFIGURATION
 # =============================================================================
 
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
     if [ -n "$STRIPE_PUBLISHABLE_KEY" ] && [ -n "$STRIPE_SECRET_KEY" ]; then
-        echo -e "${GREEN}✅ Znaleziono zapisaną konfigurację Stripe${NC}"
-        # Pokazuj tylko prefix klucza
+        echo -e "${GREEN}✅ Found saved Stripe configuration${NC}"
+        # Show only key prefix
         PK_PREFIX=$(echo "$STRIPE_PUBLISHABLE_KEY" | cut -c1-12)
         echo "   Publishable Key: ${PK_PREFIX}..."
         echo ""
-        read -p "Użyć istniejącej konfiguracji? [T/n]: " USE_EXISTING
+        read -p "Use existing configuration? [Y/n]: " USE_EXISTING
         if [[ ! "$USE_EXISTING" =~ ^[Nn]$ ]]; then
             echo ""
-            echo -e "${GREEN}✅ Używam zapisanej konfiguracji${NC}"
+            echo -e "${GREEN}✅ Using saved configuration${NC}"
             echo ""
-            echo "Zmienne do użycia w deploy.sh:"
+            echo "Variables for deploy.sh:"
             echo "   STRIPE_PK='$STRIPE_PUBLISHABLE_KEY'"
             echo "   STRIPE_SK='$STRIPE_SECRET_KEY'"
             if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
@@ -59,47 +59,47 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # =============================================================================
-# 2. TRYB: TEST VS PRODUCTION
+# 2. MODE: TEST VS PRODUCTION
 # =============================================================================
 
-echo "Stripe oferuje dwa tryby:"
-echo "   • Test mode - do testowania (karty nie są obciążane)"
-echo "   • Live mode - produkcja (prawdziwe płatności)"
+echo "Stripe offers two modes:"
+echo "   • Test mode - for testing (cards are not charged)"
+echo "   • Live mode - production (real payments)"
 echo ""
-echo "Zalecenie: zacznij od Test mode, później przełącz na Live"
+echo "Recommendation: start with Test mode, switch to Live later"
 echo ""
-read -p "Użyć trybu testowego? [T/n]: " USE_TEST_MODE
+read -p "Use test mode? [Y/n]: " USE_TEST_MODE
 
 if [[ "$USE_TEST_MODE" =~ ^[Nn]$ ]]; then
     KEY_PREFIX="live"
     echo ""
-    echo -e "${YELLOW}⚠️  Używasz trybu produkcyjnego - prawdziwe pieniądze!${NC}"
+    echo -e "${YELLOW}⚠️  You are using production mode - real money!${NC}"
 else
     KEY_PREFIX="test"
     echo ""
-    echo "✅ Używam trybu testowego"
+    echo "✅ Using test mode"
 fi
 
 # =============================================================================
-# 3. POBIERZ KLUCZE API
+# 3. GET API KEYS
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "📋 KLUCZE API"
+echo "📋 API KEYS"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "1. Otwórz: https://dashboard.stripe.com/apikeys"
+echo "1. Open: https://dashboard.stripe.com/apikeys"
 if [ "$KEY_PREFIX" = "test" ]; then
-    echo "   (upewnij się że jesteś w Test mode - przełącznik w prawym górnym rogu)"
+    echo "   (make sure you are in Test mode - toggle in the upper right corner)"
 fi
 echo ""
-echo "2. Skopiuj klucze:"
-echo "   • Publishable key (zaczyna się od pk_${KEY_PREFIX}_...)"
-echo "   • Secret key (zaczyna się od sk_${KEY_PREFIX}_...)"
+echo "2. Copy the keys:"
+echo "   • Publishable key (starts with pk_${KEY_PREFIX}_...)"
+echo "   • Secret key (starts with sk_${KEY_PREFIX}_...)"
 echo ""
 
-read -p "Naciśnij Enter aby otworzyć Stripe..." _
+read -p "Press Enter to open Stripe..." _
 
 if command -v open &>/dev/null; then
     open "https://dashboard.stripe.com/apikeys"
@@ -111,13 +111,13 @@ echo ""
 read -p "STRIPE_PUBLISHABLE_KEY (pk_${KEY_PREFIX}_...): " STRIPE_PUBLISHABLE_KEY
 
 if [ -z "$STRIPE_PUBLISHABLE_KEY" ]; then
-    echo -e "${RED}❌ Publishable Key jest wymagany${NC}"
+    echo -e "${RED}❌ Publishable Key is required${NC}"
     exit 1
 fi
 
-# Walidacja
+# Validation
 if [[ ! "$STRIPE_PUBLISHABLE_KEY" =~ ^pk_ ]]; then
-    echo -e "${RED}❌ Nieprawidłowy format (powinien zaczynać się od pk_)${NC}"
+    echo -e "${RED}❌ Invalid format (should start with pk_)${NC}"
     exit 1
 fi
 
@@ -125,62 +125,62 @@ echo ""
 read -p "STRIPE_SECRET_KEY (sk_${KEY_PREFIX}_...): " STRIPE_SECRET_KEY
 
 if [ -z "$STRIPE_SECRET_KEY" ]; then
-    echo -e "${RED}❌ Secret Key jest wymagany${NC}"
+    echo -e "${RED}❌ Secret Key is required${NC}"
     exit 1
 fi
 
-# Walidacja
+# Validation
 if [[ ! "$STRIPE_SECRET_KEY" =~ ^sk_ ]]; then
-    echo -e "${RED}❌ Nieprawidłowy format (powinien zaczynać się od sk_)${NC}"
+    echo -e "${RED}❌ Invalid format (should start with sk_)${NC}"
     exit 1
 fi
 
 echo ""
-echo -e "${GREEN}✅ Klucze API pobrane${NC}"
+echo -e "${GREEN}✅ API keys obtained${NC}"
 
 # =============================================================================
-# 4. WEBHOOK (opcjonalne)
+# 4. WEBHOOK (optional)
 # =============================================================================
 
 STRIPE_WEBHOOK_SECRET=""
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "📋 WEBHOOK (opcjonalne)"
+echo "📋 WEBHOOK (optional)"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Webhook pozwala Stripe powiadamiać GateFlow o płatnościach."
-echo "Możesz skonfigurować go teraz lub później w panelu Stripe."
+echo "Webhook allows Stripe to notify GateFlow about payments."
+echo "You can configure it now or later in the Stripe dashboard."
 echo ""
 
 if [ -n "$DOMAIN" ]; then
     WEBHOOK_URL="https://$DOMAIN/api/webhooks/stripe"
-    echo "Twój endpoint: $WEBHOOK_URL"
+    echo "Your endpoint: $WEBHOOK_URL"
     echo ""
 fi
 
-read -p "Skonfigurować webhook teraz? [t/N]: " SETUP_WEBHOOK
+read -p "Configure webhook now? [y/N]: " SETUP_WEBHOOK
 
 if [[ "$SETUP_WEBHOOK" =~ ^[TtYy]$ ]]; then
     echo ""
-    echo "Krok po kroku:"
-    echo "   1. Otwórz: https://dashboard.stripe.com/webhooks"
-    echo "   2. Kliknij 'Add endpoint'"
+    echo "Step by step:"
+    echo "   1. Open: https://dashboard.stripe.com/webhooks"
+    echo "   2. Click 'Add endpoint'"
     if [ -n "$DOMAIN" ]; then
         echo "   3. Endpoint URL: $WEBHOOK_URL"
     else
-        echo "   3. Endpoint URL: https://TWOJA_DOMENA/api/webhooks/stripe"
+        echo "   3. Endpoint URL: https://YOUR_DOMAIN/api/webhooks/stripe"
     fi
-    echo "   4. Events to send: wybierz te wydarzenia:"
+    echo "   4. Events to send: select these events:"
     echo "      • checkout.session.completed"
     echo "      • payment_intent.succeeded"
     echo "      • payment_intent.payment_failed"
-    echo "   5. Kliknij 'Add endpoint'"
-    echo "   6. Kliknij na utworzony endpoint"
-    echo "   7. W sekcji 'Signing secret' kliknij 'Reveal' i skopiuj"
+    echo "   5. Click 'Add endpoint'"
+    echo "   6. Click on the created endpoint"
+    echo "   7. In the 'Signing secret' section click 'Reveal' and copy"
     echo ""
 
-    read -p "Naciśnij Enter aby otworzyć Stripe Webhooks..." _
+    read -p "Press Enter to open Stripe Webhooks..." _
 
     if command -v open &>/dev/null; then
         open "https://dashboard.stripe.com/webhooks"
@@ -189,30 +189,30 @@ if [[ "$SETUP_WEBHOOK" =~ ^[TtYy]$ ]]; then
     fi
 
     echo ""
-    read -p "STRIPE_WEBHOOK_SECRET (whsec_..., lub Enter aby pominąć): " STRIPE_WEBHOOK_SECRET
+    read -p "STRIPE_WEBHOOK_SECRET (whsec_..., or Enter to skip): " STRIPE_WEBHOOK_SECRET
 
     if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
         if [[ ! "$STRIPE_WEBHOOK_SECRET" =~ ^whsec_ ]]; then
-            echo -e "${YELLOW}⚠️  Format wygląda nietypowo (powinien zaczynać się od whsec_)${NC}"
+            echo -e "${YELLOW}⚠️  Format looks unusual (should start with whsec_)${NC}"
         else
-            echo -e "${GREEN}✅ Webhook Secret zapisany${NC}"
+            echo -e "${GREEN}✅ Webhook Secret saved${NC}"
         fi
     fi
 fi
 
 # =============================================================================
-# 5. ZAPISZ KONFIGURACJĘ
+# 5. SAVE CONFIGURATION
 # =============================================================================
 
 echo ""
-echo "💾 Zapisuję konfigurację..."
+echo "💾 Saving configuration..."
 
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_FILE" <<EOF
 # GateFlow - Stripe Configuration
-# Wygenerowano: $(date)
-# Tryb: $([ "$KEY_PREFIX" = "test" ] && echo "TEST" || echo "LIVE")
+# Generated: $(date)
+# Mode: $([ "$KEY_PREFIX" = "test" ] && echo "TEST" || echo "LIVE")
 
 STRIPE_PUBLISHABLE_KEY='$STRIPE_PUBLISHABLE_KEY'
 STRIPE_SECRET_KEY='$STRIPE_SECRET_KEY'
@@ -223,36 +223,36 @@ if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
 fi
 
 chmod 600 "$CONFIG_FILE"
-echo -e "${GREEN}✅ Konfiguracja zapisana w $CONFIG_FILE${NC}"
+echo -e "${GREEN}✅ Configuration saved in $CONFIG_FILE${NC}"
 
 # =============================================================================
-# 6. PODSUMOWANIE
+# 6. SUMMARY
 # =============================================================================
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo -e "${GREEN}🎉 Stripe skonfigurowany!${NC}"
+echo -e "${GREEN}🎉 Stripe configured!${NC}"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Konfiguracja zapisana w: $CONFIG_FILE"
+echo "Configuration saved in: $CONFIG_FILE"
 echo ""
-echo "Użycie z deploy.sh:"
+echo "Usage with deploy.sh:"
 echo "   source ~/.config/gateflow/stripe.env"
 echo "   STRIPE_PK=\"\$STRIPE_PUBLISHABLE_KEY\" STRIPE_SK=\"\$STRIPE_SECRET_KEY\" \\"
-echo "   ./local/deploy.sh gateflow --ssh=mikrus --domain=gf.example.com"
+echo "   ./local/deploy.sh gateflow --ssh=vps --domain=gf.example.com"
 echo ""
 
 if [ "$KEY_PREFIX" = "test" ]; then
-    echo -e "${YELLOW}📋 Testowe numery kart:${NC}"
-    echo "   ✅ Sukces: 4242 4242 4242 4242"
-    echo "   ❌ Odmowa: 4000 0000 0000 0002"
+    echo -e "${YELLOW}📋 Test card numbers:${NC}"
+    echo "   ✅ Success: 4242 4242 4242 4242"
+    echo "   ❌ Decline: 4000 0000 0000 0002"
     echo "   🔐 3D Secure: 4000 0025 0000 3155"
     echo ""
 fi
 
 if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
-    echo -e "${YELLOW}⚠️  Webhook nie skonfigurowany${NC}"
-    echo "   Po uruchomieniu GateFlow, skonfiguruj webhook:"
+    echo -e "${YELLOW}⚠️  Webhook not configured${NC}"
+    echo "   After launching GateFlow, configure the webhook:"
     echo "   https://dashboard.stripe.com/webhooks"
     if [ -n "$DOMAIN" ]; then
         echo "   Endpoint: https://$DOMAIN/api/webhooks/stripe"

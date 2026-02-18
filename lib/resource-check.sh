@@ -1,25 +1,25 @@
 #!/bin/bash
 
 # StackPilot - Resource Check
-# Sprawdza zasoby serwera przed instalacją.
+# Checks server resources before installation.
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
+# Usage:
 #   source /opt/stackpilot/lib/resource-check.sh
-#   check_resources 512 500  # wymagane: 512MB RAM, 500MB dysku
+#   check_resources 512 500  # required: 512MB RAM, 500MB disk
 #
-# Zwraca:
-#   0 = OK, zasoby wystarczające
-#   1 = WARN, mało zasobów ale można kontynuować
-#   2 = FAIL, za mało zasobów
+# Returns:
+#   0 = OK, resources sufficient
+#   1 = WARN, low resources but can continue
+#   2 = FAIL, not enough resources
 
-# Kolory
+# Colors
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-# Pobierz dostępne zasoby
+# Get available resources
 get_available_ram_mb() {
     free -m | awk '/^Mem:/ {print $7}'
 }
@@ -32,12 +32,12 @@ get_total_ram_mb() {
     free -m | awk '/^Mem:/ {print $2}'
 }
 
-# Sprawdź zasoby
+# Check resources
 # check_resources REQUIRED_RAM_MB REQUIRED_DISK_MB [APP_NAME]
 check_resources() {
     local REQUIRED_RAM="${1:-256}"
     local REQUIRED_DISK="${2:-200}"
-    local APP_NAME="${3:-aplikacja}"
+    local APP_NAME="${3:-application}"
 
     local AVAILABLE_RAM=$(get_available_ram_mb)
     local AVAILABLE_DISK=$(get_available_disk_mb)
@@ -47,29 +47,29 @@ check_resources() {
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  📊 Sprawdzanie zasobów serwera                               ║"
+    echo "║  📊 Checking server resources                                  ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
     # RAM check
-    echo -n "   RAM: ${AVAILABLE_RAM}MB dostępne"
+    echo -n "   RAM: ${AVAILABLE_RAM}MB available"
     if [ "$AVAILABLE_RAM" -lt "$REQUIRED_RAM" ]; then
-        echo -e " ${RED}✗ (wymagane: ${REQUIRED_RAM}MB)${NC}"
+        echo -e " ${RED}✗ (required: ${REQUIRED_RAM}MB)${NC}"
         STATUS=2
     elif [ "$AVAILABLE_RAM" -lt $((REQUIRED_RAM * 2)) ]; then
-        echo -e " ${YELLOW}⚠ (zalecane: ${REQUIRED_RAM}MB+)${NC}"
+        echo -e " ${YELLOW}⚠ (recommended: ${REQUIRED_RAM}MB+)${NC}"
         [ "$STATUS" -lt 1 ] && STATUS=1
     else
         echo -e " ${GREEN}✓${NC}"
     fi
 
     # Disk check
-    echo -n "   Dysk: ${AVAILABLE_DISK}MB wolne"
+    echo -n "   Disk: ${AVAILABLE_DISK}MB free"
     if [ "$AVAILABLE_DISK" -lt "$REQUIRED_DISK" ]; then
-        echo -e " ${RED}✗ (wymagane: ${REQUIRED_DISK}MB)${NC}"
+        echo -e " ${RED}✗ (required: ${REQUIRED_DISK}MB)${NC}"
         STATUS=2
     elif [ "$AVAILABLE_DISK" -lt $((REQUIRED_DISK * 2)) ]; then
-        echo -e " ${YELLOW}⚠ (zalecane: ${REQUIRED_DISK}MB+)${NC}"
+        echo -e " ${YELLOW}⚠ (recommended: ${REQUIRED_DISK}MB+)${NC}"
         [ "$STATUS" -lt 1 ] && STATUS=1
     else
         echo -e " ${GREEN}✓${NC}"
@@ -78,8 +78,8 @@ check_resources() {
     # Total RAM warning for heavy apps
     if [ "$REQUIRED_RAM" -ge 400 ] && [ "$TOTAL_RAM" -lt 2000 ]; then
         echo ""
-        echo -e "   ${YELLOW}⚠ Ta aplikacja wymaga dużo RAM.${NC}"
-        echo -e "   ${YELLOW}  Zalecany plan: Mikrus 3.0+ (2GB RAM)${NC}"
+        echo -e "   ${YELLOW}⚠ This application requires a lot of RAM.${NC}"
+        echo -e "   ${YELLOW}  Recommended: a VPS plan with 2GB+ RAM${NC}"
         [ "$STATUS" -lt 1 ] && STATUS=1
     fi
 
@@ -88,14 +88,14 @@ check_resources() {
     # Summary
     case $STATUS in
         0)
-            echo -e "   ${GREEN}✅ Zasoby wystarczające do instalacji $APP_NAME${NC}"
+            echo -e "   ${GREEN}✅ Resources sufficient to install $APP_NAME${NC}"
             ;;
         1)
-            echo -e "   ${YELLOW}⚠️  Mało zasobów - instalacja możliwa, ale może być ciasno${NC}"
+            echo -e "   ${YELLOW}⚠️  Low resources - installation possible, but it may be tight${NC}"
             ;;
         2)
-            echo -e "   ${RED}❌ Za mało zasobów! Instalacja $APP_NAME może zawiesić serwer.${NC}"
-            echo -e "   ${RED}   Zwolnij miejsce lub upgraduj plan .${NC}"
+            echo -e "   ${RED}❌ Not enough resources! Installing $APP_NAME may crash the server.${NC}"
+            echo -e "   ${RED}   Free up space or upgrade your plan.${NC}"
             ;;
     esac
 
@@ -103,7 +103,7 @@ check_resources() {
     return $STATUS
 }
 
-# Szybkie sprawdzenie (bez fancy output)
+# Quick check (without fancy output)
 quick_resource_check() {
     local REQUIRED_RAM="${1:-256}"
     local REQUIRED_DISK="${2:-200}"
@@ -117,7 +117,7 @@ quick_resource_check() {
     return 0
 }
 
-# Eksport funkcji
+# Export functions
 export -f get_available_ram_mb
 export -f get_available_disk_mb
 export -f get_total_ram_mb
