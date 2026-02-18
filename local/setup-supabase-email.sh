@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Supabase SMTP Setup
+# StackPilot - Supabase SMTP Setup
 # Konfiguruje SMTP dla wysyłki emaili w GateFlow
 # Author: Paweł (Lazy Engineer)
 #

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Postiz
+# StackPilot - Postiz
 # AI-powered social media scheduling tool. Alternative to Buffer/Hootsuite.
 # https://github.com/gitroomhq/postiz-app
 # Author: Paweł (Lazy Engineer)
@@ -61,7 +61,7 @@ fi
 # POSTIZ_REDIS=bundled   → zawsze bundluj redis:7.2-alpine w compose
 # POSTIZ_REDIS=auto      → auto-detekcja (domyślne)
 
-source /opt/mikrus-toolbox/lib/redis-detect.sh 2>/dev/null || true
+source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
     detect_redis "${POSTIZ_REDIS:-auto}" "postiz-redis"
 else
@@ -90,7 +90,7 @@ fi
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Postiz NIE działa ze współdzieloną bazą Mikrusa!    ║"
+    echo "║  ❌ BŁĄD: Postiz NIE działa ze współdzieloną bazą !    ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Postiz (Prisma) wymaga gen_random_uuid(), które nie jest      ║"
     echo "║  dostępne w PostgreSQL 12 (shared Mikrus).                     ║"
@@ -218,7 +218,7 @@ sudo docker compose up -d
 
 # Health check - Next.js potrzebuje ~60-90s na start
 echo "⏳ Czekam na uruchomienie Postiz (~60-90s, Next.js)..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

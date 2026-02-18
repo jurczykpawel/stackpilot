@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Database Setup Helper
+# StackPilot - Database Setup Helper
 # Używany przez skrypty instalacyjne do konfiguracji bazy danych.
 # Author: Paweł (Lazy Engineer)
 #
@@ -39,7 +39,7 @@ export DB_USER="${DB_USER:-}"
 export DB_PASS="${DB_PASS:-}"
 export DB_SOURCE="${DB_SOURCE:-}"
 
-# Aplikacje wymagające pgcrypto (nie działają ze współdzieloną bazą Mikrusa)
+# Aplikacje wymagające pgcrypto (nie działają ze współdzieloną bazą )
 # n8n od wersji 1.121+ wymaga gen_random_uuid() które potrzebuje pgcrypto lub PostgreSQL 13+
 # listmonk od v6.0.0 wymaga pgcrypto do migracji
 REQUIRES_PGCRYPTO="umami n8n listmonk"
@@ -57,24 +57,24 @@ get_db_recommendation() {
     case "$APP_NAME" in
         n8n|umami)
             echo "Wymaga dedykowanej bazy PostgreSQL z rozszerzeniem pgcrypto.
-   Darmowa baza Mikrusa NIE obsługuje tej aplikacji.
+   Darmowa baza  NIE obsługuje tej aplikacji.
    ➜ Wykup PostgreSQL: https://mikr.us/panel/?a=cloud"
             ;;
         listmonk)
             echo "Wymaga dedykowanej bazy PostgreSQL z rozszerzeniem pgcrypto.
-   Darmowa baza Mikrusa NIE obsługuje tej aplikacji (od v6.0.0).
+   Darmowa baza  NIE obsługuje tej aplikacji (od v6.0.0).
    ➜ Wykup PostgreSQL: https://mikr.us/panel/?a=cloud"
             ;;
         nocodb)
             echo "NocoDB przechowuje tylko metadane tabel i widoków.
    Właściwe dane możesz trzymać w zewnętrznej bazie.
-   ➜ Darmowa baza Mikrusa wystarczy dla typowego użycia.
+   ➜ Darmowa baza  wystarczy dla typowego użycia.
    ➜ Płatna: jeśli masz dużo tabel/współpracowników"
             ;;
         cap)
             echo "Cap przechowuje tylko metadane nagrań (linki do S3).
    Właściwe pliki wideo są w S3/MinIO.
-   ➜ Darmowa baza Mikrusa w zupełności wystarczy!
+   ➜ Darmowa baza  w zupełności wystarczy!
    ➜ Płatna: tylko przy bardzo dużej ilości nagrań"
             ;;
         typebot)
@@ -84,12 +84,12 @@ get_db_recommendation() {
             ;;
         postiz)
             echo "Postiz przechowuje konfigurację kont social media i zaplanowane posty.
-   ➜ Darmowa baza Mikrusa powinna wystarczyć dla typowego użycia.
+   ➜ Darmowa baza  powinna wystarczyć dla typowego użycia.
    ➜ Płatna: jeśli planujesz bardzo dużo postów/kont"
             ;;
         wordpress)
             echo "WordPress przechowuje treści, użytkowników i ustawienia.
-   ➜ Darmowy MySQL Mikrusa wystarczy dla małych/średnich stron.
+   ➜ Darmowy MySQL  wystarczy dla małych/średnich stron.
    ➜ Płatny: jeśli masz dużo wtyczek/ruchu"
             ;;
     esac
@@ -193,7 +193,7 @@ ask_database() {
         echo ""
     else
         echo "  1) 🆓 Współdzielona baza Mikrus (darmowa)"
-        echo "     Automatycznie pobierze dane z API Mikrusa"
+        echo "     Automatycznie pobierze dane z API"
         echo ""
     fi
 
@@ -216,7 +216,7 @@ ask_database() {
         1)
             if [ "$SHARED_BLOCKED" = true ]; then
                 echo ""
-                echo -e "${RED}❌ $APP_NAME nie działa ze współdzieloną bazą Mikrusa!${NC}"
+                echo -e "${RED}❌ $APP_NAME nie działa ze współdzieloną bazą !${NC}"
                 echo "   Wymaga rozszerzenia pgcrypto (brak uprawnień w darmowej bazie)."
                 echo ""
                 echo "   Wykup dedykowany PostgreSQL: https://mikr.us/panel/?a=cloud"
@@ -305,7 +305,7 @@ ask_custom_db() {
 # Użycie: check_schema_exists SSH_ALIAS APP_NAME
 # Zwraca: 0 jeśli schemat istnieje i ma tabele, 1 w przeciwnym razie
 check_schema_exists() {
-    local SSH_ALIAS="${1:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${1:-${SSH_ALIAS:-vps}}"
     local APP_NAME="${2:-}"
     local SCHEMA="${DB_SCHEMA:-$APP_NAME}"
 
@@ -343,7 +343,7 @@ check_schema_exists() {
 # Użycie: warn_if_schema_exists SSH_ALIAS APP_NAME
 # Zwraca: 0 jeśli użytkownik potwierdził lub schemat nie istnieje, 1 jeśli anulował
 warn_if_schema_exists() {
-    local SSH_ALIAS="${1:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${1:-${SSH_ALIAS:-vps}}"
     local APP_NAME="${2:-}"
     local SCHEMA="${DB_SCHEMA:-$APP_NAME}"
 
@@ -392,7 +392,7 @@ warn_if_schema_exists() {
 
 fetch_database() {
     local DB_TYPE="${1:-postgres}"
-    local SSH_ALIAS="${2:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${2:-${SSH_ALIAS:-vps}}"
 
     # Jeśli custom - dane już są, nic nie robimy
     if [ "$DB_SOURCE" = "custom" ]; then
@@ -415,7 +415,7 @@ fetch_shared_db() {
 
     # Dry-run mode
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] Pobieram dane bazy z API Mikrusa (ssh $SSH_ALIAS)${NC}"
+        echo -e "${BLUE}[dry-run] Pobieram dane bazy z API (ssh $SSH_ALIAS)${NC}"
         DB_HOST="[dry-run-host]"
         DB_PORT="5432"
         DB_NAME="[dry-run-db]"
@@ -425,7 +425,7 @@ fetch_shared_db() {
         return 0
     fi
 
-    echo "🔑 Pobieram dane bazy z API Mikrusa..."
+    echo "🔑 Pobieram dane bazy z API..."
 
     # Pobierz klucz API
     local API_KEY=$(ssh "$SSH_ALIAS" 'cat /klucz_api 2>/dev/null' 2>/dev/null)
@@ -448,7 +448,7 @@ fetch_shared_db() {
     local RESPONSE=$(curl -s -d "srv=$HOSTNAME&key=$API_KEY" https://api.mikr.us/db.bash)
 
     if [ -z "$RESPONSE" ]; then
-        echo -e "${RED}❌ Brak odpowiedzi z API Mikrusa${NC}"
+        echo -e "${RED}❌ Brak odpowiedzi z API${NC}"
         return 1
     fi
 
@@ -545,7 +545,7 @@ show_db_summary() {
 
 setup_database() {
     local DB_TYPE="${1:-postgres}"
-    local SSH_ALIAS="${2:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${2:-${SSH_ALIAS:-vps}}"
     local APP_NAME="${3:-}"
 
     # Faza 1: zbierz dane

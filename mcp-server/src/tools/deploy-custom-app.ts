@@ -11,7 +11,7 @@ type ToolResult = {
 export const deployCustomAppTool = {
   name: "deploy_custom_app",
   description:
-    "Deploy ANY Docker application to a Mikrus VPS - not limited to the built-in app list. " +
+    "Deploy ANY Docker application to a VPS - not limited to the built-in app list. " +
     "The AI model researches the app, generates a docker-compose.yaml, and deploys it.\n\n" +
     "IMPORTANT: Before calling this tool, you MUST:\n" +
     "1. Explain to the user what the app does\n" +

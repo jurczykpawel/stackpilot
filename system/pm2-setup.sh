@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - PM2 Setup
+# StackPilot - PM2 Setup
 # Installs Node.js, PM2 and configures log rotation & startup.
 # Perfect for running lightweight scripts without Docker.
 # Author: Paweł (Lazy Engineer)

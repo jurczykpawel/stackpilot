@@ -1,6 +1,6 @@
-# Mikrus Toolbox MCP Server
+# StackPilot MCP Server
 
-> **Alpha** - This server is in early development. The core tools work, but expect rough edges, missing validations, and evolving APIs. Feedback and bug reports welcome via [Issues](https://github.com/jurczykpawel/mikrus-toolbox/issues).
+> **Alpha** - This server is in early development. The core tools work, but expect rough edges, missing validations, and evolving APIs. Feedback and bug reports welcome via [Issues](https://github.com/jurczykpawel/stackpilot/issues).
 
 MCP (Model Context Protocol) server for deploying self-hosted apps to [Mikrus](https://mikr.us/?r=pavvel) VPS servers.
 
@@ -23,9 +23,9 @@ Add to `~/.claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "mikrus-toolbox": {
+    "stackpilot": {
       "command": "node",
-      "args": ["/path/to/mikrus-toolbox/mcp-server/dist/index.js"]
+      "args": ["/path/to/stackpilot/mcp-server/dist/index.js"]
     }
   }
 }
@@ -48,7 +48,7 @@ In Claude Desktop:
 ## Prerequisites
 
 - **Node.js 18+**
-- **mikrus-toolbox** repo cloned locally
+- **stackpilot** repo cloned locally
 - **Mikrus VPS** account (SSH credentials from mikr.us panel)
 
 ## Available Tools (8)

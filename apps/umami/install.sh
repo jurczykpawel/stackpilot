@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Umami Analytics
+# StackPilot - Umami Analytics
 # Simple, privacy-friendly alternative to Google Analytics.
 #
 # IMAGE_SIZE_MB=500  # ghcr.io/umami-software/umami:postgresql-latest (Next.js ~500MB)
 #
 # WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
-#     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
+#     Współdzielona baza  NIE działa (brak uprawnień do tworzenia rozszerzeń).
 #     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
 #
 # Author: Paweł (Lazy Engineer)
@@ -45,10 +45,10 @@ fi
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Umami NIE działa ze współdzieloną bazą Mikrusa!      ║"
+    echo "║  ❌ BŁĄD: Umami NIE działa ze współdzieloną bazą !      ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Umami wymaga rozszerzenia 'pgcrypto', które nie jest          ║"
-    echo "║  dostępne w darmowej bazie Mikrusa.                            ║"
+    echo "║  dostępne w darmowej bazie .                            ║"
     echo "║                                                                ║"
     echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
     echo "║  https://mikr.us/panel/?a=cloud                                ║"
@@ -91,7 +91,7 @@ EOF
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     if ! wait_for_healthy "$APP_NAME" "$PORT" 60; then
         echo "❌ Instalacja nie powiodła się!"

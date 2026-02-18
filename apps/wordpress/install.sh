@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - WordPress (Performance Edition)
+# StackPilot - WordPress (Performance Edition)
 # The world's most popular CMS. Blog, shop, portfolio - anything.
 # https://wordpress.org
 # Author: Paweł (Lazy Engineer)
@@ -15,7 +15,7 @@
 #   + Security headers + hardening
 #
 # Dwa tryby bazy danych:
-#   1. MySQL (domyślny) - zewnętrzny MySQL z Mikrusa lub własny
+#   1. MySQL (domyślny) - zewnętrzny MySQL z  lub własny
 #      deploy.sh automatycznie wykrywa potrzebę MySQL i pyta o dane
 #   2. SQLite - WP_DB_MODE=sqlite, zero konfiguracji DB
 #      Idealny dla prostych blogów na Mikrus 2.1
@@ -107,7 +107,7 @@ fi
 # WP_REDIS=bundled   → zawsze bundluj redis:alpine w compose
 # WP_REDIS=auto      → auto-detekcja (domyślne)
 
-source /opt/mikrus-toolbox/lib/redis-detect.sh 2>/dev/null || true
+source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
     detect_redis "${WP_REDIS:-auto}" "redis"
 else
@@ -770,7 +770,7 @@ REDIS_PREFIX="$(basename "$STACK_DIR")"
 # Generuj wp-config-performance.php (zawsze nadpisuje — idempotentne)
 cat <<PERFEOF | docker exec -i "$CONTAINER" tee "$PERF_CONFIG" > /dev/null
 <?php
-// Mikrus Toolbox — WordPress Performance Config
+// StackPilot — WordPress Performance Config
 // Wygenerowane przez wp-init.sh — NIE edytuj ręcznie
 
 // HTTPS behind reverse proxy (Cytrus/Caddy/Cloudflare)
@@ -922,7 +922,7 @@ sudo docker compose up -d
 
 # Health check - build + start potrzebują więcej czasu
 echo "⏳ Czekam na uruchomienie..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

@@ -46,7 +46,7 @@ Skrypt zapyta o:
 
 ## 📦 Zalecana konfiguracja Storage
 
-### Opcja 1: MinIO z Mikrus Toolbox (najprostsze)
+### Opcja 1: MinIO z StackPilot (najprostsze)
 Jeśli masz zainstalowane MinIO jako osobną aplikację:
 ```bash
 # Najpierw zainstaluj MinIO

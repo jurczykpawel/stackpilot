@@ -14,7 +14,7 @@ type ToolResult = {
 export const deploySiteTool = {
   name: "deploy_site",
   description:
-    "Deploy a LOCAL project (website, Node.js app, Python app, Docker project) directly to a Mikrus VPS. " +
+    "Deploy a LOCAL project (website, Node.js app, Python app, Docker project) directly to a VPS. " +
     "Analyzes the project directory, detects the type, uploads files via rsync, and starts the service.\n\n" +
     "TWO MODES:\n" +
     "1. ANALYZE (analyze_only=true): Reads local directory, detects project type, shows recommendations. No deployment.\n" +

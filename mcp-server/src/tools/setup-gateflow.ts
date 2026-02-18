@@ -347,7 +347,7 @@ export async function handleSetupGateflow(
   const publicKeyHex = ecdh.getPublicKey("hex"); // 65 bytes: 04 + X + Y
 
   const sessionId = randomUUID();
-  const tokenName = `mikrus_mcp_${Date.now()}`;
+  const tokenName = `stackpilot_mcp_${Date.now()}`;
 
   // Save state for step 2
   saveState({

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Docker MCP Server
+# StackPilot - Docker MCP Server
 # Provides a Model Context Protocol (MCP) interface for Docker.
 # Allows AI Agents (Claude, Gemini) to manage your Mikrus containers.
 # Author: Paweł (Lazy Engineer)
@@ -37,7 +37,7 @@ EOF
 sudo docker compose up -d
 
 # Health check (MCP nie ma HTTP)
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type check_container_running &>/dev/null; then
     check_container_running "$APP_NAME" || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

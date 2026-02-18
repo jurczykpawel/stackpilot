@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - n8n Logic Export
+# StackPilot - n8n Logic Export
 # Exports Workflows (JSON) and Credentials (Encrypted) from running n8n container.
 # CRITICAL: This backs up data regardless of where the DB is (SQLite/Postgres).
 # Author: Paweł (Lazy Engineer)

@@ -1,11 +1,11 @@
 import { sshExec } from "./ssh.js";
 
-const TOOLBOX_REPO_URL = "https://github.com/jurczykpawel/mikrus-toolbox.git";
-const TOOLBOX_SERVER_PATH = "/opt/mikrus-toolbox";
+const TOOLBOX_REPO_URL = "https://github.com/jurczykpawel/stackpilot.git";
+const TOOLBOX_SERVER_PATH = "/opt/stackpilot";
 const TOOLBOX_MARKER = `${TOOLBOX_SERVER_PATH}/local/deploy.sh`;
 
 /**
- * Ensure mikrus-toolbox is installed on the server.
+ * Ensure stackpilot is installed on the server.
  * Idempotent — fast check if already installed, git clone if not.
  */
 export async function ensureToolboxOnServer(

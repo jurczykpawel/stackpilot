@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Mikrus Toolbox - n8n (External Database Optimized)
+# StackPilot - n8n (External Database Optimized)
 # Installs n8n optimized for low-RAM environment, connecting to external PostgreSQL.
 # Author: Paweł (Lazy Engineer)
 #
 # WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
-#     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
+#     Współdzielona baza  NIE działa (brak uprawnień do tworzenia rozszerzeń).
 #     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
 #
 # IMAGE_SIZE_MB=800  # n8nio/n8n:latest
@@ -43,10 +43,10 @@ DB_SCHEMA=${DB_SCHEMA:-n8n}
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: n8n NIE działa ze współdzieloną bazą Mikrusa!        ║"
+    echo "║  ❌ BŁĄD: n8n NIE działa ze współdzieloną bazą !        ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  n8n wymaga rozszerzenia 'pgcrypto' (gen_random_uuid),         ║"
-    echo "║  które nie jest dostępne w darmowej bazie Mikrusa.             ║"
+    echo "║  które nie jest dostępne w darmowej bazie .             ║"
     echo "║                                                                ║"
     echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
     echo "║  https://mikr.us/panel/?a=cloud                                ║"
@@ -136,7 +136,7 @@ echo "--- Starting n8n ---"
 sudo docker compose up -d
 
 # Health check - wait for container to be running
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
@@ -151,10 +151,10 @@ fi
 # Caddy/HTTPS - only for real domains (not Cytrus placeholder)
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
     echo "--- Configuring HTTPS via Caddy ---"
-    if command -v mikrus-expose &> /dev/null; then
-        sudo mikrus-expose "$DOMAIN" "$PORT"
+    if command -v sp-expose &> /dev/null; then
+        sudo sp-expose "$DOMAIN" "$PORT"
     else
-        echo "⚠️  'mikrus-expose' not found. Install Caddy first or configure reverse proxy manually."
+        echo "⚠️  'sp-expose' not found. Install Caddy first or configure reverse proxy manually."
     fi
 fi
 

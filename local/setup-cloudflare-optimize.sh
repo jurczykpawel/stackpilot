@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Cloudflare Optimization
+# StackPilot - Cloudflare Optimization
 # Ustawia optymalne ustawienia Cloudflare dla domen na Mikrus
 # Author: Paweł (Lazy Engineer)
 #
@@ -312,7 +312,7 @@ if [ -n "$APP_TYPE" ]; then
         else
             # Utwórz nowy ruleset
             FULL_RULESET=$(jq -n --argjson rules "$NEW_RULES" '{
-                "name": "Mikrus Toolbox Cache Rules",
+                "name": "StackPilot Cache Rules",
                 "kind": "zone",
                 "phase": "http_request_cache_settings",
                 "rules": $rules

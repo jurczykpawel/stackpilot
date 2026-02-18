@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - LittleLink
+# StackPilot - LittleLink
 # Link-in-bio page (Linktree alternative).
 # Supports both Docker (Cytrus) and Caddy (Cloudflare) modes.
 # Author: Paweł (Lazy Engineer)
@@ -111,7 +111,7 @@ else
         sudo rm -rf "$WEB_ROOT/.git"
     fi
 
-    # Caddy will be configured by mikrus-expose (called from deploy.sh)
+    # Caddy will be configured by sp-expose (called from deploy.sh)
     # Just store the path for later
     echo "$WEB_ROOT" > /tmp/littlelink_webroot
 

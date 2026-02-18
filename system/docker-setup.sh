@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Docker Setup (Based on NOOBS)
+# StackPilot - Docker Setup (Based on NOOBS)
 # This script uses the official 'noobs' script approved by Mikrus creators
 # and adds a layer of log rotation optimization.
 

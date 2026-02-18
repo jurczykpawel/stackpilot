@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Gotenberg
+# StackPilot - Gotenberg
 # API do konwersji dokumentów (HTML→PDF, DOCX→PDF, itp.)
 # Lekka alternatywa dla Stirling-PDF (~150MB RAM vs ~450MB)
 # Author: Paweł (Lazy Engineer)
@@ -79,8 +79,8 @@ fi
 
 # Caddy/HTTPS - only for real domains
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
-    if command -v mikrus-expose &> /dev/null; then
-        sudo mikrus-expose "$DOMAIN" "$PORT"
+    if command -v sp-expose &> /dev/null; then
+        sudo sp-expose "$DOMAIN" "$PORT"
     fi
 fi
 

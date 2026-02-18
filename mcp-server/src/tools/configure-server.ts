@@ -18,7 +18,7 @@ type ToolResult = {
 export const setupServerTool = {
   name: "setup_server",
   description:
-    "Set up or test SSH connection to a Mikrus VPS server.\n\n" +
+    "Set up or test SSH connection to a VPS server.\n\n" +
     "TWO MODES:\n" +
     "1. SETUP (new connection): Provide host + port to generate SSH key, write ~/.ssh/config, " +
     "and get the ssh-copy-id command for the user to run (they type their password once in terminal).\n" +
@@ -26,7 +26,7 @@ export const setupServerTool = {
     "Typical flow: setup_server with host+port → user runs ssh-copy-id → setup_server with ssh_alias to verify.\n\n" +
     "WINDOWS USERS: After SSH setup, Windows users can install the toolbox ON the server " +
     "with './local/install-toolbox.sh <alias>', then SSH in and run scripts directly " +
-    "(e.g. 'ssh mikrus' → 'deploy.sh uptime-kuma'). This avoids needing bash on Windows.\n\n" +
+    "(e.g. 'ssh vps' → 'deploy.sh uptime-kuma'). This avoids needing bash on Windows.\n\n" +
     "FRESH SERVER: When testing a new server, check if Docker is installed. If not, " +
     "suggest the user run the built-in 'start' script (ssh <alias> then 'start'). " +
     "It sets timezone, installs Docker, updates the system, and optionally sets up zsh. " +
@@ -49,7 +49,7 @@ export const setupServerTool = {
       },
       alias: {
         type: "string",
-        description: "SSH alias name. Default: mikrus",
+        description: "SSH alias name. Default: vps",
       },
       // Test mode
       ssh_alias: {
@@ -91,7 +91,7 @@ async function handleSetup(args: Record<string, unknown>): Promise<ToolResult> {
   const host = args.host as string;
   const port = args.port as number | undefined;
   const user = (args.user as string) ?? "root";
-  const alias = (args.alias as string) ?? "mikrus";
+  const alias = (args.alias as string) ?? "vps";
 
   // Validate inputs (prevent SSH config injection)
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(alias)) {

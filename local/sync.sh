@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - File Sync Helper
+# StackPilot - File Sync Helper
 # Easy wrapper around rsync for uploading/downloading files.
 # Author: Paweł (Lazy Engineer)
 #
@@ -49,7 +49,7 @@ done
 parse_args "$@"
 
 # SSH alias z --ssh lub domyślny
-SSH_ALIAS="${SSH_ALIAS:-mikrus}"
+SSH_ALIAS="${SSH_ALIAS:-vps}"
 
 # Wyciągnij pozycyjne argumenty
 DIRECTION="${POSITIONAL[0]:-}"
@@ -58,7 +58,7 @@ DEST="${POSITIONAL[2]:-}"
 
 print_usage() {
     cat <<EOF
-Mikrus Toolbox - File Sync Helper
+StackPilot - File Sync Helper
 
 Użycie:
   $0 up   <local_path> <remote_path> [--ssh=ALIAS]

@@ -7,8 +7,8 @@ import { homedir } from "node:os";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const REPO_URL = "https://github.com/jurczykpawel/mikrus-toolbox.git";
-const LOCAL_CLONE_DIR = join(homedir(), ".mikrus-toolbox");
+const REPO_URL = "https://github.com/jurczykpawel/stackpilot.git";
+const LOCAL_CLONE_DIR = join(homedir(), ".stackpilot");
 
 let cachedRoot: string | null = null;
 
@@ -34,7 +34,7 @@ export function resolveRepoRoot(): string {
     dir = parent;
   }
 
-  // 3. Check ~/.mikrus-toolbox (auto-cloned)
+  // 3. Check ~/.stackpilot (auto-cloned)
   if (existsSync(join(LOCAL_CLONE_DIR, "local", "deploy.sh"))) {
     cachedRoot = LOCAL_CLONE_DIR;
     return cachedRoot;
@@ -42,23 +42,23 @@ export function resolveRepoRoot(): string {
 
   // 4. Auto-clone the repo (for npx users)
   try {
-    console.error("mikrus-toolbox: First run — cloning toolbox scripts to ~/.mikrus-toolbox...");
+    console.error("stackpilot: First run — cloning toolbox scripts to ~/.stackpilot...");
     mkdirSync(LOCAL_CLONE_DIR, { recursive: true });
     execFileSync("git", ["clone", "--depth=1", REPO_URL, LOCAL_CLONE_DIR], {
       timeout: 60_000,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    console.error("mikrus-toolbox: Clone complete.");
+    console.error("stackpilot: Clone complete.");
     cachedRoot = LOCAL_CLONE_DIR;
     return cachedRoot;
   } catch {
     throw new Error(
-      "Cannot find mikrus-toolbox scripts.\n\n" +
+      "Cannot find stackpilot scripts.\n\n" +
       "Option 1: Clone the repo and set MIKRUS_TOOLBOX_PATH:\n" +
       `  git clone ${REPO_URL}\n` +
-      "  export MIKRUS_TOOLBOX_PATH=/path/to/mikrus-toolbox\n\n" +
+      "  export MIKRUS_TOOLBOX_PATH=/path/to/stackpilot\n\n" +
       "Option 2: Clone to the default location:\n" +
-      `  git clone ${REPO_URL} ~/.mikrus-toolbox`
+      `  git clone ${REPO_URL} ~/.stackpilot`
     );
   }
 }

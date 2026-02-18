@@ -1,4 +1,4 @@
-# Jak kontrybuować do Mikrus Toolbox
+# Jak kontrybuować do StackPilot
 
 Dzięki, że chcesz pomóc! Każdy wkład jest mile widziany - od poprawki literówki po nową aplikację.
 
@@ -19,7 +19,7 @@ Każdy `install.sh` musi zaczynać się od standardowego nagłówka:
 ```bash
 #!/bin/bash
 
-# Mikrus Toolbox - Nazwa Aplikacji
+# StackPilot - Nazwa Aplikacji
 # Krótki opis po angielsku (1 linia)
 # Author: Twoje Imię
 #
@@ -35,7 +35,7 @@ Każdy `install.sh` musi zaczynać się od standardowego nagłówka:
 ```bash
 #!/bin/bash
 
-# Mikrus Toolbox - MojaAppka
+# StackPilot - MojaAppka
 # Description in English
 # Author: Your Name
 #
@@ -67,7 +67,7 @@ EOF
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60
 fi
@@ -108,7 +108,7 @@ Dodaj swoją appkę do listy w sekcji "Dostępne aplikacje" w `AGENTS.md`.
 
 ## Zgłaszanie bugów
 
-Otwórz [Issue](https://github.com/jurczykpawel/mikrus-toolbox/issues) z:
+Otwórz [Issue](https://github.com/jurczykpawel/stackpilot/issues) z:
 - Nazwa aplikacji
 - Serwer (plan Mikrusa, RAM)
 - Logi błędu (`docker compose logs --tail 30`)
@@ -145,7 +145,7 @@ SSH_HOST=twoj-serwer ./tests/test-apps.sh
 
 Znalazles podatnosc? **Nie twórz publicznego Issue!**
 
-Zamiast tego uzyj [GitHub Security Advisories](https://github.com/jurczykpawel/mikrus-toolbox/security/advisories/new)
+Zamiast tego uzyj [GitHub Security Advisories](https://github.com/jurczykpawel/stackpilot/security/advisories/new)
 lub napisz prywatnie do autora. Szczegoly w [SECURITY.md](SECURITY.md).
 
 ---

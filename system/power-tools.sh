@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Power Tools
+# StackPilot - Power Tools
 # Installs CLI utilities useful for automation (n8n via SSH) and management.
 # Includes: yt-dlp, ffmpeg, jq, pup, mc, ncdu.
 # Author: Paweł (Lazy Engineer)

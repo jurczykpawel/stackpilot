@@ -1,21 +1,21 @@
 {
-  "name": "mikrus-toolbox-mcp",
+  "name": "stackpilot-mcp",
   "version": "0.1.0",
   "description": "MCP server for deploying self-hosted apps to Mikrus VPS",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "mikrus-toolbox-mcp": "./dist/index.js"
+    "stackpilot-mcp": "./dist/index.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jurczykpawel/mikrus-toolbox.git",
+    "url": "https://github.com/jurczykpawel/stackpilot.git",
     "directory": "mcp-server"
   },
   "author": "Paweł (Lazy Engineer)",
-  "keywords": ["mcp", "server", "mikrus", "vps", "docker", "self-hosted", "deployment"],
-  "homepage": "https://github.com/jurczykpawel/mikrus-toolbox#mcp-server",
-  "bugs": "https://github.com/jurczykpawel/mikrus-toolbox/issues",
+  "keywords": ["mcp", "server", "vps", "docker", "self-hosted", "deployment"],
+  "homepage": "https://github.com/jurczykpawel/stackpilot#mcp-server",
+  "bugs": "https://github.com/jurczykpawel/stackpilot/issues",
   "engines": {
     "node": ">=18.0.0"
   },

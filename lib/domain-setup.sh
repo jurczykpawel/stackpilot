@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Domain Setup Helper
+# StackPilot - Domain Setup Helper
 # Używany przez skrypty instalacyjne do konfiguracji domeny.
 # Author: Paweł (Lazy Engineer)
 #
@@ -48,7 +48,7 @@ export DOMAIN_TYPE="${DOMAIN_TYPE:-}"
 ask_domain() {
     local APP_NAME="$1"
     local PORT="$2"
-    local SSH_ALIAS="${3:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${3:-${SSH_ALIAS:-vps}}"
 
     # Jeśli DOMAIN_TYPE już ustawione z CLI
     if [ -n "$DOMAIN_TYPE" ]; then
@@ -108,7 +108,7 @@ ask_domain() {
     echo "Jak chcesz uzyskać dostęp do aplikacji?"
     echo ""
 
-    echo "  1) 🍊 Domena Mikrusa (Cytrus) - najszybsze!"
+    echo "  1) 🍊 Domena  (Cytrus) - najszybsze!"
     echo "     Automatyczna domena *.byst.re / *.bieda.it / *.toadres.pl"
     echo "     ➜ Działa od razu, bez konfiguracji DNS"
     echo ""
@@ -158,7 +158,7 @@ ask_domain_cytrus() {
     fi
 
     echo ""
-    echo "Dostępne domeny Mikrusa (darmowe):"
+    echo "Dostępne domeny  (darmowe):"
     echo "  1) Automatyczna (system nada np. xyz123.byst.re)"
     echo "  2) *.byst.re    - wpiszesz własną subdomenę"
     echo "  3) *.bieda.it   - wpiszesz własną subdomenę"
@@ -324,7 +324,7 @@ show_domain_summary() {
 
 configure_domain() {
     local PORT="$1"
-    local SSH_ALIAS="${2:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${2:-${SSH_ALIAS:-vps}}"
 
     # Dry-run mode
     if [ "$DRY_RUN" = true ]; then
@@ -490,12 +490,12 @@ configure_domain_cloudflare() {
 
         # Static site (littlelink, etc.) - użyj trybu file_server
         echo "   Wykryto static site: $WEBROOT"
-        if server_exec "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$WEBROOT' static"; then
+        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static"; then
             echo -e "${GREEN}✅ HTTPS skonfigurowany (file_server)${NC}"
             # Usuń marker (nie usuwaj domain_public_webroot!)
             server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
         else
-            echo -e "${YELLOW}⚠️  mikrus-expose niedostępny${NC}"
+            echo -e "${YELLOW}⚠️  sp-expose niedostępny${NC}"
         fi
     else
         # Walidacja domeny (zapobieganie Caddyfile/shell injection)
@@ -505,14 +505,14 @@ configure_domain_cloudflare() {
         fi
 
         # Docker app - użyj reverse_proxy
-        if server_exec "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
+        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
             echo -e "${GREEN}✅ HTTPS skonfigurowany (reverse_proxy)${NC}"
         else
             # Sprawdź czy domena już jest w Caddyfile
             if server_exec "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
                 echo -e "${GREEN}✅ HTTPS już skonfigurowany w Caddy${NC}"
             else
-                echo -e "${YELLOW}⚠️  mikrus-expose niedostępny${NC}"
+                echo -e "${YELLOW}⚠️  sp-expose niedostępny${NC}"
             fi
         fi
     fi
@@ -599,7 +599,7 @@ wait_for_domain() {
 get_domain() {
     local APP_NAME="$1"
     local PORT="$2"
-    local SSH_ALIAS="${3:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${3:-${SSH_ALIAS:-vps}}"
 
     # Faza 1: zbierz wybór
     if ! ask_domain "$APP_NAME" "$PORT" "$SSH_ALIAS"; then
@@ -621,7 +621,7 @@ get_domain() {
 setup_domain() {
     local APP_NAME="$1"
     local PORT="$2"
-    local SSH_ALIAS="${3:-${SSH_ALIAS:-mikrus}}"
+    local SSH_ALIAS="${3:-${SSH_ALIAS:-vps}}"
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Install Toolbox on Server
+# StackPilot - Install Toolbox on Server
 # Kopiuje toolbox na serwer Mikrus, żeby skrypty działały bezpośrednio.
 # Author: Paweł (Lazy Engineer)
 #
@@ -8,13 +8,13 @@
 #   ./local/install-toolbox.sh [ssh_alias]
 #
 # Po instalacji na serwerze:
-#   ssh mikrus
+#   ssh vps
 #   deploy.sh uptime-kuma
 #   cytrus-domain.sh - 3001
 
 set -e
 
-SSH_ALIAS="${1:-mikrus}"
+SSH_ALIAS="${1:-vps}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -27,11 +27,11 @@ if [ -f /klucz_api ]; then
 fi
 
 echo ""
-echo "📦 Instalacja Mikrus Toolbox na serwerze"
+echo "📦 Instalacja StackPilot na serwerze"
 echo ""
 echo "   Serwer: $SSH_ALIAS"
 echo "   Źródło: $REPO_ROOT"
-echo "   Cel:    /opt/mikrus-toolbox/"
+echo "   Cel:    /opt/stackpilot/"
 echo ""
 
 # Sprawdź rsync
@@ -50,35 +50,35 @@ rsync -az --delete \
     --exclude 'mcp-server' \
     --exclude '.claude' \
     --exclude '*.md' \
-    "$REPO_ROOT/" "$SSH_ALIAS:/opt/mikrus-toolbox/"
+    "$REPO_ROOT/" "$SSH_ALIAS:/opt/stackpilot/"
 
 # Dodaj do PATH — wykryj shell na serwerze i użyj właściwego pliku
 # zsh: ~/.zshenv (czytany ZAWSZE — interactive, non-interactive, login, non-login)
 # bash: ~/.bashrc (czytany przy ssh host "cmd" + interactive)
 echo "🔧 Konfiguruję PATH..."
-TOOLBOX_LINE='export PATH=/opt/mikrus-toolbox/local:$PATH'
+TOOLBOX_LINE='export PATH=/opt/stackpilot/local:$PATH'
 ssh "$SSH_ALIAS" "
     REMOTE_SHELL=\$(basename \"\$SHELL\" 2>/dev/null)
 
     # zsh → ~/.zshenv
     if [ \"\$REMOTE_SHELL\" = 'zsh' ]; then
-        if ! grep -q 'mikrus-toolbox/local' ~/.zshenv 2>/dev/null; then
+        if ! grep -q 'stackpilot/local' ~/.zshenv 2>/dev/null; then
             echo '' >> ~/.zshenv
-            echo '# Mikrus Toolbox' >> ~/.zshenv
+            echo '# StackPilot' >> ~/.zshenv
             echo '$TOOLBOX_LINE' >> ~/.zshenv
         fi
     fi
 
     # bash → ~/.bashrc (na początku, przed guardem interaktywnym)
     if [ -f ~/.bashrc ]; then
-        if ! grep -q 'mikrus-toolbox/local' ~/.bashrc 2>/dev/null; then
-            sed -i '1i\\# Mikrus Toolbox\nexport PATH=/opt/mikrus-toolbox/local:\$PATH\n' ~/.bashrc
+        if ! grep -q 'stackpilot/local' ~/.bashrc 2>/dev/null; then
+            sed -i '1i\\# StackPilot\nexport PATH=/opt/stackpilot/local:\$PATH\n' ~/.bashrc
         fi
     fi
 
     # Wyczyść stare wpisy z .profile
-    if grep -q 'mikrus-toolbox/local' ~/.profile 2>/dev/null; then
-        sed -i '/# Mikrus Toolbox/d; /mikrus-toolbox\/local/d' ~/.profile
+    if grep -q 'stackpilot/local' ~/.profile 2>/dev/null; then
+        sed -i '/# StackPilot/d; /stackpilot\/local/d' ~/.profile
     fi
 "
 

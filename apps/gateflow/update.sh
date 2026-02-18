@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow Update
+# StackPilot - GateFlow Update
 # Aktualizuje GateFlow do najnowszej wersji
 # Author: Paweł (Lazy Engineer)
 #

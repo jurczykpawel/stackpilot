@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Port Utilities
+# StackPilot - Port Utilities
 # Wyszukiwanie wolnych portów na serwerze.
 # Author: Paweł (Lazy Engineer)
 #

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow Setup Library
+# StackPilot - GateFlow Setup Library
 # Funkcje do konfiguracji GateFlow (Supabase, Turnstile, etc.)
 # Author: Paweł (Lazy Engineer)
 

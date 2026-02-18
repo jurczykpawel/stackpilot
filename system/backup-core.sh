@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Core Backup Script
+# StackPilot - Core Backup Script
 # Uses Rclone to sync data to a configured remote.
 # Author: Paweł (Lazy Engineer)
 

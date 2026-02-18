@@ -4,7 +4,7 @@ import { getDefaultAlias } from "../lib/config.js";
 export const serverStatusTool = {
   name: "server_status",
   description:
-    "Check current state of a Mikrus VPS server: running containers (names, ports, status), free RAM and disk space, occupied ports, and installed stacks.",
+    "Check current state of a VPS server: running containers (names, ports, status), free RAM and disk space, occupied ports, and installed stacks.",
   inputSchema: {
     type: "object" as const,
     properties: {

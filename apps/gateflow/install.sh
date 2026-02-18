@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow
+# StackPilot - GateFlow
 # Self-hosted digital products sales platform (Gumroad/EasyCart alternative)
 # Author: Paweł (Lazy Engineer)
 #
@@ -83,8 +83,8 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 if ! command -v bun &> /dev/null || ! command -v pm2 &> /dev/null; then
     echo "📦 Instaluję Bun + PM2..."
-    if [ -f "/opt/mikrus-toolbox/system/bun-setup.sh" ]; then
-        source /opt/mikrus-toolbox/system/bun-setup.sh
+    if [ -f "/opt/stackpilot/system/bun-setup.sh" ]; then
+        source /opt/stackpilot/system/bun-setup.sh
     else
         # Fallback - instaluj bezpośrednio
         curl -fsSL https://bun.sh/install | bash
@@ -102,7 +102,7 @@ add_path_to_rc() {
     if [ "$PREPEND" = "true" ] && [ -f "$RC_FILE" ]; then
         # Dodaj na początku (bash - przed guardem [ -z "$PS1" ] && return)
         {
-            echo '# Bun & PM2 (dodane przez mikrus-toolbox)'
+            echo '# Bun & PM2 (dodane przez stackpilot)'
             echo 'export PATH="$HOME/.bun/bin:$PATH"'
             echo ''
             cat "$RC_FILE"
@@ -111,7 +111,7 @@ add_path_to_rc() {
     else
         # Dodaj na końcu (zsh, profile)
         echo '' >> "$RC_FILE"
-        echo '# Bun & PM2 (dodane przez mikrus-toolbox)' >> "$RC_FILE"
+        echo '# Bun & PM2 (dodane przez stackpilot)' >> "$RC_FILE"
         echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$RC_FILE"
     fi
 }

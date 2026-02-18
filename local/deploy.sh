@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Remote Deployer
+# StackPilot - Remote Deployer
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
@@ -43,7 +43,7 @@ CYTRUS_PLACEHOLDER="__CYTRUS_PENDING__"
 
 show_deploy_help() {
     cat <<EOF
-Mikrus Toolbox - Deploy
+StackPilot - Deploy
 
 Użycie:
   ./local/deploy.sh APP [opcje]
@@ -129,7 +129,7 @@ if [ -z "$SCRIPT_PATH" ]; then
 fi
 
 # SSH_ALIAS z --ssh lub default
-SSH_ALIAS="${SSH_ALIAS:-mikrus}"
+SSH_ALIAS="${SSH_ALIAS:-vps}"
 
 # =============================================================================
 # SPRAWDZANIE POŁĄCZENIA SSH
@@ -144,7 +144,7 @@ if ! is_on_server; then
         echo ""
         echo -e "${RED}❌ Alias SSH '$SSH_ALIAS' nie jest skonfigurowany${NC}"
         echo ""
-        echo "   Potrzebujesz danych z maila od Mikrusa: host, port i hasło."
+        echo "   Potrzebujesz danych z maila od : host, port i hasło."
         echo ""
 
         SETUP_SCRIPT="$REPO_ROOT/local/setup-ssh.sh"
@@ -169,7 +169,7 @@ if ! is_on_server; then
             fi
         else
             echo "   Skonfiguruj SSH:"
-            echo -e "   ${BLUE}bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/mikrus-toolbox/main/local/setup-ssh.sh)${NC}"
+            echo -e "   ${BLUE}bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)${NC}"
             exit 1
         fi
     else
@@ -1116,7 +1116,7 @@ if [ -n "$DOMAIN_PUBLIC" ]; then
         # DNS może już istnieć - to OK, kontynuujemy z Caddy
         "$REPO_ROOT/local/dns-add.sh" "$DOMAIN_PUBLIC" "$SSH_ALIAS" || echo "   DNS już skonfigurowany lub błąd - kontynuuję"
         # Konfiguruj Caddy file_server
-        if server_exec "command -v mikrus-expose &>/dev/null && mikrus-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
+        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
             echo -e "   ${GREEN}✅ Static hosting skonfigurowany: https://$DOMAIN_PUBLIC${NC}"
         else
             echo -e "   ${YELLOW}⚠️  Nie udało się skonfigurować Caddy dla $DOMAIN_PUBLIC${NC}"
@@ -1152,7 +1152,7 @@ if [ "$NEEDS_DB" = true ]; then
     echo "   Jeśli nie masz skonfigurowanego backupu bazy, rozważ:"
     echo ""
     echo "   Konfiguracja automatycznego backupu:"
-    echo -e "      ${BLUE}ssh $SSH_ALIAS \"bash /opt/mikrus-toolbox/system/setup-db-backup.sh\"${NC}"
+    echo -e "      ${BLUE}ssh $SSH_ALIAS \"bash /opt/stackpilot/system/setup-db-backup.sh\"${NC}"
     echo ""
 fi
 

@@ -28,7 +28,7 @@ Dodaj rekord A w panelu swojego rejestratora domen (np. OVH, Cloudflare, home.pl
 ### 2. Wystaw aplikację przez HTTPS
 Uruchom **na swoim komputerze** (nie na serwerze!):
 ```bash
-ssh mikrus 'mikrus-expose notify.twojadomena.pl 8085'
+ssh mikrus 'sp-expose notify.twojadomena.pl 8085'
 ```
 Zamień `mikrus` na swój alias SSH jeśli używasz innego, oraz `notify.twojadomena.pl` na swoją domenę.
 

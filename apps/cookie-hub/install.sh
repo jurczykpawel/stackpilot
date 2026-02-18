@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Cookie Hub (Klaro!)
+# StackPilot - Cookie Hub (Klaro!)
 # Centralized Cookie Consent Manager for all your domains.
 # Supports both Docker (Cytrus) and Caddy (Cloudflare) modes.
 # Author: Paweł (Lazy Engineer)
@@ -179,7 +179,7 @@ EOF
 
 else
     # === CLOUDFLARE MODE: Caddy ===
-    # Caddy will be configured by deploy.sh via mikrus-expose
+    # Caddy will be configured by deploy.sh via sp-expose
     echo "$PUBLIC_DIR" > /tmp/cookiehub_webroot
 
     echo ""

@@ -1,6 +1,6 @@
-# CLI Reference - Mikrus Toolbox
+# CLI Reference - StackPilot
 
-Pełna dokumentacja interfejsu wiersza poleceń dla Mikrus Toolbox.
+Pełna dokumentacja interfejsu wiersza poleceń dla StackPilot.
 
 ## Spis treści
 
@@ -19,7 +19,7 @@ Pełna dokumentacja interfejsu wiersza poleceń dla Mikrus Toolbox.
 
 ## Przegląd
 
-Mikrus Toolbox obsługuje trzy tryby pracy:
+StackPilot obsługuje trzy tryby pracy:
 
 1. **Interaktywny** - skrypt pyta o brakujące wartości
 2. **Semi-automatyczny** - część wartości z CLI, reszta interaktywnie
@@ -42,7 +42,7 @@ Wartości są pobierane w następującej kolejności (od najwyższego priorytetu
 ```
 1. Flagi CLI             --db-host=psql.example.com
 2. Zmienne środowiskowe  DB_HOST=psql.example.com ./deploy.sh ...
-3. Config file           ~/.config/mikrus/defaults.sh
+3. Config file           ~/.config/stackpilot/defaults.sh
 4. Pytania interaktywne  (tylko gdy brak --yes)
 ```
 
@@ -221,10 +221,10 @@ Pokazuje co zostanie wykonane bez faktycznego wykonania.
 
 ## Config file
 
-Domyślne wartości można zapisać w `~/.config/mikrus/defaults.sh`:
+Domyślne wartości można zapisać w `~/.config/stackpilot/defaults.sh`:
 
 ```bash
-# ~/.config/mikrus/defaults.sh
+# ~/.config/stackpilot/defaults.sh
 
 export DEFAULT_SSH="mikrus"
 export DEFAULT_DB_PORT="5432"
@@ -437,7 +437,7 @@ DOMAIN=...  # Opcjonalna domena
 ### Deploy z config file
 
 ```bash
-# ~/.config/mikrus/defaults.sh
+# ~/.config/stackpilot/defaults.sh
 export DEFAULT_SSH="mojserwer"
 export DEFAULT_DOMAIN_TYPE="cytrus"
 
@@ -449,7 +449,7 @@ export DEFAULT_DOMAIN_TYPE="cytrus"
 
 ## Kompatybilność platform
 
-Mikrus Toolbox działa na:
+StackPilot działa na:
 
 | System | Status | Uwagi |
 |--------|--------|-------|

@@ -3,7 +3,7 @@ import { listAllApps, type AppMetadata } from "../lib/app-metadata.js";
 export const listAppsTool = {
   name: "list_apps",
   description:
-    "List all available applications that can be deployed to a Mikrus VPS. Shows app name, description, Docker image size, database requirements, default port, and special notes. Use this before deploy_app to understand what's available and what parameters each app needs.",
+    "List all available applications that can be deployed to a VPS. Shows app name, description, Docker image size, database requirements, default port, and special notes. Use this before deploy_app to understand what's available and what parameters each app needs.",
   inputSchema: {
     type: "object" as const,
     properties: {

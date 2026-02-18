@@ -35,7 +35,7 @@ export async function setupCytrusDomain(
       url: null,
       domain: null,
       error:
-        "Toolbox script not found: local/cytrus-domain.sh. Clone the full mikrus-toolbox repo.",
+        "Toolbox script not found: local/cytrus-domain.sh. Clone the full stackpilot repo.",
     };
   }
 
@@ -79,7 +79,7 @@ export async function setupCytrusDomain(
 }
 
 /**
- * Set up Cloudflare reverse proxy domain: local/dns-add.sh + mikrus-expose.
+ * Set up Cloudflare reverse proxy domain: local/dns-add.sh + sp-expose.
  */
 export async function setupCloudflareProxy(
   alias: string,
@@ -97,10 +97,10 @@ export async function setupCloudflareProxy(
     await execLocalScript(dnsScript, [domain, alias], 30_000);
   }
 
-  // Step 2: Caddy reverse proxy via mikrus-expose on server
+  // Step 2: Caddy reverse proxy via sp-expose on server
   const result = await sshExec(
     alias,
-    `command -v mikrus-expose >/dev/null 2>&1 && mikrus-expose '${domain}' '${port}'`,
+    `command -v sp-expose >/dev/null 2>&1 && sp-expose '${domain}' '${port}'`,
     15_000
   );
   if (result.exitCode === 0) {
@@ -110,12 +110,12 @@ export async function setupCloudflareProxy(
     ok: false,
     url: null,
     domain,
-    error: `mikrus-expose failed or not found. Install Caddy first (system/caddy-install.sh). ${result.stderr}`,
+    error: `sp-expose failed or not found. Install Caddy first (system/caddy-install.sh). ${result.stderr}`,
   };
 }
 
 /**
- * Set up Cloudflare static file domain: local/dns-add.sh + mikrus-expose static.
+ * Set up Cloudflare static file domain: local/dns-add.sh + sp-expose static.
  */
 export async function setupCloudflareStatic(
   alias: string,
@@ -134,7 +134,7 @@ export async function setupCloudflareStatic(
 
   const result = await sshExec(
     alias,
-    `command -v mikrus-expose >/dev/null 2>&1 && mikrus-expose '${domain}' '${webRoot}' static`,
+    `command -v sp-expose >/dev/null 2>&1 && sp-expose '${domain}' '${webRoot}' static`,
     15_000
   );
   if (result.exitCode === 0) {
@@ -144,7 +144,7 @@ export async function setupCloudflareStatic(
     ok: false,
     url: null,
     domain,
-    error: `mikrus-expose failed or not found. ${result.stderr}`,
+    error: `sp-expose failed or not found. ${result.stderr}`,
   };
 }
 

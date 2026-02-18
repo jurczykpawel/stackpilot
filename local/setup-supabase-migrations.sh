@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Supabase Migrations (via API)
+# StackPilot - Supabase Migrations (via API)
 # Przygotowuje bazę danych dla GateFlow
 # Author: Paweł (Lazy Engineer)
 #
@@ -162,7 +162,7 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 # Sprawdź czy migracje są na serwerze (z paczki instalacyjnej)
-SSH_ALIAS="${SSH_ALIAS:-mikrus}"
+SSH_ALIAS="${SSH_ALIAS:-vps}"
 MIGRATIONS_SOURCE=""
 
 # Znajdź katalog instalacji GateFlow

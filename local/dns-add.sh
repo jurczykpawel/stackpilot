@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Cloudflare DNS Add
+# StackPilot - Cloudflare DNS Add
 # Dodaje rekord DNS do Cloudflare (A lub AAAA).
 # Wymaga wcześniejszej konfiguracji: ./local/setup-cloudflare.sh
 # Author: Paweł (Lazy Engineer)
@@ -17,7 +17,7 @@ CYTRUS_IP="135.181.95.85"
 
 # Argumenty
 FULL_DOMAIN="$1"
-SSH_ALIAS="${2:-mikrus}"
+SSH_ALIAS="${2:-vps}"
 MODE="${3:-cloudflare}"  # "cloudflare" (IPv6+proxy) lub "cytrus" (IPv4, no proxy)
 
 # Użycie
@@ -176,7 +176,7 @@ else
     echo "☁️  Proxy Cloudflare: WŁĄCZONY"
     echo ""
     echo "🚀 Następny krok - wystaw przez Caddy:"
-    echo "   ssh $SSH_ALIAS 'mikrus-expose $FULL_DOMAIN PORT'"
+    echo "   ssh $SSH_ALIAS 'sp-expose $FULL_DOMAIN PORT'"
 fi
 
 echo ""

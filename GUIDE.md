@@ -1,8 +1,8 @@
-# Mikrus Toolbox - Referencja operacyjna
+# StackPilot - Referencja operacyjna
 
 > **Główne instrukcje dla AI → [`AGENTS.md`](AGENTS.md)**. Ten dokument to szczegółowa referencja - sięgaj tu gdy potrzebujesz konkretnych komend, procedur diagnostycznych lub szczegółów architektury.
 
-Kompletna dokumentacja techniczna Mikrus Toolbox. Przeznaczona dla agentów AI i ludzi.
+Kompletna dokumentacja techniczna StackPilot. Przeznaczona dla agentów AI i ludzi.
 
 ## Spis treści
 

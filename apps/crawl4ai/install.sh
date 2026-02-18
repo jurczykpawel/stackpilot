@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Crawl4AI
+# StackPilot - Crawl4AI
 # AI-powered web crawler and scraper with REST API.
 # Extract structured data from any website using LLMs.
 # https://github.com/unclecode/crawl4ai
@@ -99,7 +99,7 @@ sudo docker compose up -d
 
 # Health check - Chromium potrzebuje dużo czasu na start
 echo "⏳ Czekam na uruchomienie Crawl4AI (~60-90s, Chromium się ładuje)..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

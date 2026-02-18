@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Supabase Setup for GateFlow
+# StackPilot - Supabase Setup for GateFlow
 # Konfiguruje Supabase i uruchamia migracje
 # Author: Paweł (Lazy Engineer)
 #

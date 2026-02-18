@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Backup Setup Wizard
+# StackPilot - Backup Setup Wizard
 # Configures cloud backup on Mikrus using local Rclone for auth.
 # Author: Paweł (Lazy Engineer)
 
@@ -14,15 +14,15 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo ""
     echo "Konfiguruje automatyczne backupy do chmury (Google Drive, Dropbox, S3, itp.)."
     echo "Wymaga zainstalowanego rclone lokalnie."
-    echo "Domyślny alias SSH: mikrus"
+    echo "Default SSH alias: vps"
     exit 0
 fi
 
 # Configuration
-MIKRUS_HOST="${1:-mikrus}" # First argument or default to 'mikrus'
-SSH_ALIAS="$MIKRUS_HOST"
+VPS_HOST="${1:-vps}" # First argument or default to 'mikrus'
+SSH_ALIAS="$VPS_HOST"
 REMOTE_NAME="backup_remote"
-TEMP_CONF="/tmp/rclone_mikrus_setup.conf"
+TEMP_CONF="/tmp/rclone_stackpilot_setup.conf"
 
 # Get remote server info for confirmation
 REMOTE_HOST=$(server_hostname)
@@ -159,7 +159,7 @@ server_pipe_to "$REPO_ROOT/system/backup-core.sh" ~/backup-core.sh
 
 # 4d. Setup Cron
 echo "Setting up Cron job (Daily at 3:00 AM)..."
-CRON_CMD="0 3 * * * /root/backup-core.sh >> /var/log/mikrus-backup.log 2>&1"
+CRON_CMD="0 3 * * * /root/backup-core.sh >> /var/log/stackpilot-backup.log 2>&1"
 # Check if job exists, if not append
 server_exec "crontab -l | grep -v 'backup-core.sh' | { cat; echo '$CRON_CMD'; } | crontab -"
 
@@ -174,13 +174,13 @@ echo "   - Codziennie o 3:00 backup jest wysyłany do $TYPE"
 echo "   - Backupowane katalogi: /opt/stacks, /opt/dockge"
 echo ""
 echo "🚀 Uruchom pierwszy backup TERAZ:"
-echo "   ssh $MIKRUS_HOST '~/backup-core.sh'"
+echo "   ssh $VPS_HOST '~/backup-core.sh'"
 echo ""
 echo "🔍 Jak sprawdzić czy działa?"
-echo "   ssh $MIKRUS_HOST 'tail -20 /var/log/mikrus-backup.log'"
+echo "   ssh $VPS_HOST 'tail -20 /var/log/stackpilot-backup.log'"
 echo ""
 echo "🔄 Jak przywrócić dane?"
-echo "   ./local/restore.sh $MIKRUS_HOST"
+echo "   ./local/restore.sh $VPS_HOST"
 echo ""
 if [[ "$ENCRYPT_CHOICE" =~ ^[Yy]$ ]]; then
     echo "🔐 Szyfrowanie włączone - nazwy folderów w chmurze będą zaszyfrowane."

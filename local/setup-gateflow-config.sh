@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - GateFlow Configuration Setup
+# StackPilot - GateFlow Configuration Setup
 # Zbiera i zapisuje wszystkie klucze potrzebne do automatycznego deploymentu GateFlow
 # Author: Paweł (Lazy Engineer)
 #

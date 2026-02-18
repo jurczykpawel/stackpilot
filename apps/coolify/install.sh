@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Coolify
+# StackPilot - Coolify
 # Open-source PaaS. Twój prywatny Heroku/Vercel z 280+ apkami.
 # https://coolify.io
 # Author: Paweł (Lazy Engineer)
@@ -10,7 +10,7 @@
 # ⚠️  WYMAGA: Mikrus 4.1+ (8GB RAM, 80GB dysk, 2x CPU)
 #     Coolify to pełny PaaS - zarządza WSZYSTKIMI apkami na serwerze.
 #     Traefik przejmuje porty 80/443 (SSL, routing).
-#     Nie instaluj obok innych apek z mikrus-toolbox!
+#     Nie instaluj obok innych apek z stackpilot!
 #
 # Coolify instaluje się w /data/coolify/ (NIE /opt/stacks/).
 # Kontenery: coolify (Laravel), postgres:15, redis:7, soketi (WebSocket), traefik
@@ -102,7 +102,7 @@ if [ "$PORTS_BUSY" -eq 1 ]; then
 fi
 
 # --- Port 8000 (Coolify UI) ---
-source /opt/mikrus-toolbox/lib/port-utils.sh 2>/dev/null || true
+source /opt/stackpilot/lib/port-utils.sh 2>/dev/null || true
 COOLIFY_PORT=8000
 if ss -tlnp 2>/dev/null | grep -q ":8000 "; then
     echo "⚠️  Port 8000 jest zajęty! Szukam wolnego portu dla Coolify UI..."

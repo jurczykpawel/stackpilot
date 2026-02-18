@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Uptime Kuma
+# StackPilot - Uptime Kuma
 # Self-hosted monitoring tool like "Uptime Robot".
 # Very lightweight.
 # Author: Paweł (Lazy Engineer)
@@ -39,7 +39,7 @@ EOF
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 45 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

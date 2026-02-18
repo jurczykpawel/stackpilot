@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Bun + PM2 Setup
+# StackPilot - Bun + PM2 Setup
 # Instaluje Bun (runtime) i PM2 (process manager) dla aplikacji Node.js/Next.js
 # Author: Paweł (Lazy Engineer)
 

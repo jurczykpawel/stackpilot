@@ -77,7 +77,7 @@ export async function deploy(
 // Static deployment — uses local/add-static-hosting.sh
 // The script handles:
 //   Cytrus:     nginx container + cytrus-domain.sh
-//   Cloudflare: Caddy file_server + dns-add.sh + mikrus-expose
+//   Cloudflare: Caddy file_server + dns-add.sh + sp-expose
 // ---------------------------------------------------------------------------
 
 async function deployStatic(config: DeployConfig): Promise<DeployResult> {
@@ -144,7 +144,7 @@ async function setupStaticViaScript(
   if (!existsSync(script)) {
     return err(
       lines,
-      "Toolbox script not found: local/add-static-hosting.sh. Clone the full mikrus-toolbox repo."
+      "Toolbox script not found: local/add-static-hosting.sh. Clone the full stackpilot repo."
     );
   }
 
@@ -161,7 +161,7 @@ async function setupStaticViaScript(
       );
     }
     siteDomain = domain;
-    // Ensure Caddy + mikrus-expose are installed on server
+    // Ensure Caddy + sp-expose are installed on server
     await ensureCaddy(alias, lines);
   }
 
@@ -229,7 +229,7 @@ async function deployNode(config: DeployConfig): Promise<DeployResult> {
     } else {
       return err(
         lines,
-        "PM2 not installed and system/pm2-setup.sh not found. Clone the full mikrus-toolbox repo."
+        "PM2 not installed and system/pm2-setup.sh not found. Clone the full stackpilot repo."
       );
     }
   } else {
@@ -554,7 +554,7 @@ async function setupServiceDomain(
 }
 
 /**
- * Ensure Caddy + mikrus-expose are installed on the server.
+ * Ensure Caddy + sp-expose are installed on the server.
  * Uses system/caddy-install.sh if available.
  */
 async function ensureCaddy(
@@ -563,7 +563,7 @@ async function ensureCaddy(
 ): Promise<void> {
   const check = await sshExec(
     alias,
-    "command -v mikrus-expose",
+    "command -v sp-expose",
     10_000
   );
   if (check.exitCode === 0) return;
@@ -575,7 +575,7 @@ async function ensureCaddy(
     );
     return;
   }
-  lines.push("Installing Caddy + mikrus-expose...");
+  lines.push("Installing Caddy + sp-expose...");
   const result = await sshExecWithStdin(
     alias,
     "bash -s",

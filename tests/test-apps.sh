@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mikrus Toolbox - Automated App Testing
+# StackPilot - Automated App Testing
 # Tests all apps on a remote server: deploy → check HTTP → cleanup
 #
 # Usage:
@@ -15,7 +15,7 @@
 set -o pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SSH="${SSH_HOST:-mikrus}"
+SSH="${SSH_HOST:-vps}"
 RESULTS=()
 PASS=0
 FAIL=0
@@ -183,7 +183,7 @@ TOTAL=$(( ${#APPS[@]} + ${#SKIP_APPS[@]} ))
 # ============================================================
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  Mikrus Toolbox - Automated App Testing                      ║"
+echo "║  StackPilot - Automated App Testing                      ║"
 echo "║  Server: $SSH                                                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""

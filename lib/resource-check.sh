@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Resource Check
+# StackPilot - Resource Check
 # Sprawdza zasoby serwera przed instalacją.
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   source /opt/mikrus-toolbox/lib/resource-check.sh
+#   source /opt/stackpilot/lib/resource-check.sh
 #   check_resources 512 500  # wymagane: 512MB RAM, 500MB dysku
 #
 # Zwraca:
@@ -95,7 +95,7 @@ check_resources() {
             ;;
         2)
             echo -e "   ${RED}❌ Za mało zasobów! Instalacja $APP_NAME może zawiesić serwer.${NC}"
-            echo -e "   ${RED}   Zwolnij miejsce lub upgraduj plan Mikrusa.${NC}"
+            echo -e "   ${RED}   Zwolnij miejsce lub upgraduj plan .${NC}"
             ;;
     esac
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Add Static Hosting
+# StackPilot - Add Static Hosting
 # Dodaje publiczny hosting plików statycznych.
 # Używa nginx w Dockerze dla Cytrus lub Caddy file_server dla Cloudflare.
 # Author: Paweł (Lazy Engineer)
@@ -102,7 +102,7 @@ else
     "$SCRIPT_DIR/dns-add.sh" "$DOMAIN" "$SSH_ALIAS" || echo "DNS może już istnieć"
 
     # Skonfiguruj Caddy
-    server_exec "mikrus-expose '$DOMAIN' '$WEB_ROOT' static"
+    server_exec "sp-expose '$DOMAIN' '$WEB_ROOT' static"
 
     echo "✅ Caddy skonfigurowany"
 fi

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Database Backup Setup
+# StackPilot - Database Backup Setup
 # Konfiguruje automatyczny backup bazy danych PostgreSQL/MySQL
 # Author: Paweł (Lazy Engineer)
 #
 # Obsługuje:
-# - Współdzielone bazy Mikrusa (credentials pobierane z API)
+# - Współdzielone bazy  (credentials pobierane z API)
 # - Dedykowane/kupione bazy (credentials zapisywane lokalnie)
 #
 # Użycie:
@@ -14,8 +14,8 @@
 set -e
 
 BACKUP_DIR="/opt/backups/db"
-BACKUP_SCRIPT="/opt/mikrus-toolbox/scripts/db-backup.sh"
-CREDENTIALS_DIR="/opt/mikrus-toolbox/config"
+BACKUP_SCRIPT="/opt/stackpilot/scripts/db-backup.sh"
+CREDENTIALS_DIR="/opt/stackpilot/config"
 CREDENTIALS_FILE="$CREDENTIALS_DIR/db-credentials.conf"
 CRON_FILE="/etc/cron.d/mikrus-db-backup"
 
@@ -33,7 +33,7 @@ HAS_SHARED_POSTGRES=false
 HAS_SHARED_MYSQL=false
 
 if [ -n "$API_KEY" ]; then
-    echo "🔑 Pobieram dane współdzielonych baz z API Mikrusa..."
+    echo "🔑 Pobieram dane współdzielonych baz z API..."
 
     RESPONSE=$(curl -s -d "srv=$HOSTNAME&key=$API_KEY" https://api.mikr.us/db.bash 2>/dev/null)
 
@@ -130,7 +130,7 @@ if [[ "$ADD_CUSTOM" =~ ^[tTyY] ]]; then
     mkdir -p "$CREDENTIALS_DIR"
 
     cat > "$CREDENTIALS_FILE" << 'EOF'
-# Mikrus Toolbox - Database Credentials
+# StackPilot - Database Credentials
 # Plik wygenerowany przez setup-db-backup.sh
 # UWAGA: Zawiera hasła! Uprawnienia: 600 (tylko root)
 #
@@ -181,7 +181,7 @@ cat > "$BACKUP_SCRIPT" << 'BACKUP_HEADER'
 # - Dedykowane bazy (credentials z pliku)
 
 BACKUP_DIR="/opt/backups/db"
-CREDENTIALS_FILE="/opt/mikrus-toolbox/config/db-credentials.conf"
+CREDENTIALS_FILE="/opt/stackpilot/config/db-credentials.conf"
 DATE=$(date +%Y%m%d_%H%M%S)
 KEEP_DAYS=7
 LOG_FILE="/var/log/db-backup.log"
@@ -310,7 +310,7 @@ chmod +x "$BACKUP_SCRIPT"
 echo "⏰ Konfiguruję automatyczny backup (codziennie o 3:00)..."
 
 cat > "$CRON_FILE" << EOF
-# Mikrus Toolbox - Automatyczny backup bazy danych
+# StackPilot - Automatyczny backup bazy danych
 # Codziennie o 3:00
 0 3 * * * root $BACKUP_SCRIPT >> /var/log/db-backup.log 2>&1
 EOF
@@ -357,6 +357,6 @@ fi
 echo ""
 echo "⚠️  UWAGA: Backupy są przechowywane lokalnie na serwerze."
 echo "   Dla pełnego bezpieczeństwa, rozważ kopiowanie na zewnętrzny storage:"
-echo "   - Strych Mikrusa (200MB limit): setup-backup-mikrus.sh"
+echo "   - Strych  (200MB limit): setup-backup-mikrus.sh"
 echo "   - Google Drive/Dropbox: rclone"
 echo ""

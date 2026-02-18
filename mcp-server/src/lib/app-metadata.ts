@@ -20,15 +20,15 @@ export function parseAppMetadata(appDir: string): AppMetadata | null {
   const content = readFileSync(installSh, "utf-8");
   const lines = content.split("\n");
 
-  // Parse description from header comments (lines 3-4, after "# Mikrus Toolbox - Name")
+  // Parse description from header comments (lines 3-4, after "# StackPilot - Name")
   let description = "";
   for (let i = 0; i < Math.min(lines.length, 15); i++) {
     const line = lines[i];
-    // Skip shebang, empty comments, "Mikrus Toolbox" line, "Author" line
+    // Skip shebang, empty comments, "StackPilot" line, "Author" line
     if (
       line.startsWith("#!") ||
       line === "#" ||
-      line.includes("Mikrus Toolbox") ||
+      line.includes("StackPilot") ||
       line.includes("Author:") ||
       line.includes("IMAGE_SIZE_MB") ||
       line.includes("WYMAGA") ||

@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Emergency Restore
+# StackPilot - Emergency Restore
 # Trigger a full system restore from the latest cloud backup.
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Użycie: $0 [ssh_alias]"
     echo ""
     echo "Przywraca dane z chmury (wymaga wcześniejszej konfiguracji backupu)."
-    echo "Domyślny alias SSH: mikrus"
+    echo "Default SSH alias: vps"
     exit 0
 fi
 
-MIKRUS_HOST="${1:-mikrus}" # First argument or default to 'mikrus'
-SSH_ALIAS="$MIKRUS_HOST"
+VPS_HOST="${1:-vps}" # First argument or default to 'mikrus'
+SSH_ALIAS="$VPS_HOST"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"

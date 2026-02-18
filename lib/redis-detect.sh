@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Redis Detection
+# StackPilot - Redis Detection
 # Wspólna logika detekcji Redis (external vs bundled).
 # Używane przez: apps/wordpress/install.sh, apps/postiz/install.sh
 #
 # Użycie:
-#   source /opt/mikrus-toolbox/lib/redis-detect.sh
+#   source /opt/stackpilot/lib/redis-detect.sh
 #   detect_redis "$MODE" "$BUNDLED_NAME"  # MODE: auto|external|bundled
 #
 # Po wywołaniu ustawia:

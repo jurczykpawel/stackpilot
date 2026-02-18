@@ -104,7 +104,7 @@ Browser  → Coolify UI (:8000) → PostgreSQL, Redis (platforma)
 
 ## Ważne
 
-- **Coolify przejmuje serwer.** Traefik na portach 80/443 zarządza całym ruchem HTTP/HTTPS. Nie instaluj obok innych apek z mikrus-toolbox (deploy.sh) - będą konflikty portów.
+- **Coolify przejmuje serwer.** Traefik na portach 80/443 zarządza całym ruchem HTTP/HTTPS. Nie instaluj obok innych apek z stackpilot (deploy.sh) - będą konflikty portów.
 - **Jeden panel, wszystkie apki.** Po zainstalowaniu Coolify, zarządzaj WSZYSTKIMI apkami przez panel (nie przez deploy.sh).
 - **Auto-update.** Coolify domyślnie aktualizuje się automatycznie. Wyłącz w `/data/coolify/source/.env`: `AUTOUPDATE=false`.
 - **Backup platformy.** Coolify ma wbudowane backupy dla apek (do S3). Sam Coolify = backup `/data/coolify/`.

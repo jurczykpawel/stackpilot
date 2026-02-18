@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Mikrus Toolbox - SSH Configurator
+# StackPilot - SSH Configurator
 # Konfiguruje połączenie SSH do serwera Mikrus (klucz + alias).
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
 #   bash local/setup-ssh.sh
-#   bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/mikrus-toolbox/main/local/setup-ssh.sh)
+#   bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)
 
 # Ten skrypt działa tylko na komputerze lokalnym (konfiguruje SSH DO serwera)
 if [ -f /klucz_api ]; then
@@ -29,7 +29,7 @@ echo -e "Ten skrypt skonfiguruje połączenie SSH z Mikrusem,"
 echo -e "abyś mógł łączyć się wpisując tylko: ${GREEN}ssh mikrus${NC}"
 echo -e "(bez hasła za każdym razem!)"
 echo ""
-echo -e "${YELLOW}Przygotuj dane z maila od Mikrusa (Host, Port, Hasło).${NC}"
+echo -e "${YELLOW}Przygotuj dane z maila od  (Host, Port, Hasło).${NC}"
 echo ""
 
 # 1. Pobieranie danych

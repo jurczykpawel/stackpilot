@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Health Check Helper
+# StackPilot - Health Check Helper
 # Sprawdza czy kontener wystartował i aplikacja odpowiada.
 # Author: Paweł (Lazy Engineer)
 #

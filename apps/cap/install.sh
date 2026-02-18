@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Cap (Open Source Loom Alternative)
+# StackPilot - Cap (Open Source Loom Alternative)
 # Nagrywaj, edytuj i udostępniaj wideo w sekundy.
 # https://github.com/CapSoftware/Cap
 # Author: Paweł (Lazy Engineer)
@@ -180,7 +180,7 @@ echo "--- Uruchamiam Cap ---"
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
@@ -208,10 +208,10 @@ fi
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo ""
     echo "--- Konfiguruję HTTPS via Caddy ---"
-    if command -v mikrus-expose &> /dev/null; then
-        sudo mikrus-expose "$DOMAIN" "$PORT"
+    if command -v sp-expose &> /dev/null; then
+        sudo sp-expose "$DOMAIN" "$PORT"
     else
-        echo "⚠️  'mikrus-expose' nie znaleziono. Zainstaluj Caddy: system/caddy-install.sh"
+        echo "⚠️  'sp-expose' nie znaleziono. Zainstaluj Caddy: system/caddy-install.sh"
         echo "   Lub skonfiguruj reverse proxy ręcznie na port $PORT"
     fi
 fi

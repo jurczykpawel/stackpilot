@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Global Update
+# StackPilot - Global Update
 # Updates System packages AND all Docker Stacks.
 # Cleans up unused images to save disk space.
 # Author: Paweł (Lazy Engineer)

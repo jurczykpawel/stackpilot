@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - ConvertX
+# StackPilot - ConvertX
 # Self-hosted file converter. Images, documents, audio, video - 1000+ formats.
 # https://github.com/C4illin/ConvertX
 # Author: Paweł (Lazy Engineer)
@@ -68,7 +68,7 @@ EOF
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

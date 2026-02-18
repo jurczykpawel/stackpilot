@@ -68,7 +68,7 @@ Po instalacji wystaw aplikację przez HTTPS:
 
 **Caddy:**
 ```bash
-mikrus-expose newsletter.mojafirma.pl 9000
+sp-expose newsletter.mojafirma.pl 9000
 ```
 
 **Cytrus:** Panel Mikrus → Domeny → przekieruj na port 9000

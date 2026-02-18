@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - CLI Parser
+# StackPilot - CLI Parser
 # Uniwersalny parser argumentów dla wszystkich skryptów.
 # Author: Paweł (Lazy Engineer)
 #
@@ -11,7 +11,7 @@
 # Priorytet wartości:
 #   1. Flagi CLI (--db-host=...)     ← najwyższy
 #   2. Zmienne środowiskowe (DB_HOST=...)
-#   3. Config file (~/.config/mikrus/defaults.sh)
+#   3. Config file (~/.config/stackpilot/defaults.sh)
 #   4. Pytania interaktywne          ← fallback
 #
 # Dostępne po parse_args():
@@ -98,7 +98,7 @@ export RESTART_ONLY="${RESTART_ONLY:-false}"
 export POSITIONAL_ARGS=()
 
 # Ścieżka do config file
-CONFIG_FILE="$HOME/.config/mikrus/defaults.sh"
+CONFIG_FILE="$HOME/.config/stackpilot/defaults.sh"
 
 # =============================================================================
 # ŁADOWANIE KONFIGURACJI
@@ -111,7 +111,7 @@ load_defaults() {
     fi
 
     # Ustaw domyślne wartości z config lub hardcoded defaults
-    SSH_ALIAS="${SSH_ALIAS:-${DEFAULT_SSH:-mikrus}}"
+    SSH_ALIAS="${SSH_ALIAS:-${DEFAULT_SSH:-vps}}"
     DB_PORT="${DB_PORT:-${DEFAULT_DB_PORT:-5432}}"
     DB_SCHEMA="${DB_SCHEMA:-${DEFAULT_DB_SCHEMA:-public}}"
     DOMAIN_TYPE="${DOMAIN_TYPE:-${DEFAULT_DOMAIN_TYPE:-}}"
@@ -199,7 +199,7 @@ parse_args() {
 show_help() {
     local SCRIPT_NAME="${0##*/}"
     cat <<EOF
-Mikrus Toolbox - $SCRIPT_NAME
+StackPilot - $SCRIPT_NAME
 
 Użycie:
   $SCRIPT_NAME APP [opcje]
@@ -244,7 +244,7 @@ Przykłady:
     --db-name=n8n --db-user=myuser --db-pass=secret --domain=n8n.example.com --yes
 
 Config file:
-  ~/.config/mikrus/defaults.sh
+  ~/.config/stackpilot/defaults.sh
   Przykład:
     export DEFAULT_SSH="mikrus"
     export DEFAULT_DB_PORT="5432"

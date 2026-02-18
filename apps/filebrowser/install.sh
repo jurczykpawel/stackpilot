@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - FileBrowser
+# StackPilot - FileBrowser
 # Web-based File Manager + Static Hosting (Tiiny.host Killer!)
 # Supports both Cytrus (nginx) and Cloudflare (Caddy) modes.
 # Author: Paweł (Lazy Engineer)

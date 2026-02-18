@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Server Execution Abstraction
+# StackPilot - Server Execution Abstraction
 # Transparentnie uruchamia komendy lokalnie lub przez SSH.
 #
-# Detekcja: /klucz_api istnieje TYLKO na serwerach Mikrusa.
+# Detekcja: /klucz_api istnieje TYLKO na servers.
 # Na lokalnym kompie → ssh, scp (jak dotychczas).
 # Na serwerze → bash -c, cp (bezpośrednio, bez SSH).
 #
@@ -20,7 +20,7 @@ else
     _MIKRUS_ON_SERVER=false
 fi
 
-# Czy skrypt działa na serwerze Mikrusa?
+# Czy skrypt działa na server?
 is_on_server() { [ "$_MIKRUS_ON_SERVER" = true ]; }
 
 # Uruchom komendę na serwerze
@@ -29,7 +29,7 @@ server_exec() {
     if is_on_server; then
         bash -c "$1"
     else
-        ssh "${SSH_ALIAS:-mikrus}" "$1"
+        ssh "${SSH_ALIAS:-vps}" "$1"
     fi
 }
 
@@ -39,7 +39,7 @@ server_exec_tty() {
     if is_on_server; then
         bash -c "$1"
     else
-        ssh -t "${SSH_ALIAS:-mikrus}" "$1"
+        ssh -t "${SSH_ALIAS:-vps}" "$1"
     fi
 }
 
@@ -51,7 +51,7 @@ server_exec_timeout() {
     if is_on_server; then
         bash -c "$cmd"
     else
-        ssh -o "ConnectTimeout=$timeout" "${SSH_ALIAS:-mikrus}" "$cmd" 2>/dev/null
+        ssh -o "ConnectTimeout=$timeout" "${SSH_ALIAS:-vps}" "$cmd" 2>/dev/null
     fi
 }
 
@@ -63,7 +63,7 @@ server_copy() {
     if is_on_server; then
         cp "$src" "$dst"
     else
-        scp -q "$src" "${SSH_ALIAS:-mikrus}:$dst"
+        scp -q "$src" "${SSH_ALIAS:-vps}:$dst"
     fi
 }
 
@@ -76,7 +76,7 @@ server_pipe_to() {
         cp "$src" "$dst"
         chmod +x "$dst" 2>/dev/null || true
     else
-        cat "$src" | ssh "${SSH_ALIAS:-mikrus}" "cat > '$dst' && chmod +x '$dst'"
+        cat "$src" | ssh "${SSH_ALIAS:-vps}" "cat > '$dst' && chmod +x '$dst'"
     fi
 }
 
@@ -86,7 +86,7 @@ server_hostname() {
     if is_on_server; then
         hostname
     else
-        ssh -G "${SSH_ALIAS:-mikrus}" 2>/dev/null | grep "^hostname " | cut -d' ' -f2
+        ssh -G "${SSH_ALIAS:-vps}" 2>/dev/null | grep "^hostname " | cut -d' ' -f2
     fi
 }
 
@@ -96,7 +96,7 @@ server_user() {
     if is_on_server; then
         whoami
     else
-        ssh -G "${SSH_ALIAS:-mikrus}" 2>/dev/null | grep "^user " | cut -d' ' -f2
+        ssh -G "${SSH_ALIAS:-vps}" 2>/dev/null | grep "^user " | cut -d' ' -f2
     fi
 }
 

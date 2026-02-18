@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Core Restore Script
+# StackPilot - Core Restore Script
 # RESTORES data from Cloud to Mikrus.
 # WARNING: Overwrites local data!
 # Author: Paweł (Lazy Engineer)

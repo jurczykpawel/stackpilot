@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - MinIO (S3-Compatible Object Storage)
+# StackPilot - MinIO (S3-Compatible Object Storage)
 # Self-hosted S3-compatible storage for files, backups, and media.
 # https://min.io/
 # Author: Paweł (Lazy Engineer)
@@ -85,7 +85,7 @@ echo "--- Uruchamiam MinIO ---"
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$API_PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
@@ -132,9 +132,9 @@ sudo chmod 600 "$STACK_DIR/.env"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo ""
     echo "--- Konfiguruję HTTPS via Caddy ---"
-    if command -v mikrus-expose &> /dev/null; then
+    if command -v sp-expose &> /dev/null; then
         # Expose Console (Web UI)
-        sudo mikrus-expose "$DOMAIN" "$CONSOLE_PORT"
+        sudo sp-expose "$DOMAIN" "$CONSOLE_PORT"
         echo "✅ Console dostępne na https://$DOMAIN"
 
         # Info o API endpoint
@@ -143,7 +143,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
         echo "   Dla zewnętrznego dostępu do S3 API użyj subdomeny, np.:"
         echo "   s3.$DOMAIN -> localhost:$API_PORT"
     else
-        echo "⚠️  'mikrus-expose' nie znaleziono. Zainstaluj Caddy: system/caddy-install.sh"
+        echo "⚠️  'sp-expose' nie znaleziono. Zainstaluj Caddy: system/caddy-install.sh"
     fi
 fi
 

@@ -14,13 +14,13 @@ interface Config {
   defaultServer: string;
 }
 
-const CONFIG_DIR = join(homedir(), ".config", "mikrus");
+const CONFIG_DIR = join(homedir(), ".config", "stackpilot");
 const CONFIG_FILE = join(CONFIG_DIR, "mcp-server.json");
 
 function defaultConfig(): Config {
   return {
     servers: {},
-    defaultServer: "mikrus",
+    defaultServer: "vps",
   };
 }
 

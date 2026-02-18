@@ -221,7 +221,7 @@ redis:alpine          → object cache (bundled lub external, auto-detekcja)
 ```bash
 #!/bin/bash
 
-# Mikrus Toolbox - Nazwa Aplikacji
+# StackPilot - Nazwa Aplikacji
 # Opis.
 # Author: Paweł (Lazy Engineer)
 #
@@ -262,7 +262,7 @@ sudo docker compose up -d
 - `|| { echo "❌ Error"; exit 1; }` dla obsługi błędów
 - `|| true` dla opcjonalnych komend
 - Nigdy nie loguj sekretów
-- Sekrety w env vars, konfiguracje w `~/.config/mikrus/`
+- Sekrety w env vars, konfiguracje w `~/.config/stackpilot/`
 
 ## Więcej informacji
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Stirling-PDF
+# StackPilot - Stirling-PDF
 # Your local, privacy-friendly PDF Swiss Army Knife.
 # Merge, Split, Convert, OCR - all in your browser.
 # Author: Paweł (Lazy Engineer)
@@ -89,7 +89,7 @@ sudo docker compose up -d
 
 # Health check - Stirling-PDF potrzebuje ~90-120s na start (Java + LibreOffice)
 echo "⏳ Czekam na uruchomienie Stirling-PDF (~90s dla Java)..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 120 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
@@ -111,8 +111,8 @@ fi
 
 # Caddy/HTTPS - only for real domains
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
-    if command -v mikrus-expose &> /dev/null; then
-        sudo mikrus-expose "$DOMAIN" "$PORT"
+    if command -v sp-expose &> /dev/null; then
+        sudo sp-expose "$DOMAIN" "$PORT"
     fi
 fi
 

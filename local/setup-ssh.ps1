@@ -1,9 +1,9 @@
-# Mikrus Toolbox - SSH Configurator (Windows PowerShell)
+# StackPilot - SSH Configurator (Windows PowerShell)
 # Konfiguruje połączenie SSH do serwera Mikrus (klucz + alias).
 # Author: Paweł (Lazy Engineer)
 #
 # Użycie:
-#   iwr -useb https://raw.githubusercontent.com/jurczykpawel/mikrus-toolbox/main/local/setup-ssh.ps1 | iex
+#   iwr -useb https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.ps1 | iex
 
 Clear-Host
 Write-Host "=================================================" -ForegroundColor Blue

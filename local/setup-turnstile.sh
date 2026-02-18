@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Turnstile Setup
+# StackPilot - Turnstile Setup
 # Automatycznie konfiguruje Cloudflare Turnstile (CAPTCHA) dla aplikacji.
 # Author: Paweł (Lazy Engineer)
 #

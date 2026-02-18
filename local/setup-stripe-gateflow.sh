@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Stripe Setup for GateFlow
+# StackPilot - Stripe Setup for GateFlow
 # Konfiguruje Stripe do obsługi płatności
 # Author: Paweł (Lazy Engineer)
 #

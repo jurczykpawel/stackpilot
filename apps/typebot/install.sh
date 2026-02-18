@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Typebot
+# StackPilot - Typebot
 # Conversational Form Builder (Open Source Typeform Alternative).
 # Requires External PostgreSQL.
 # Author: Paweł (Lazy Engineer)
@@ -31,7 +31,7 @@ echo "Requires PostgreSQL Database."
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Typebot NIE działa ze współdzieloną bazą Mikrusa!   ║"
+    echo "║  ❌ BŁĄD: Typebot NIE działa ze współdzieloną bazą !   ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Typebot (Prisma) wymaga gen_random_uuid(), które nie jest      ║"
     echo "║  dostępne w PostgreSQL 12 (shared Mikrus).                     ║"
@@ -140,7 +140,7 @@ EOF
 sudo docker compose up -d
 
 # Health check (check both ports)
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT_BUILDER" 60 || { echo "❌ Builder nie wystartował!"; exit 1; }
     echo "Sprawdzam Viewer..."
@@ -156,9 +156,9 @@ fi
 
 # Caddy/HTTPS - only for real domains
 if [ -n "$DOMAIN_BUILDER" ] && [ "$DOMAIN_BUILDER" != "-" ] && [[ "$DOMAIN_BUILDER" != *"pending"* ]] && [[ "$DOMAIN_BUILDER" != *"cytrus"* ]]; then
-    if command -v mikrus-expose &> /dev/null; then
-        sudo mikrus-expose "$DOMAIN_BUILDER" "$PORT_BUILDER"
-        sudo mikrus-expose "$DOMAIN_VIEWER" "$PORT_VIEWER"
+    if command -v sp-expose &> /dev/null; then
+        sudo sp-expose "$DOMAIN_BUILDER" "$PORT_BUILDER"
+        sudo sp-expose "$DOMAIN_VIEWER" "$PORT_VIEWER"
     fi
 fi
 

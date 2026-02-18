@@ -1,12 +1,12 @@
-# Mikrus Toolbox
+# StackPilot
 
 **25 self-hosted aplikacji. Jeden serwer. Zero abonamentów.**
 
 Zamień tani polski VPS ([mikr.us](https://mikr.us/?r=pavvel)) w pełną infrastrukturę firmy - automatyzacja, mailing, analityka, CRM, sklep z produktami cyfrowymi - za ~20 zł/mies zamiast ~7000 zł/rok w SaaS-ach.
 
 ```bash
-git clone https://github.com/jurczykpawel/mikrus-toolbox.git
-cd mikrus-toolbox
+git clone https://github.com/jurczykpawel/stackpilot.git
+cd stackpilot
 ./local/deploy.sh n8n        # → n8n działa na Twoim serwerze
 ```
 
@@ -124,10 +124,10 @@ Wszystko na Twoim serwerze. Zero opłat za "execution". Zero limitów.
 
 ```bash
 # Linux / macOS
-bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/mikrus-toolbox/main/local/setup-ssh.sh)
+bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)
 
 # Windows (PowerShell)
-iwr -useb https://raw.githubusercontent.com/jurczykpawel/mikrus-toolbox/main/local/setup-ssh.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.ps1 | iex
 ```
 
 Skrypt zapyta o dane z maila od Mikrusa (host, port, hasło) i skonfiguruje klucz SSH + alias.
@@ -135,8 +135,8 @@ Skrypt zapyta o dane z maila od Mikrusa (host, port, hasło) i skonfiguruje kluc
 ### 2. Pobierz toolbox
 
 ```bash
-git clone https://github.com/jurczykpawel/mikrus-toolbox.git
-cd mikrus-toolbox
+git clone https://github.com/jurczykpawel/stackpilot.git
+cd stackpilot
 ```
 
 ### 3. Zainstaluj fundamenty
@@ -172,13 +172,13 @@ Dwie opcje:
 |---|---|---|
 | Konfiguracja | Panel Mikrusa | Terminal |
 | SSL | Automatyczny | Let's Encrypt |
-| Jak | [Panel → Domeny](https://mikr.us/panel/?a=hosting_domeny) | `ssh mikrus 'mikrus-expose domena.pl 5678'` |
+| Jak | [Panel → Domeny](https://mikr.us/panel/?a=hosting_domeny) | `ssh mikrus 'sp-expose domena.pl 5678'` |
 
 Z Cloudflare (zalecane - rozwiązuje problem IPv6):
 ```bash
 ./local/setup-cloudflare.sh                  # jednorazowo
 ./local/dns-add.sh n8n.mojafirma.pl          # dodaj rekord DNS
-ssh mikrus 'mikrus-expose n8n.mojafirma.pl 5678'  # HTTPS
+ssh mikrus 'sp-expose n8n.mojafirma.pl 5678'  # HTTPS
 ```
 
 > Szczegóły: [docs/cloudflare-domain-setup.md](docs/cloudflare-domain-setup.md) | [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
@@ -190,7 +190,7 @@ ssh mikrus 'mikrus-expose n8n.mojafirma.pl 5678'  # HTTPS
 Masz zainstalowane [Claude Code](https://docs.anthropic.com/en/docs/claude-code)?
 
 ```bash
-cd mikrus-toolbox
+cd stackpilot
 claude
 ```
 
@@ -254,7 +254,7 @@ Claude zna ten toolbox (dzięki `AGENTS.md`) i przeprowadzi Cię przez cały pro
 
 **SaaS-y:** Zapier + Mailchimp + Typeform + UptimeRobot + hosting = **~$142/mies (~7000 zł/rok)**
 
-**Mikrus Toolbox:** Mikrus 3.0 (130 zł) + domena (50 zł) + PostgreSQL (29 zł) = **209 zł/rok**
+**StackPilot:** Mikrus 3.0 (130 zł) + domena (50 zł) + PostgreSQL (29 zł) = **209 zł/rok**
 
 **Oszczędność: ~6800 zł/rok (97%)**
 
@@ -350,7 +350,7 @@ tests/           → Testy automatyczne
 
 **Paweł** ([@jurczykpawel](https://github.com/jurczykpawel)) - Lazy Engineer
 
-Buduję narzędzia dla solopreneurów, którzy wolą automatyzować niż klikać. Mikrus Toolbox to zestaw, którego sam używam do prowadzenia biznesu.
+Buduję narzędzia dla solopreneurów, którzy wolą automatyzować niż klikać. StackPilot to zestaw, którego sam używam do prowadzenia biznesu.
 
 - [GateFlow](https://github.com/jurczykpawel/gateflow) - open-source sklep z produktami cyfrowymi
 - [Mikrus n8n Manager](https://manager.cytr.us/) - GUI do instalacji n8n na Mikrusie

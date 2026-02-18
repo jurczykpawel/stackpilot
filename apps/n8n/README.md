@@ -67,7 +67,7 @@ Skrypt zapyta o:
 
 **Caddy:**
 ```bash
-mikrus-expose n8n.mojafirma.pl 5678
+sp-expose n8n.mojafirma.pl 5678
 ```
 
 **Cytrus:** Panel Mikrus → Domeny → przekieruj na port 5678

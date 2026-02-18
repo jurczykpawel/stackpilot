@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Listmonk
+# StackPilot - Listmonk
 # High-performance self-hosted newsletter and mailing list manager.
 # Alternative to Mailchimp / MailerLite.
 # Written in Go - very lightweight.
@@ -9,7 +9,7 @@
 # IMAGE_SIZE_MB=150  # listmonk/listmonk:latest (Go binary, ~150MB)
 #
 # WYMAGANIA: PostgreSQL z rozszerzeniem pgcrypto!
-#     Współdzielona baza Mikrusa NIE działa (brak uprawnień do tworzenia rozszerzeń).
+#     Współdzielona baza  NIE działa (brak uprawnień do tworzenia rozszerzeń).
 #     Użyj: płatny PostgreSQL z https://mikr.us/panel/?a=cloud
 #
 # Wymagane zmienne środowiskowe (przekazywane przez deploy.sh):
@@ -41,10 +41,10 @@ DB_PORT=${DB_PORT:-5432}
 if [[ "$DB_HOST" == psql*.mikr.us ]]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Listmonk NIE działa ze współdzieloną bazą Mikrusa!   ║"
+    echo "║  ❌ BŁĄD: Listmonk NIE działa ze współdzieloną bazą !   ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Listmonk (od v6.0.0) wymaga rozszerzenia 'pgcrypto',          ║"
-    echo "║  które nie jest dostępne w darmowej bazie Mikrusa.             ║"
+    echo "║  które nie jest dostępne w darmowej bazie .             ║"
     echo "║                                                                ║"
     echo "║  Rozwiązanie: Kup dedykowany PostgreSQL                        ║"
     echo "║  https://mikr.us/panel/?a=cloud                                ║"
@@ -102,7 +102,7 @@ sudo docker compose run --rm listmonk ./listmonk --install --yes || echo "Migrat
 sudo docker compose up -d
 
 # Health check
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
@@ -116,8 +116,8 @@ fi
 
 # Caddy/HTTPS - only for real domains
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
-    if command -v mikrus-expose &> /dev/null; then
-        sudo mikrus-expose "$DOMAIN" "$PORT"
+    if command -v sp-expose &> /dev/null; then
+        sudo sp-expose "$DOMAIN" "$PORT"
     fi
 fi
 

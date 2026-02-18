@@ -17,7 +17,7 @@ import { resolveRepoRoot, getAppsDir, getDeployShPath } from "./src/lib/repo.js"
 import { handleSetupServer } from "./src/tools/configure-server.js";
 import { handleSetupDomain } from "./src/tools/configure-domain.js";
 
-const TEST_ROOT = join(tmpdir(), "mikrus-mcp-test-" + Date.now());
+const TEST_ROOT = join(tmpdir(), "stackpilot-mcp-test-" + Date.now());
 let passed = 0;
 let failed = 0;
 
@@ -432,7 +432,7 @@ function testRepoRoot() {
   console.log("\n\ud83d\udcc2 resolveRepoRoot()");
   const root = resolveRepoRoot();
   assert(root.length > 0, "root is non-empty");
-  assert(root.includes("mikrus-toolbox"), `root includes 'mikrus-toolbox' (got ${root})`);
+  assert(root.includes("stackpilot"), `root includes 'stackpilot' (got ${root})`);
 }
 
 function testAppsDir() {
@@ -843,7 +843,7 @@ function testAllAppsMetadata() {
 
 async function main() {
   console.log("=".repeat(50));
-  console.log("  mikrus-toolbox MCP — full test suite");
+  console.log("  stackpilot MCP — full test suite");
   console.log("=".repeat(50));
 
   setup();

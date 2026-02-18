@@ -10,7 +10,7 @@ type ToolResult = {
 export const setupBackupTool = {
   name: "setup_backup",
   description:
-    "Configure automatic backups on a Mikrus VPS server. " +
+    "Configure automatic backups on a VPS server. " +
     "Run this after deploying apps to protect user data.\n\n" +
     "Backup types:\n" +
     "  - 'db': Automatic daily database backup (PostgreSQL/MySQL). " +
@@ -29,7 +29,7 @@ export const setupBackupTool = {
     properties: {
       backup_type: {
         type: "string",
-        enum: ["db", "mikrus", "cloud"],
+        enum: ["db", "cloud"],
         description:
           "'db' = database backup (auto-detect shared DBs, daily cron). " +
           "'mikrus' = built-in Mikrus backup (200MB free, needs panel activation). " +
@@ -108,7 +108,7 @@ async function runBackupScript(
   // Run script non-interactively (< /dev/null skips interactive questions)
   const result = await sshExec(
     alias,
-    `bash /opt/mikrus-toolbox/${scriptPath} < /dev/null 2>&1`,
+    `bash /opt/stackpilot/${scriptPath} < /dev/null 2>&1`,
     120_000
   );
 

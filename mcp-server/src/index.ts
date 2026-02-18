@@ -39,11 +39,11 @@ import {
 } from "./tools/setup-gateflow.js";
 import { updateToolboxIfCloned } from "./lib/repo.js";
 
-// Auto-update toolbox scripts if running from ~/.mikrus-toolbox clone
+// Auto-update toolbox scripts if running from ~/.stackpilot clone
 updateToolboxIfCloned();
 
 const server = new Server(
-  { name: "mikrus-toolbox", version: "0.1.0" },
+  { name: "stackpilot", version: "0.1.0" },
   { capabilities: { tools: {} } }
 );
 

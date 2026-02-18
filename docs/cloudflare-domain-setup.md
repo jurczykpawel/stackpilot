@@ -1,6 +1,6 @@
 # Konfiguracja domeny z Cloudflare
 
-Ten poradnik pokazuje jak przenieść domenę (np. z OVH) pod Cloudflare, żeby móc korzystać z automatyzacji DNS w Mikrus Toolbox.
+Ten poradnik pokazuje jak przenieść domenę (np. z OVH) pod Cloudflare, żeby móc korzystać z automatyzacji DNS w StackPilot.
 
 ## Dlaczego Cloudflare?
 
@@ -83,12 +83,12 @@ Teraz musisz je ustawić w OVH:
 
 > ⚠️ **Ważne:** Tryb "Flexible" może powodować pętle przekierowań z Caddy. Użyj "Full".
 
-## Krok 7: Skonfiguruj automatyzację w Mikrus Toolbox
+## Krok 7: Skonfiguruj automatyzację w StackPilot
 
 Teraz możesz skonfigurować automatyczne dodawanie rekordów DNS:
 
 ```bash
-cd mikrus-toolbox
+cd stackpilot
 ./local/setup-cloudflare.sh
 ```
 
@@ -107,7 +107,7 @@ Teraz dodawanie domeny to jedno polecenie:
 ./local/dns-add.sh status.mojafirma.pl mikrus
 
 # Wystaw aplikację przez HTTPS
-ssh mikrus 'mikrus-expose status.mojafirma.pl 3001'
+ssh mikrus 'sp-expose status.mojafirma.pl 3001'
 ```
 
 ## Weryfikacja
@@ -133,7 +133,7 @@ Poczekaj 5-10 minut. Cloudflare jest szybki, ale propagacja może chwilę zają�
 
 ### "502 Bad Gateway"
 1. Sprawdź czy aplikacja działa: `ssh mikrus 'docker ps'`
-2. Sprawdź czy port jest poprawny w `mikrus-expose`
+2. Sprawdź czy port jest poprawny w `sp-expose`
 
 ### "Connection refused"
 1. Upewnij się że Caddy jest zainstalowany: `ssh mikrus 'which caddy'`
