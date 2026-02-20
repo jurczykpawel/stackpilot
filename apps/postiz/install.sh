@@ -6,6 +6,7 @@
 # Author: Paweł (Lazy Engineer)
 #
 # IMAGE_SIZE_MB=5000  # Postiz + Temporal + Elasticsearch + 2x PostgreSQL + Redis
+# DB_BUNDLED=true
 #
 # ⚠️  NOTE: Postiz requires a DEDICATED server (min. 4GB RAM)!
 #     Postiz (Next.js + Nest.js + nginx + workers + cron) = ~1-1.5GB

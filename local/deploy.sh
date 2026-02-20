@@ -574,10 +574,14 @@ APP_PORT=""
 
 # Check if application requires a database
 # WordPress with WP_DB_MODE=sqlite does not need MySQL
+# Apps with DB_BUNDLED=true have their own database in docker-compose (e.g. Postiz, AFFiNE)
 if grep -qiE "DB_HOST|DATABASE_URL" "$SCRIPT_PATH" 2>/dev/null; then
     if [ "$APP_NAME" = "wordpress" ] && [ "$WP_DB_MODE" = "sqlite" ]; then
         echo ""
         echo -e "${GREEN}✅ WordPress in SQLite mode — MySQL database is not required${NC}"
+    elif grep -q '# DB_BUNDLED=true' "$SCRIPT_PATH" 2>/dev/null; then
+        echo ""
+        echo -e "${GREEN}✅ Application has a built-in database — no configuration needed${NC}"
     else
         NEEDS_DB=true
 

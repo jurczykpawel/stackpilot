@@ -5,7 +5,8 @@
 # Docs, whiteboards, databases in one tool.
 # https://github.com/toeverything/AFFiNE
 #
-# IMAGE_SIZE_MB=750  # ghcr.io/toeverything/affine:stable (~273MB) + pgvector/pgvector:pg16 (~350MB) + redis:alpine (~40MB)
+# IMAGE_SIZE_MB=750
+# DB_BUNDLED=true  # ghcr.io/toeverything/affine:stable (~273MB) + pgvector/pgvector:pg16 (~350MB) + redis:alpine (~40MB)
 #
 # REQUIREMENTS:
 #   - PostgreSQL 16 with pgvector extension (bundled by default)
