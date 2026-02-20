@@ -16,7 +16,7 @@
 set -e
 
 # This script only runs on the local machine (rsync requires SSH)
-if [ -f /klucz_api ]; then
+if [ -f /opt/stackpilot/.server-marker ]; then
     echo "This script only runs on the local machine (not on the server)."
     exit 1
 fi

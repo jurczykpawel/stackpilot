@@ -9,7 +9,7 @@
 #   bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)
 
 # This script only runs on the local machine (configures SSH TO the server)
-if [ -f /klucz_api ]; then
+if [ -f /opt/stackpilot/.server-marker ]; then
     echo "This script only runs on the local machine (not on the server)."
     exit 1
 fi

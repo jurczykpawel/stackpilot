@@ -10,20 +10,15 @@ interface HealthStatus {
   level: "ok" | "warning" | "critical";
 }
 
-const MIKRUS_TIERS: Array<{ maxRam: number; name: string; ram: string; price: string }> = [
-  { maxRam: 1024, name: "Mikrus 3.0", ram: "2GB", price: "130 PLN/rok" },
-  { maxRam: 2048, name: "Mikrus 3.5", ram: "4GB", price: "197 PLN/rok" },
-  { maxRam: 4096, name: "Mikrus 4.1", ram: "8GB", price: "395 PLN/rok" },
-  { maxRam: 8192, name: "Mikrus 4.2", ram: "16GB", price: "790 PLN/rok" },
-];
-
 function getUpgradeSuggestion(totalRamMB: number): string | null {
-  for (const tier of MIKRUS_TIERS) {
-    if (totalRamMB <= tier.maxRam) {
-      return `${tier.name} (${tier.ram}, ${tier.price})`;
-    }
+  if (totalRamMB <= 1024) {
+    return "consider a VPS with more RAM (at least 2GB recommended)";
+  } else if (totalRamMB <= 2048) {
+    return "consider a VPS with more RAM (at least 4GB recommended)";
+  } else if (totalRamMB <= 4096) {
+    return "consider a VPS with more RAM (at least 8GB recommended)";
   }
-  return null; // max tier
+  return null;
 }
 
 function levelLabel(pct: number, isRam: boolean): string {
@@ -89,15 +84,13 @@ export async function checkServerHealth(alias: string): Promise<string> {
     out.push("Status: Resources getting tight. Consider upgrading before adding heavy services.");
     const upgrade = getUpgradeSuggestion(ramTotal);
     if (upgrade) {
-      out.push(`Suggested upgrade: ${upgrade}`);
-      out.push("Plans: https://mikr.us/?r=pavvel#plans");
+      out.push(`Suggestion: ${upgrade}`);
     }
   } else {
     out.push("Status: Server under heavy load! Consider upgrading or removing unused services.");
     const upgrade = getUpgradeSuggestion(ramTotal);
     if (upgrade) {
-      out.push(`Suggested upgrade: ${upgrade}`);
-      out.push("Plans: https://mikr.us/?r=pavvel#plans");
+      out.push(`Suggestion: ${upgrade}`);
     }
   }
 

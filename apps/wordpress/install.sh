@@ -36,12 +36,11 @@ PORT=${PORT:-8080}
 # =============================================================================
 # blog.example.com → wordpress-blog
 # shop.example.com → wordpress-shop
-# Auto-cytrus (__CYTRUS_PENDING__) / no domain → wordpress (no suffix)
+# No domain → wordpress (no suffix)
 #
-# NOTE: Auto-cytrus without a specific domain = SINGLE INSTANCE only!
 # For multiple WordPress sites you must provide specific domains.
 
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"__CYTRUS_PENDING__"* ]]; then
+if [ -n "$DOMAIN" ]; then
     INSTANCE_NAME="${DOMAIN%%.*}"
 else
     INSTANCE_NAME=""
@@ -165,20 +164,14 @@ if [ -n "$REDIS_PASS" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
 fi
 
 # Domain
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-    echo "✅ Domain: $DOMAIN"
-elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus)"
+if [ -n "$DOMAIN" ]; then
+    echo "Domain: $DOMAIN"
 else
-    echo "⚠️  No domain - use --domain=... or access via SSH tunnel"
+    echo "No domain - use --domain=... or access via SSH tunnel"
 fi
 
-# Port binding: Cytrus requires 0.0.0.0, Cloudflare/local → 127.0.0.1 (more secure)
-if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
-    BIND_ADDR=""
-else
-    BIND_ADDR="127.0.0.1:"
-fi
+# Port binding: always bind to 127.0.0.1 (Caddy handles public exposure)
+BIND_ADDR="127.0.0.1:"
 
 # =============================================================================
 # 2. DATABASE VALIDATION

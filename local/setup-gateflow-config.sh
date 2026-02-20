@@ -41,8 +41,8 @@ Usage: ./local/setup-gateflow-config.sh [options]
 
 Options:
   --ssh=ALIAS              SSH alias for the server
-  --domain=DOMAIN          Domain (or 'auto' for automatic Cytrus)
-  --domain-type=TYPE       Domain type: cytrus, cloudflare
+  --domain=DOMAIN          Domain (e.g. shop.example.com)
+  --domain-type=TYPE       Domain type: cloudflare, caddy
   --supabase-project=REF   Supabase project ref (skips interactive selection)
   --no-supabase            Skip Supabase configuration
   --no-stripe              Skip Stripe configuration
@@ -53,10 +53,10 @@ Examples:
   ./local/setup-gateflow-config.sh
 
   # With domain and SSH
-  ./local/setup-gateflow-config.sh --ssh=vps --domain=auto --domain-type=cytrus
+  ./local/setup-gateflow-config.sh --ssh=vps --domain=shop.example.com --domain-type=caddy
 
   # With a specific Supabase project
-  ./local/setup-gateflow-config.sh --ssh=vps --supabase-project=abcdefghijk --domain=auto
+  ./local/setup-gateflow-config.sh --ssh=vps --supabase-project=abcdefghijk --domain=shop.example.com
 
   # Supabase only (without Stripe and Turnstile)
   ./local/setup-gateflow-config.sh --no-stripe --no-turnstile
@@ -69,19 +69,13 @@ done
 # Validate domain-type
 if [ -n "$DOMAIN_TYPE" ]; then
     case "$DOMAIN_TYPE" in
-        cytrus|cloudflare) ;;
+        cloudflare|caddy) ;;
         *)
-            echo -e "${RED}❌ Invalid --domain-type: $DOMAIN_TYPE${NC}"
-            echo "   Allowed: cytrus, cloudflare"
+            echo -e "${RED}Invalid --domain-type: $DOMAIN_TYPE${NC}"
+            echo "   Allowed: cloudflare, caddy"
             exit 1
             ;;
     esac
-fi
-
-# Convert --domain=auto to "-" (marker for automatic Cytrus)
-if [ "$DOMAIN" = "auto" ]; then
-    DOMAIN="-"
-    DOMAIN_TYPE="${DOMAIN_TYPE:-cytrus}"
 fi
 
 # Configuration
@@ -292,41 +286,31 @@ echo ""
 
 # If DOMAIN was provided via CLI, skip questions
 if [ -n "$DOMAIN" ]; then
-    if [ "$DOMAIN" = "-" ]; then
-        echo -e "${GREEN}   ✅ Automatic Cytrus domain (--domain=auto)${NC}"
-    else
-        echo -e "${GREEN}   ✅ Domain: $DOMAIN ($DOMAIN_TYPE)${NC}"
-    fi
+    echo -e "${GREEN}   Domain: $DOMAIN ($DOMAIN_TYPE)${NC}"
 else
-    echo "   1) Automatic Cytrus domain (e.g. xyz123.byst.re)"
-    echo "   2) Custom domain (requires DNS configuration)"
-    echo "   3) Skip - I'll choose during deployment"
+    echo "   1) Custom domain (e.g. shop.example.com)"
+    echo "   2) Skip - I'll choose during deployment"
     echo ""
-    read -p "Choose [1-3, default 3]: " DOMAIN_CHOICE
+    read -p "Choose [1-2, default 2]: " DOMAIN_CHOICE
 
     case "$DOMAIN_CHOICE" in
         1)
-            DOMAIN="-"
-            DOMAIN_TYPE="cytrus"
-            echo -e "${GREEN}   ✅ Automatic Cytrus domain${NC}"
-            ;;
-        2)
             read -p "Enter domain (e.g. app.example.com): " DOMAIN
             if [ -n "$DOMAIN" ]; then
                 echo "   Domain type:"
-                echo "   a) Cytrus (subdomain *.byst.re, *.bieda.it, etc.)"
-                echo "   b) Cloudflare (custom domain)"
+                echo "   a) Cloudflare (automated DNS)"
+                echo "   b) Caddy auto-HTTPS (manual DNS A record)"
                 read -p "Choose [a/b]: " DTYPE
-                if [[ "$DTYPE" =~ ^[Bb]$ ]]; then
+                if [[ "$DTYPE" =~ ^[Aa]$ ]]; then
                     DOMAIN_TYPE="cloudflare"
                 else
-                    DOMAIN_TYPE="cytrus"
+                    DOMAIN_TYPE="caddy"
                 fi
-                echo -e "${GREEN}   ✅ Domain: $DOMAIN ($DOMAIN_TYPE)${NC}"
+                echo -e "${GREEN}   Domain: $DOMAIN ($DOMAIN_TYPE)${NC}"
             fi
             ;;
         *)
-            echo -e "${YELLOW}   ⏭️  Skipped - you'll choose during deployment${NC}"
+            echo -e "${YELLOW}   Skipped - you'll choose during deployment${NC}"
             ;;
     esac
 fi

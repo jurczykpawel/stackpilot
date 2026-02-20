@@ -153,8 +153,8 @@ else
     fi
 fi
 
-# Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN_BUILDER" ] && [ "$DOMAIN_BUILDER" != "-" ] && [[ "$DOMAIN_BUILDER" != *"pending"* ]] && [[ "$DOMAIN_BUILDER" != *"cytrus"* ]]; then
+# Caddy/HTTPS - configure reverse proxy if domains are set
+if [ -n "$DOMAIN_BUILDER" ]; then
     if command -v sp-expose &> /dev/null; then
         sudo sp-expose "$DOMAIN_BUILDER" "$PORT_BUILDER"
         sudo sp-expose "$DOMAIN_VIEWER" "$PORT_VIEWER"

@@ -27,13 +27,10 @@ GITHUB_REPO="jurczykpawel/gateflow"
 # =============================================================================
 # Extract first part of domain as instance name
 # shop.example.com → shop
-# abc123.byst.re → abc123
 #
-# NOTE: Auto-cytrus (DOMAIN="-") = SINGLE INSTANCE only!
 # For multi-instance you must provide specific domains upfront.
-# A second call with DOMAIN="-" would overwrite the first directory.
 #
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+if [ -n "$DOMAIN" ]; then
     INSTANCE_NAME="${DOMAIN%%.*}"
 else
     INSTANCE_NAME=""
@@ -48,11 +45,11 @@ else
     INSTALL_DIR="/opt/stacks/gateflow"
     PM2_NAME="gateflow"
 
-    # Check if directory already exists (prevent overwrite with auto-cytrus)
+    # Check if directory already exists (prevent overwrite without specific domain)
     if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ]; then
-        echo "❌ Directory $INSTALL_DIR already exists!"
+        echo "Directory $INSTALL_DIR already exists!"
         echo ""
-        echo "   Auto-cytrus (--domain=-) supports only ONE instance."
+        echo "   Without a domain, only ONE instance is supported."
         echo "   For multiple instances use specific domains:"
         echo "   ./local/deploy.sh gateflow --domain=shop.example.com"
         echo "   ./local/deploy.sh gateflow --domain=test.example.com"
@@ -289,22 +286,11 @@ fi
 # 5. DOMAIN AND URL CONFIGURATION
 # =============================================================================
 
-# For auto-Cytrus (DOMAIN="-"), skip URL configuration - deploy.sh will update after receiving the domain
-if [ "$DOMAIN" = "-" ]; then
-    echo "⏳ Domain will be configured after Cytrus assignment"
-    # Set only PORT and HOSTNAME so the server starts
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# Production (domain will be added by deploy.sh)
-NODE_ENV=production
-PORT=$PORT
-HOSTNAME=::
-NEXT_TELEMETRY_DISABLED=1
-ENVEOF
-elif grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
-    echo "✅ URL configuration already exists"
+# Domain and URL configuration
+if grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
+    echo "URL configuration already exists"
 else
-    if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    if [ -n "$DOMAIN" ]; then
         SITE_URL="https://$DOMAIN"
     elif [ -t 0 ]; then
         echo ""
@@ -315,13 +301,8 @@ else
         DOMAIN="localhost"
     fi
 
-    # Check if it's a Cytrus domain (reverse proxy with SSL termination)
-    DISABLE_HSTS="false"
-    case "$DOMAIN" in
-        *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl)
-            DISABLE_HSTS="true"
-            ;;
-    esac
+    # HSTS is handled by Caddy, disable in app to avoid double HSTS headers
+    DISABLE_HSTS="true"
 
     cat >> "$ENV_FILE" <<ENVEOF
 
@@ -332,7 +313,7 @@ MAIN_DOMAIN=$DOMAIN
 # Production
 NODE_ENV=production
 PORT=$PORT
-# :: listens on IPv4 and IPv6 (required for Cytrus which connects via IPv6)
+# :: listens on IPv4 and IPv6
 HOSTNAME=::
 NEXT_TELEMETRY_DISABLED=1
 
@@ -405,7 +386,7 @@ if [ -f "$STANDALONE_DIR/server.js" ]; then
     source .env.local
     set +a
     export PORT="${PORT:-3333}"
-    # :: listens on IPv4 and IPv6 (required for Cytrus which connects via IPv6)
+    # :: listens on IPv4 and IPv6
     export HOSTNAME="${HOSTNAME:-::}"
 
     # IMPORTANT: use --interpreter node, NOT "node server.js" in quotes

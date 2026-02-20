@@ -2,10 +2,8 @@
 
 # StackPilot - Cookie Hub (Klaro!)
 # Centralized Cookie Consent Manager for all your domains.
-# Supports both Docker (Cytrus) and Caddy (Cloudflare) modes.
-# Author: Paweł (Lazy Engineer)
-#
-# IMAGE_SIZE_MB=50  # nginx:alpine (only for Docker mode)
+# Uses Caddy file_server mode (static files).
+# Author: Pawel (Lazy Engineer)
 
 set -e
 
@@ -14,20 +12,12 @@ echo "--- Cookie Hub Setup (Klaro!) ---"
 echo "Centralized server for Cookie Consent scripts."
 
 # Required: DOMAIN
-if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ]; then
+if [ -z "$DOMAIN" ]; then
     echo "Missing required variable: DOMAIN"
     echo "   Usage: DOMAIN=assets.example.com ./install.sh"
     exit 1
 fi
 echo "Domain: $DOMAIN"
-
-# Detect domain type: Cytrus (*.byst.re, etc.) vs Cloudflare
-is_cytrus_domain() {
-    case "$1" in
-        *.byst.re|*.mikr.us|*.srv24.pl|*.vxm.pl) return 0 ;;
-        *) return 1 ;;
-    esac
-}
 
 # Prerequisites: npm
 if ! command -v npm &> /dev/null; then
@@ -36,17 +26,10 @@ if ! command -v npm &> /dev/null; then
     sudo apt-get install -y nodejs
 fi
 
-# Determine paths based on mode
-if is_cytrus_domain "$DOMAIN"; then
-    echo "Mode: Cytrus (Docker + nginx)"
-    STACK_DIR="/opt/stacks/$APP_NAME"
-    PUBLIC_DIR="$STACK_DIR/public"
-    PORT="${PORT:-8091}"
-else
-    echo "Mode: Cloudflare (Caddy file_server)"
-    STACK_DIR="/var/www/$APP_NAME"
-    PUBLIC_DIR="$STACK_DIR"
-fi
+# Caddy file_server mode
+echo "Mode: Caddy file_server"
+STACK_DIR="/var/www/$APP_NAME"
+PUBLIC_DIR="$STACK_DIR"
 
 # Setup directory
 sudo mkdir -p "$PUBLIC_DIR"
@@ -124,74 +107,19 @@ var klaroConfig = {
 CONFIGJS
 fi
 
-# Mode-specific setup
-if is_cytrus_domain "$DOMAIN"; then
-    # === CYTRUS MODE: Docker + nginx ===
-    cd "$STACK_DIR"
+# Caddy will be configured by deploy.sh via sp-expose
+# Just store the path for later
+echo "$PUBLIC_DIR" > /tmp/cookiehub_webroot
 
-    # Add CORS headers via nginx config
-    cat <<'NGINXCONF' | sudo tee "$STACK_DIR/nginx.conf" > /dev/null
-server {
-    listen 80;
-    root /usr/share/nginx/html;
-
-    location / {
-        add_header Access-Control-Allow-Origin "*";
-        try_files $uri $uri/ =404;
-    }
-}
-NGINXCONF
-
-    cat <<EOF | sudo tee docker-compose.yaml > /dev/null
-
-services:
-  cookie-hub:
-    image: nginx:alpine
-    restart: always
-    ports:
-      - "$PORT:80"
-    volumes:
-      - ./public:/usr/share/nginx/html:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    deploy:
-      resources:
-        limits:
-          memory: 32M
-
-EOF
-
-    sudo docker compose up -d
-
-    sleep 3
-    if curl -sf "http://localhost:$PORT/klaro.js" > /dev/null 2>&1; then
-        echo "Cookie Hub is running on port $PORT"
-    else
-        echo "Failed to start!"; sudo docker compose logs --tail 10; exit 1
-    fi
-
-    # Save port for deploy.sh (for domain configuration)
-    echo "$PORT" > /tmp/app_port
-
-    echo ""
-    echo "Cookie Hub started!"
-    echo "   Port: $PORT"
-    echo "   Config: $PUBLIC_DIR/config.js"
-
-else
-    # === CLOUDFLARE MODE: Caddy ===
-    # Caddy will be configured by deploy.sh via sp-expose
-    echo "$PUBLIC_DIR" > /tmp/cookiehub_webroot
-
-    echo ""
-    echo "Cookie Hub installed!"
-    echo "   Config: $PUBLIC_DIR/config.js"
-fi
+echo ""
+echo "Cookie Hub installed!"
+echo "   Config: $PUBLIC_DIR/config.js"
 
 echo ""
 echo "HOW TO USE:"
 echo "Paste this in <head> of every website:"
 echo ""
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+if [ -n "$DOMAIN" ]; then
     echo "<link rel=\"stylesheet\" href=\"https://$DOMAIN/klaro.css\" />"
     echo "<script defer src=\"https://$DOMAIN/config.js\"></script>"
     echo "<script defer src=\"https://$DOMAIN/klaro.js\"></script>"

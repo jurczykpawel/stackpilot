@@ -14,14 +14,11 @@ export const setupBackupTool = {
     "Run this after deploying apps to protect user data.\n\n" +
     "Backup types:\n" +
     "  - 'db': Automatic daily database backup (PostgreSQL/MySQL). " +
-    "Auto-detects shared Mikrus databases. Runs on server via cron.\n" +
-    "  - 'mikrus': Built-in Mikrus backup (200MB, free). " +
-    "Backs up /etc, /home, /var/log to Mikrus backup server (strych.mikr.us). " +
-    "User must first activate backup in panel: https://mikr.us/panel/?a=backup\n" +
+    "Auto-detects databases. Runs on server via cron.\n" +
     "  - 'cloud': Cloud backup (Google Drive, Dropbox, S3). " +
     "Requires local setup with rclone — cannot be done via MCP. " +
     "Returns instructions for the user to run locally.\n\n" +
-    "NOTE: 'db' and 'mikrus' types auto-install the toolbox on the server if needed " +
+    "NOTE: 'db' type auto-installs the toolbox on the server if needed " +
     "(via rsync from local repo or git clone from GitHub). " +
     "'cloud' only returns instructions.",
   inputSchema: {
@@ -31,8 +28,7 @@ export const setupBackupTool = {
         type: "string",
         enum: ["db", "cloud"],
         description:
-          "'db' = database backup (auto-detect shared DBs, daily cron). " +
-          "'mikrus' = built-in Mikrus backup (200MB free, needs panel activation). " +
+          "'db' = database backup (auto-detect databases, daily cron). " +
           "'cloud' = cloud backup via rclone (returns local setup instructions only).",
       },
       ssh_alias: {
@@ -66,8 +62,6 @@ export async function handleSetupBackup(
   switch (backupType) {
     case "db":
       return runBackupScript(alias, "system/setup-db-backup.sh");
-    case "mikrus":
-      return runBackupScript(alias, "system/setup-backup-mikrus.sh");
     case "cloud":
       return cloudBackupInstructions(alias);
     default:
@@ -76,7 +70,7 @@ export async function handleSetupBackup(
         content: [
           {
             type: "text",
-            text: `Unknown backup type '${backupType}'. Use 'db', 'mikrus', or 'cloud'.`,
+            text: `Unknown backup type '${backupType}'. Use 'db' or 'cloud'.`,
           },
         ],
       };
@@ -115,22 +109,6 @@ async function runBackupScript(
   const output = result.stdout.trim();
 
   if (result.exitCode !== 0) {
-    if (output.includes("Nie można połączyć") || output.includes("backup_key")) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text:
-              `Backup setup failed — backup may not be activated in the panel.\n\n` +
-              `The user must first activate backup at: https://mikr.us/panel/?a=backup\n` +
-              `Then wait a few minutes and try again.\n\n` +
-              `Full output:\n${output}`,
-          },
-        ],
-      };
-    }
-
     return {
       isError: true,
       content: [{ type: "text", text: `Backup setup failed:\n\n${output}` }],

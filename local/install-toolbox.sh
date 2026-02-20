@@ -10,7 +10,7 @@
 # After installation on the server:
 #   ssh vps
 #   deploy.sh uptime-kuma
-#   cytrus-domain.sh - 3001
+#   sp-expose app.example.com 3001
 
 set -e
 
@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # This script only runs from the local machine
-if [ -f /klucz_api ]; then
+if [ -f /opt/stackpilot/.server-marker ]; then
     echo "This script only runs on the local machine."
     echo "The toolbox is already installed on this server."
     exit 1
@@ -51,6 +51,9 @@ rsync -az --delete \
     --exclude '.claude' \
     --exclude '*.md' \
     "$REPO_ROOT/" "$SSH_ALIAS:/opt/stackpilot/"
+
+# Create server marker file (used by server-exec.sh to detect server environment)
+ssh "$SSH_ALIAS" "touch /opt/stackpilot/.server-marker"
 
 # Add to PATH — detect shell on the server and use the appropriate file
 # zsh: ~/.zshenv (read ALWAYS — interactive, non-interactive, login, non-login)
@@ -88,7 +91,7 @@ echo ""
 echo "Now you can:"
 echo "   ssh $SSH_ALIAS"
 echo "   deploy.sh uptime-kuma"
-echo "   cytrus-domain.sh - 3001"
+echo "   sp-expose app.example.com 3001"
 echo ""
 echo "To update: run this script again"
 echo ""

@@ -3,25 +3,25 @@
 # StackPilot - Server Execution Abstraction
 # Transparently runs commands locally or via SSH.
 #
-# Detection: /klucz_api exists ONLY on servers.
+# Detection: /opt/stackpilot/.server-marker exists ONLY on servers.
 # On local machine -> ssh, scp (as before).
 # On server -> bash -c, cp (directly, without SSH).
 #
 # Usage:
 #   source "$SCRIPT_DIR/../lib/server-exec.sh"
-#   server_exec "cat /klucz_api"
+#   server_exec "hostname"
 #   server_exec_tty "bash install.sh"
 #   server_copy "/tmp/file" "/opt/dest"
 
 # Environment detection
-if [ -f /klucz_api ]; then
-    _MIKRUS_ON_SERVER=true
+if [ -f /opt/stackpilot/.server-marker ]; then
+    _ON_SERVER=true
 else
-    _MIKRUS_ON_SERVER=false
+    _ON_SERVER=false
 fi
 
 # Is the script running on the server?
-is_on_server() { [ "$_MIKRUS_ON_SERVER" = true ]; }
+is_on_server() { [ "$_ON_SERVER" = true ]; }
 
 # Run a command on the server
 # Usage: server_exec "command"
@@ -100,6 +100,6 @@ server_user() {
     fi
 }
 
-export _MIKRUS_ON_SERVER
+export _ON_SERVER
 export -f is_on_server server_exec server_exec_tty server_exec_timeout
 export -f server_copy server_pipe_to server_hostname server_user

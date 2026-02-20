@@ -2,16 +2,15 @@
 
 # StackPilot - FileBrowser
 # Web-based File Manager + Static Hosting (Tiiny.host Killer!)
-# Supports both Cytrus (nginx) and Cloudflare (Caddy) modes.
-# Author: Paweł (Lazy Engineer)
+# Uses Caddy for static file serving (no nginx container needed).
+# Author: Pawel (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=40  # filebrowser/filebrowser + nginx:alpine (~70MB total)
+# IMAGE_SIZE_MB=40  # filebrowser/filebrowser
 #
 # Environment variables:
 #   DOMAIN - domain for File Manager (admin panel)
 #   DOMAIN_PUBLIC - domain for public static hosting (optional)
 #   PORT - port for FileBrowser (default 8095)
-#   PORT_PUBLIC - port for static hosting (default 8096)
 
 set -e
 
@@ -19,33 +18,24 @@ APP_NAME="filebrowser"
 STACK_DIR="/opt/stacks/$APP_NAME"
 DATA_DIR="/var/www/public"
 PORT=${PORT:-8095}
-PORT_PUBLIC=${PORT_PUBLIC:-8096}
 
-echo "--- 📂 FileBrowser Setup ---"
+echo "--- FileBrowser Setup ---"
 echo ""
 echo "Installing:"
-echo "  • FileBrowser (file management panel)"
-echo "  • Static Hosting (public files - Tiiny.host killer)"
+echo "  FileBrowser (file management panel)"
+echo "  Static Hosting (public files - Tiiny.host killer)"
 echo ""
 echo "Files: $DATA_DIR"
-
-# Detect domain type: Cytrus (*.byst.re, etc.) vs Cloudflare
-is_cytrus_domain() {
-    case "$1" in
-        *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl) return 0 ;;
-        *) return 1 ;;
-    esac
-}
 
 # Domain for admin panel
 DOMAIN_ADMIN="${DOMAIN_ADMIN:-$DOMAIN}"
 if [ -n "$DOMAIN_ADMIN" ]; then
-    echo "✅ Admin Panel: $DOMAIN_ADMIN (port $PORT)"
+    echo "Admin Panel: $DOMAIN_ADMIN (port $PORT)"
 fi
 
 # Domain for public static hosting
 if [ -n "$DOMAIN_PUBLIC" ]; then
-    echo "✅ Public Hosting: $DOMAIN_PUBLIC (port $PORT_PUBLIC)"
+    echo "Public Hosting: $DOMAIN_PUBLIC (via Caddy)"
 fi
 
 echo ""
@@ -57,7 +47,7 @@ echo ""
 sudo mkdir -p "$STACK_DIR"
 sudo mkdir -p "$DATA_DIR"
 sudo chown -R 1000:1000 "$DATA_DIR"
-sudo chmod -R o+rX "$DATA_DIR"  # Ensure nginx can read
+sudo chmod -R o+rX "$DATA_DIR"  # Ensure Caddy can read
 cd "$STACK_DIR"
 
 # Create DB file (FileBrowser needs it to exist)
@@ -67,56 +57,18 @@ if [ ! -f filebrowser.db ]; then
 fi
 
 # =============================================================================
-# 2. DOCKER COMPOSE - depends on domain type
+# 2. DOCKER COMPOSE - Only FileBrowser (Caddy serves static files)
 # =============================================================================
 
-if [ -n "$DOMAIN_PUBLIC" ] && is_cytrus_domain "$DOMAIN_PUBLIC"; then
-    # === CYTRUS MODE: FileBrowser + nginx for static files ===
-    echo "🍊 Cytrus mode: nginx for static files"
+echo "Caddy mode: Caddy for static files"
 
-    cat <<EOF | sudo tee docker-compose.yaml > /dev/null
+cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: always
     ports:
-      - "$PORT:80"
-    volumes:
-      - $DATA_DIR:/srv
-      - ./filebrowser.db:/database.db
-    environment:
-      - FB_DATABASE=/database.db
-      - FB_ROOT=/srv
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-
-  static:
-    image: nginx:alpine
-    restart: always
-    ports:
-      - "$PORT_PUBLIC:80"
-    volumes:
-      - $DATA_DIR:/usr/share/nginx/html:ro
-    deploy:
-      resources:
-        limits:
-          memory: 32M
-
-EOF
-
-else
-    # === CLOUDFLARE MODE: Only FileBrowser (Caddy serves static) ===
-    echo "☁️  Cloudflare mode: Caddy for static files"
-
-    cat <<EOF | sudo tee docker-compose.yaml > /dev/null
-services:
-  filebrowser:
-    image: filebrowser/filebrowser:latest
-    restart: always
-    ports:
-      - "$PORT:80"
+      - "127.0.0.1:$PORT:80"
     volumes:
       - $DATA_DIR:/srv
       - ./filebrowser.db:/database.db
@@ -130,11 +82,10 @@ services:
 
 EOF
 
-    # Save webroot for DOMAIN_PUBLIC Caddy configuration (used by deploy.sh)
-    # Note: This file is read by deploy.sh for DOMAIN_PUBLIC, not for main DOMAIN
-    if [ -n "$DOMAIN_PUBLIC" ]; then
-        echo "$DATA_DIR" > /tmp/domain_public_webroot
-    fi
+# Save webroot for DOMAIN_PUBLIC Caddy configuration (used by deploy.sh)
+# Note: This file is read by deploy.sh for DOMAIN_PUBLIC, not for main DOMAIN
+if [ -n "$DOMAIN_PUBLIC" ]; then
+    echo "$DATA_DIR" > /tmp/domain_public_webroot
 fi
 
 # =============================================================================
@@ -142,26 +93,18 @@ fi
 # =============================================================================
 
 echo ""
-echo "🚀 Starting containers..."
+echo "Starting containers..."
 sudo docker compose pull --quiet
 sudo docker compose up -d
 
 # Health check
 sleep 3
 if curl -sf "http://localhost:$PORT" > /dev/null 2>&1; then
-    echo "✅ FileBrowser is running on port $PORT"
+    echo "FileBrowser is running on port $PORT"
 else
-    echo "❌ FileBrowser is not responding!"
+    echo "FileBrowser is not responding!"
     sudo docker compose logs --tail 10
     exit 1
-fi
-
-if [ -n "$DOMAIN_PUBLIC" ] && is_cytrus_domain "$DOMAIN_PUBLIC"; then
-    if curl -sf "http://localhost:$PORT_PUBLIC" > /dev/null 2>&1; then
-        echo "✅ Static Server is running on port $PORT_PUBLIC"
-    else
-        echo "⚠️  Static Server is still starting..."
-    fi
 fi
 
 # Save port for deploy.sh
@@ -172,29 +115,25 @@ echo "$PORT" > /tmp/app_port
 # =============================================================================
 
 echo ""
-echo "════════════════════════════════════════════════════════════════"
-echo "✅ FileBrowser installed!"
-echo "════════════════════════════════════════════════════════════════"
+echo "FileBrowser installed!"
 echo ""
-echo "📁 Admin Panel (requires login):"
-if [ -n "$DOMAIN_ADMIN" ] && [ "$DOMAIN_ADMIN" != "-" ]; then
+echo "Admin Panel (requires login):"
+if [ -n "$DOMAIN_ADMIN" ]; then
     echo "   https://$DOMAIN_ADMIN"
-elif [ "$DOMAIN_ADMIN" = "-" ]; then
-    echo "   (domain will be configured automatically)"
 else
     echo "   http://localhost:$PORT (use SSH tunnel)"
 fi
-echo "   👤 Login: admin / admin"
-echo "   ⚠️  CHANGE PASSWORD AFTER FIRST LOGIN!"
+echo "   Login: admin / admin"
+echo "   CHANGE PASSWORD AFTER FIRST LOGIN!"
 echo ""
 
 if [ -n "$DOMAIN_PUBLIC" ]; then
-    echo "🌍 Public Hosting (publicly accessible):"
+    echo "Public Hosting (publicly accessible):"
     echo "   https://$DOMAIN_PUBLIC"
     echo ""
-    echo "   Example: upload ebook.pdf → https://$DOMAIN_PUBLIC/ebook.pdf"
+    echo "   Example: upload ebook.pdf -> https://$DOMAIN_PUBLIC/ebook.pdf"
 fi
 
 echo ""
-echo "📂 Files stored in: $DATA_DIR"
+echo "Files stored in: $DATA_DIR"
 echo ""

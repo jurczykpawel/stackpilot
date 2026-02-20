@@ -30,12 +30,8 @@ echo "--- 📱 Postiz Setup ---"
 echo "AI-powered social media scheduler."
 echo ""
 
-# Port binding: Cytrus requires 0.0.0.0, Cloudflare/local → 127.0.0.1
-if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
-    BIND_ADDR=""
-else
-    BIND_ADDR="127.0.0.1:"
-fi
+# Port binding: always bind to 127.0.0.1 (Caddy handles public exposure)
+BIND_ADDR="127.0.0.1:"
 
 # RAM check - soft warning (don't block, just warn)
 TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")

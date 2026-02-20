@@ -4,18 +4,19 @@
 # Used by installation scripts to configure the database.
 # Author: Paweł (Lazy Engineer)
 #
-# NEW FLOW with CLI:
+# FLOW with CLI:
 #   1. parse_args() + load_defaults()  - from cli-parser.sh
 #   2. ask_database()    - checks flags, only asks when missing
-#   3. fetch_database()  - fetches data from API (if shared)
+#   3. fetch_database()  - sets up bundled DB or validates custom credentials
 #
 # CLI flags:
-#   --db-source=shared|custom
+#   --db-source=bundled|custom
 #   --db-host=HOST --db-port=PORT --db-name=NAME
 #   --db-schema=SCHEMA --db-user=USER --db-pass=PASS
 #
 # Available variables after calling:
 #   $DB_HOST, $DB_PORT, $DB_NAME, $DB_SCHEMA, $DB_USER, $DB_PASS, $DB_SOURCE
+#   $BUNDLED_DB_TYPE (postgres|mysql) - set when DB_SOURCE=bundled
 
 # Load cli-parser if not loaded
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,78 +39,7 @@ export DB_SCHEMA="${DB_SCHEMA:-}"
 export DB_USER="${DB_USER:-}"
 export DB_PASS="${DB_PASS:-}"
 export DB_SOURCE="${DB_SOURCE:-}"
-
-# Applications requiring pgcrypto (don't work with the shared database)
-# n8n from version 1.121+ requires gen_random_uuid() which needs pgcrypto or PostgreSQL 13+
-# listmonk from v6.0.0 requires pgcrypto for migrations
-REQUIRES_PGCRYPTO="umami n8n listmonk"
-
-# =============================================================================
-# DATABASE RECOMMENDATIONS FOR APPLICATIONS
-# =============================================================================
-# Recommendations are displayed to the user during database selection.
-# They help make an informed decision whether to use the free or paid database.
-# =============================================================================
-
-# Get recommendation for application (uses case instead of declare -A for bash 3.x compatibility)
-get_db_recommendation() {
-    local APP_NAME="$1"
-    case "$APP_NAME" in
-        n8n|umami)
-            echo "Requires a dedicated PostgreSQL database with the pgcrypto extension.
-   The free shared database does NOT support this application.
-   Use a dedicated PostgreSQL instance."
-            ;;
-        listmonk)
-            echo "Requires a dedicated PostgreSQL database with the pgcrypto extension.
-   The free shared database does NOT support this application (since v6.0.0).
-   Use a dedicated PostgreSQL instance."
-            ;;
-        nocodb)
-            echo "NocoDB only stores table and view metadata.
-   Actual data can be kept in an external database.
-   The free shared database is sufficient for typical usage.
-   Paid: if you have many tables/collaborators"
-            ;;
-        cap)
-            echo "Cap only stores recording metadata (S3 links).
-   Actual video files are in S3/MinIO.
-   The free shared database is more than sufficient!
-   Paid: only with a very large number of recordings"
-            ;;
-        typebot)
-            echo "Typebot stores bots, results, and analytics.
-   Free shared database is OK for small/medium bots.
-   Paid: if you plan >10k conversations/month."
-            ;;
-        postiz)
-            echo "Postiz stores social media account configs and scheduled posts.
-   The free shared database should be sufficient for typical usage.
-   Paid: if you plan a very large number of posts/accounts"
-            ;;
-        wordpress)
-            echo "WordPress stores content, users, and settings.
-   The free shared MySQL is sufficient for small/medium sites.
-   Paid: if you have many plugins/traffic"
-            ;;
-    esac
-}
-
-# Get default database type for application
-get_default_db_type() {
-    local APP_NAME="$1"
-    case "$APP_NAME" in
-        n8n|umami|listmonk)
-            echo "custom"  # Requires pgcrypto - shared won't work
-            ;;
-        nocodb|cap|typebot|postiz|wordpress)
-            echo "shared"  # Lightweight apps - shared is sufficient
-            ;;
-        *)
-            echo "shared"  # Default to shared
-            ;;
-    esac
-}
+export BUNDLED_DB_TYPE="${BUNDLED_DB_TYPE:-}"
 
 # =============================================================================
 # PHASE 1: Gathering information (respects CLI flags)
@@ -125,28 +55,8 @@ ask_database() {
     fi
     DB_SCHEMA="${DB_SCHEMA:-public}"
 
-    # Check if application requires pgcrypto
-    local SHARED_BLOCKED=false
-    if [[ " $REQUIRES_PGCRYPTO " == *" $APP_NAME "* ]]; then
-        SHARED_BLOCKED=true
-    fi
-
-    # Get recommendation for this application
-    local RECOMMENDATION=""
-    if [ -n "$APP_NAME" ]; then
-        RECOMMENDATION=$(get_db_recommendation "$APP_NAME")
-    fi
-
     # If DB_SOURCE already set from CLI
     if [ -n "$DB_SOURCE" ]; then
-        # Validation: shared blocked for some apps
-        if [ "$DB_SOURCE" = "shared" ] && [ "$SHARED_BLOCKED" = true ]; then
-            echo -e "${RED}Error: $APP_NAME requires a dedicated database (--db-source=custom)${NC}" >&2
-            echo "   The shared database does not support pgcrypto." >&2
-            echo "   Please use a dedicated PostgreSQL instance." >&2
-            return 1
-        fi
-
         # Validation: custom requires full credentials
         if [ "$DB_SOURCE" = "custom" ]; then
             if [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
@@ -158,6 +68,11 @@ ask_database() {
                 ask_custom_db "$DB_TYPE" "$APP_NAME"
                 return $?
             fi
+        fi
+
+        # Validation: bundled is handled later in fetch_database
+        if [ "$DB_SOURCE" = "bundled" ]; then
+            BUNDLED_DB_TYPE="$DB_TYPE"
         fi
 
         echo -e "${GREEN}✅ Database: $DB_SOURCE (schema: $DB_SCHEMA)${NC}"
@@ -176,56 +91,29 @@ ask_database() {
     echo "║  🗄️  Database configuration ($DB_TYPE)"
     echo "╚════════════════════════════════════════════════════════════════╝"
 
-    # Show recommendation for application
-    if [ -n "$RECOMMENDATION" ]; then
-        echo ""
-        echo -e "${YELLOW}💡 Recommendation for $APP_NAME:${NC}"
-        echo "$RECOMMENDATION"
-    fi
-
     echo ""
     echo "Where should the database be hosted?"
     echo ""
 
-    if [ "$SHARED_BLOCKED" = true ]; then
-        echo "  1) 🚫 Shared database (UNAVAILABLE)"
-        echo "     $APP_NAME requires the pgcrypto extension"
-        echo ""
-    else
-        echo "  1) 🆓 Shared database (free)"
-        echo "     Will automatically fetch credentials from API"
-        echo ""
-    fi
+    echo "  1) 📦 Bundled database (recommended)"
+    echo "     PostgreSQL/MySQL container alongside the app — zero config"
+    echo ""
 
-    echo "  2) 💰 Own/dedicated database"
+    echo "  2) 🔧 External database"
     echo "     You will provide your own connection details"
     echo ""
 
-    # Set default choice based on recommendation
-    local DEFAULT_TYPE=$(get_default_db_type "$APP_NAME")
     local DEFAULT_CHOICE="1"
-    if [ "$DEFAULT_TYPE" = "custom" ] || [ "$SHARED_BLOCKED" = true ]; then
-        DEFAULT_CHOICE="2"
-    fi
 
     read -p "Choose option [1-2, default $DEFAULT_CHOICE]: " DB_CHOICE
     DB_CHOICE="${DB_CHOICE:-$DEFAULT_CHOICE}"
 
     case $DB_CHOICE in
         1)
-            if [ "$SHARED_BLOCKED" = true ]; then
-                echo ""
-                echo -e "${RED}❌ $APP_NAME does not work with the shared database!${NC}"
-                echo "   Requires the pgcrypto extension (not available in the free database)."
-                echo ""
-                echo "   Please use a dedicated PostgreSQL instance."
-                echo ""
-                return 1
-            fi
-            export DB_SOURCE="shared"
+            export DB_SOURCE="bundled"
+            BUNDLED_DB_TYPE="$DB_TYPE"
             echo ""
-            echo -e "${GREEN}✅ Selected: shared database${NC}"
-            echo -e "${BLUE}ℹ️  Schema: $DB_SCHEMA${NC}"
+            echo -e "${GREEN}✅ Selected: bundled database ($DB_TYPE in Docker)${NC}"
             return 0
             ;;
         2)
@@ -292,6 +180,45 @@ ask_custom_db() {
 
     # Export variables
     export DB_HOST DB_PORT DB_NAME DB_SCHEMA DB_USER DB_PASS
+
+    return 0
+}
+
+# =============================================================================
+# BUNDLED DATABASE SETUP
+# =============================================================================
+
+# Generate credentials and set DB_* variables for a bundled database container.
+# The calling script (deploy.sh / install.sh) is responsible for adding the
+# corresponding postgres/mysql service to docker-compose.yaml.
+#
+# Sets: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, BUNDLED_DB_TYPE
+setup_bundled_db() {
+    local DB_TYPE="${1:-${BUNDLED_DB_TYPE:-postgres}}"
+
+    BUNDLED_DB_TYPE="$DB_TYPE"
+
+    # Generate random credentials
+    DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
+    DB_USER="app"
+    DB_NAME="appdb"
+
+    if [ "$DB_TYPE" = "postgres" ]; then
+        # The container name in docker-compose will be "db" on the internal network
+        DB_HOST="db"
+        DB_PORT="5432"
+    elif [ "$DB_TYPE" = "mysql" ]; then
+        DB_HOST="db"
+        DB_PORT="3306"
+    else
+        echo -e "${RED}❌ Bundled DB not supported for type: $DB_TYPE${NC}" >&2
+        return 1
+    fi
+
+    export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS BUNDLED_DB_TYPE
+
+    echo -e "${GREEN}✅ Bundled $DB_TYPE database configured${NC}"
+    echo "   Credentials generated automatically (stored in docker-compose.yaml)"
 
     return 0
 }
@@ -386,7 +313,7 @@ warn_if_schema_exists() {
 }
 
 # =============================================================================
-# PHASE 2: Fetching data (heavy operations)
+# PHASE 2: Fetching/setting up data (heavy operations)
 # =============================================================================
 
 fetch_database() {
@@ -398,122 +325,14 @@ fetch_database() {
         return 0
     fi
 
-    # Shared - fetch from API
-    if [ "$DB_SOURCE" = "shared" ]; then
-        fetch_shared_db "$DB_TYPE" "$SSH_ALIAS"
+    # Bundled - generate credentials and prepare container config
+    if [ "$DB_SOURCE" = "bundled" ]; then
+        setup_bundled_db "$DB_TYPE"
         return $?
     fi
 
     echo -e "${RED}❌ Unknown database source: $DB_SOURCE${NC}"
     return 1
-}
-
-fetch_shared_db() {
-    local DB_TYPE="$1"
-    local SSH_ALIAS="$2"
-
-    # Dry-run mode
-    if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] Fetching database credentials from API (ssh $SSH_ALIAS)${NC}"
-        DB_HOST="[dry-run-host]"
-        DB_PORT="5432"
-        DB_NAME="[dry-run-db]"
-        DB_USER="[dry-run-user]"
-        DB_PASS="[dry-run-pass]"
-        export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS
-        return 0
-    fi
-
-    echo "🔑 Fetching database credentials from API..."
-
-    # Get API key
-    local API_KEY=$(ssh "$SSH_ALIAS" 'cat /klucz_api 2>/dev/null' 2>/dev/null)
-
-    if [ -z "$API_KEY" ]; then
-        echo -e "${RED}❌ API key not found on the server!${NC}"
-        echo "   Make sure the API is enabled on your server."
-        return 1
-    fi
-
-    # Get server hostname
-    local HOSTNAME=$(ssh "$SSH_ALIAS" 'hostname' 2>/dev/null)
-
-    if [ -z "$HOSTNAME" ]; then
-        echo -e "${RED}❌ Failed to connect to the server${NC}"
-        return 1
-    fi
-
-    # Call API
-    local RESPONSE=$(curl -s -d "srv=$HOSTNAME&key=$API_KEY" https://api.mikr.us/db.bash)
-
-    if [ -z "$RESPONSE" ]; then
-        echo -e "${RED}❌ No response from API${NC}"
-        return 1
-    fi
-
-    # Parse response depending on database type
-    if [ "$DB_TYPE" = "postgres" ]; then
-        local SECTION=$(echo "$RESPONSE" | grep -A4 "^psql=")
-        DB_HOST=$(echo "$SECTION" | grep 'Server:' | head -1 | sed 's/.*Server: *//' | tr -d '"')
-        DB_USER=$(echo "$SECTION" | grep 'login:' | head -1 | sed 's/.*login: *//')
-        DB_PASS=$(echo "$SECTION" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-        DB_NAME=$(echo "$SECTION" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//' | tr -d '"')
-        DB_PORT="5432"
-
-        if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ]; then
-            echo -e "${RED}❌ PostgreSQL database is not active!${NC}"
-            echo ""
-            echo "   Please enable it in your hosting provider's control panel."
-            echo ""
-            echo "   After enabling, run the installation again."
-            return 1
-        fi
-
-    elif [ "$DB_TYPE" = "mysql" ]; then
-        local SECTION=$(echo "$RESPONSE" | grep -A4 "^mysql=")
-        DB_HOST=$(echo "$SECTION" | grep 'Server:' | head -1 | sed 's/.*Server: *//' | tr -d '"')
-        DB_USER=$(echo "$SECTION" | grep 'login:' | head -1 | sed 's/.*login: *//')
-        DB_PASS=$(echo "$SECTION" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-        DB_NAME=$(echo "$SECTION" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//' | tr -d '"')
-        DB_PORT="3306"
-
-        if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ]; then
-            echo -e "${RED}❌ MySQL database is not active!${NC}"
-            echo ""
-            echo "   Please enable it in your hosting provider's control panel."
-            echo ""
-            echo "   After enabling, run the installation again."
-            return 1
-        fi
-
-    elif [ "$DB_TYPE" = "mongo" ]; then
-        local SECTION=$(echo "$RESPONSE" | grep -A6 "^mongo=")
-        DB_HOST=$(echo "$SECTION" | grep 'Host:' | head -1 | sed 's/.*Host: *//')
-        DB_PORT=$(echo "$SECTION" | grep 'Port:' | head -1 | sed 's/.*Port: *//')
-        DB_USER=$(echo "$SECTION" | grep 'Login:' | head -1 | sed 's/.*Login: *//')
-        DB_PASS=$(echo "$SECTION" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-        DB_NAME=$(echo "$SECTION" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//')
-
-        if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ]; then
-            echo -e "${RED}❌ MongoDB database is not active!${NC}"
-            echo ""
-            echo "   Please enable it in your hosting provider's control panel."
-            echo ""
-            echo "   After enabling, run the installation again."
-            return 1
-        fi
-    else
-        echo -e "${RED}❌ Unknown database type: $DB_TYPE${NC}"
-        echo "   Supported: postgres, mysql, mongo"
-        return 1
-    fi
-
-    echo -e "${GREEN}✅ Credentials fetched from API${NC}"
-
-    # Export variables
-    export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS
-
-    return 0
 }
 
 # =============================================================================
@@ -549,7 +368,7 @@ setup_database() {
         return 1
     fi
 
-    # Phase 2: fetch from API (if shared)
+    # Phase 2: set up bundled or validate custom
     if ! fetch_database "$DB_TYPE" "$SSH_ALIAS"; then
         return 1
     fi
@@ -558,12 +377,6 @@ setup_database() {
     show_db_summary
 
     return 0
-}
-
-# Alias for compatibility
-setup_shared_db() {
-    DB_SOURCE="shared"
-    fetch_shared_db "$@"
 }
 
 setup_custom_db() {
@@ -595,17 +408,14 @@ get_mysql_url() {
 }
 
 # Export functions
-export -f get_db_recommendation
-export -f get_default_db_type
 export -f ask_database
 export -f ask_custom_db
+export -f setup_bundled_db
 export -f check_schema_exists
 export -f warn_if_schema_exists
 export -f fetch_database
-export -f fetch_shared_db
 export -f show_db_summary
 export -f setup_database
-export -f setup_shared_db
 export -f setup_custom_db
 export -f get_postgres_url
 export -f get_postgres_url_simple

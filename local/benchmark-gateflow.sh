@@ -5,7 +5,7 @@ set -e
 # Usage: ./local/benchmark-gateflow.sh <url> <ssh_alias> [requests] [concurrency]
 #
 # Examples:
-#   ./local/benchmark-gateflow.sh https://shop.byst.re vps
+#   ./local/benchmark-gateflow.sh https://shop.example.com vps
 #   ./local/benchmark-gateflow.sh https://shop.example.com vps 200 20
 
 URL=${1}
@@ -17,7 +17,7 @@ if [ -z "$URL" ] || [ -z "$SSH_ALIAS" ]; then
   echo "❌ Usage: $0 <url> <ssh_alias> [requests] [concurrency]"
   echo ""
   echo "Example:"
-  echo "  $0 https://shop.byst.re vps 200 20"
+  echo "  $0 https://shop.example.com vps 200 20"
   exit 1
 fi
 

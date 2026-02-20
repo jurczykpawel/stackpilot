@@ -17,12 +17,8 @@ echo "--- 🔄 ConvertX Setup ---"
 echo "Universal file converter in your browser."
 echo ""
 
-# Port binding: Cytrus requires 0.0.0.0, Cloudflare/local → 127.0.0.1
-if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
-    BIND_ADDR=""
-else
-    BIND_ADDR="127.0.0.1:"
-fi
+# Port binding: always bind to 127.0.0.1 (Caddy handles public exposure)
+BIND_ADDR="127.0.0.1:"
 
 # JWT secret - without this, sessions are lost after container restart
 JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | od -An -tx1 | tr -d ' \n')

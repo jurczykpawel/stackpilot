@@ -77,8 +77,8 @@ else
     echo "❌ Gotenberg is not responding!"; sudo docker compose logs --tail 20; exit 1
 fi
 
-# Caddy/HTTPS - only for real domains
-if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ] && [[ "$DOMAIN" != *"pending"* ]] && [[ "$DOMAIN" != *"cytrus"* ]]; then
+# Caddy/HTTPS - configure reverse proxy if domain is set
+if [ -n "$DOMAIN" ]; then
     if command -v sp-expose &> /dev/null; then
         sudo sp-expose "$DOMAIN" "$PORT"
     fi

@@ -157,18 +157,12 @@ export async function handleServerStatus(
 
     // Upgrade suggestion for warning/critical
     if (ramWarn || diskWarn) {
-      const tiers = [
-        { max: 1024, name: "Mikrus 3.0", ram: "2GB", price: "130 PLN/rok" },
-        { max: 2048, name: "Mikrus 3.5", ram: "4GB", price: "197 PLN/rok" },
-        { max: 4096, name: "Mikrus 4.1", ram: "8GB", price: "395 PLN/rok" },
-        { max: 8192, name: "Mikrus 4.2", ram: "16GB", price: "790 PLN/rok" },
-      ];
-      for (const tier of tiers) {
-        if (ramTotalNum <= tier.max) {
-          lines.push(`Suggested upgrade: ${tier.name} (${tier.ram}, ${tier.price})`);
-          lines.push("Plans: https://mikr.us/?r=pavvel#plans");
-          break;
-        }
+      if (ramTotalNum <= 1024) {
+        lines.push("Suggestion: consider a VPS with more RAM (at least 2GB recommended)");
+      } else if (ramTotalNum <= 2048) {
+        lines.push("Suggestion: consider a VPS with more RAM (at least 4GB recommended)");
+      } else if (ramTotalNum <= 4096) {
+        lines.push("Suggestion: consider a VPS with more RAM (at least 8GB recommended)");
       }
     }
   }

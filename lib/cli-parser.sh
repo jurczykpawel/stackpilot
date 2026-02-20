@@ -208,7 +208,7 @@ SSH options:
   --ssh=ALIAS          SSH alias from ~/.ssh/config (default: vps)
 
 Database options:
-  --db-source=TYPE     Database source: shared (provider API) or custom
+  --db-source=TYPE     Database source: bundled (Docker container) or custom
   --db-host=HOST       Database host
   --db-port=PORT       Database port (default: 5432)
   --db-name=NAME       Database name
@@ -218,7 +218,7 @@ Database options:
 
 Domain options:
   --domain=DOMAIN      Application domain (e.g. app.example.com)
-  --domain-type=TYPE   Type: cytrus, cloudflare, local
+  --domain-type=TYPE   Type: cloudflare, caddy, local
 
 GateFlow options:
   --supabase-project=REF  Supabase project ref (skips interactive selection)
@@ -237,7 +237,7 @@ Examples:
   $SCRIPT_NAME n8n --ssh=vps
 
   # Full automation
-  $SCRIPT_NAME n8n --ssh=vps --db-source=shared --domain=n8n.example.com --yes
+  $SCRIPT_NAME n8n --ssh=vps --db-source=bundled --domain=n8n.example.com --yes
 
   # Custom database
   $SCRIPT_NAME n8n --ssh=vps --db-source=custom --db-host=psql.example.com \\
@@ -248,7 +248,7 @@ Config file:
   Example:
     export DEFAULT_SSH="vps"
     export DEFAULT_DB_PORT="5432"
-    export DEFAULT_DOMAIN_TYPE="cytrus"
+    export DEFAULT_DOMAIN_TYPE="cloudflare"
 
 EOF
 }
@@ -306,7 +306,7 @@ ask_if_empty() {
 # =============================================================================
 
 # ask_choice VAR_NAME "Prompt" "opt1|opt2|opt3" [default_index]
-# Example: ask_choice DB_SOURCE "Choose database source" "shared|custom" 1
+# Example: ask_choice DB_SOURCE "Choose database source" "bundled|custom" 1
 ask_choice() {
     local VAR_NAME="$1"
     local PROMPT="$2"

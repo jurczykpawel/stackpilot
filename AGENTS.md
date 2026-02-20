@@ -102,7 +102,7 @@ Toolbox jest automatycznie instalowany na serwerze (git clone z GitHub) jeśli j
 #   --ssh=ALIAS           SSH alias (domyślnie: mikrus)
 #   --domain-type=TYPE    cytrus | cloudflare | local
 #   --domain=DOMAIN       Domena lub "auto" dla Cytrus
-#   --db-source=SOURCE    shared | custom (bazy danych)
+#   --db-source=SOURCE    bundled | custom (bazy danych)
 #   --yes, -y             Pomiń wszystkie potwierdzenia
 
 # Przykłady:

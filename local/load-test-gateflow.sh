@@ -8,7 +8,7 @@ set -e
 #
 # Examples:
 #   ./local/load-test-gateflow.sh https://shop.example.com
-#   ./local/load-test-gateflow.sh https://shop.byst.re 100 10
+#   ./local/load-test-gateflow.sh https://shop.example.com 100 10
 #   ./local/load-test-gateflow.sh https://shop.example.com 500 20
 
 URL=${1}

@@ -4,11 +4,11 @@
 # Author: Paweł (Lazy Engineer)
 #
 # Usage:
-#   ./local/deploy.sh APP [--ssh=ALIAS] [--db-source=shared|custom] [--domain=DOMAIN] [--yes]
+#   ./local/deploy.sh APP [--ssh=ALIAS] [--db-source=bundled|custom] [--domain=DOMAIN] [--yes]
 #
 # Examples:
 #   ./local/deploy.sh n8n --ssh=vps                                # interactive
-#   ./local/deploy.sh n8n --ssh=vps --db-source=shared --domain=auto --yes  # automatic
+#   ./local/deploy.sh n8n --ssh=vps --db-source=bundled --domain=auto --yes  # automatic
 #   ./local/deploy.sh uptime-kuma --domain-type=local --yes        # no domain
 #
 # FLOW:
@@ -33,10 +33,6 @@ source "$REPO_ROOT/lib/domain-setup.sh"
 source "$REPO_ROOT/lib/gateflow-setup.sh" 2>/dev/null || true  # Optional for GateFlow
 source "$REPO_ROOT/lib/port-utils.sh"
 
-# Placeholder inserted into docker-compose when DOMAIN="-" (automatic Cytrus).
-# After Cytrus API assigns a domain, sed replaces the placeholder with the real domain.
-CYTRUS_PLACEHOLDER="__CYTRUS_PENDING__"
-
 # =============================================================================
 # CUSTOM HELP
 # =============================================================================
@@ -55,7 +51,7 @@ SSH Options:
   --ssh=ALIAS          SSH alias from ~/.ssh/config (default: vps)
 
 Database Options:
-  --db-source=TYPE     Database source: shared or custom
+  --db-source=TYPE     Database source: bundled (Docker container) or custom
   --db-host=HOST       Database host
   --db-port=PORT       Database port (default: 5432)
   --db-name=NAME       Database name
@@ -64,8 +60,8 @@ Database Options:
   --db-pass=PASS       Database password
 
 Domain Options:
-  --domain=DOMAIN      Application domain (or 'auto' for automatic Cytrus)
-  --domain-type=TYPE   Type: cytrus, cloudflare, local
+  --domain=DOMAIN      Application domain (e.g. app.example.com)
+  --domain-type=TYPE   Type: cloudflare, caddy, local
 
 Modes:
   --yes, -y            Skip all confirmations
@@ -79,8 +75,8 @@ Examples:
   # Interactive (prompts for missing data)
   ./local/deploy.sh n8n --ssh=vps
 
-  # Automatic with Cytrus
-  ./local/deploy.sh uptime-kuma --ssh=vps --domain-type=cytrus --domain=auto --yes
+  # Automatic with Caddy (point A record to server IP first)
+  ./local/deploy.sh uptime-kuma --ssh=vps --domain-type=caddy --domain=kuma.example.com --yes
 
   # Automatic with Cloudflare
   ./local/deploy.sh n8n --ssh=vps \\
@@ -311,7 +307,7 @@ if [ "$UPDATE_MODE" = true ]; then
     # For multi-instance: pass instance name (from --instance or --domain)
     if [ -n "$INSTANCE" ]; then
         ENV_VARS="$ENV_VARS INSTANCE='$INSTANCE'"
-    elif [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+    elif [ -n "$DOMAIN" ]; then
         # Derive instance from domain
         UPDATE_INSTANCE="${DOMAIN%%.*}"
         ENV_VARS="$ENV_VARS INSTANCE='$UPDATE_INSTANCE'"
@@ -691,8 +687,8 @@ fi
 
 # Turnstile for GateFlow - CAPTCHA configuration prompt
 # Turnstile works on any domain (not just Cloudflare DNS), only requires a Cloudflare account
-# Skip only for: local (dev) or automatic Cytrus domain (DOMAIN="-")
-if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+# Skip only for: local (dev) or missing domain
+if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ]; then
     TURNSTILE_OFFERED=true
     echo ""
     echo "🔒 Turnstile Configuration (CAPTCHA)"
@@ -753,15 +749,15 @@ echo "║  ☕ Now sit back and relax - working...                         ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Fetch database credentials from API (if shared)
+# Set up database (bundled generates credentials, custom already has them)
 if [ "$NEEDS_DB" = true ]; then
     if ! fetch_database "$DB_TYPE" "$SSH_ALIAS"; then
-        echo "Error: Failed to fetch database credentials."
+        echo "Error: Failed to set up database."
         exit 1
     fi
 
-    # Check if schema already exists (warning for user)
-    if [ "$DB_TYPE" = "postgres" ]; then
+    # Check if schema already exists (warning for user) - only for custom/external DBs
+    if [ "$DB_TYPE" = "postgres" ] && [ "$DB_SOURCE" = "custom" ]; then
         if ! warn_if_schema_exists "$SSH_ALIAS" "$APP_NAME"; then
             echo "Installation cancelled by user."
             exit 1
@@ -772,10 +768,11 @@ if [ "$NEEDS_DB" = true ]; then
     ESCAPED_DB_PASS="${DB_PASS//\'/\'\\\'\'}"
 
     # Prepare environment variables
-    DB_ENV_VARS="DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$ESCAPED_DB_PASS'"
+    DB_ENV_VARS="DB_SOURCE='$DB_SOURCE' DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME' DB_SCHEMA='$DB_SCHEMA' DB_USER='$DB_USER' DB_PASS='$ESCAPED_DB_PASS'"
+    [ -n "$BUNDLED_DB_TYPE" ] && DB_ENV_VARS="$DB_ENV_VARS BUNDLED_DB_TYPE='$BUNDLED_DB_TYPE'"
 
     echo ""
-    echo "📋 Database:"
+    echo "📋 Database ($DB_SOURCE):"
     echo "   Host: $DB_HOST"
     echo "   Database: $DB_NAME"
     if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
@@ -789,22 +786,7 @@ fi
 # install.sh uses domain for instance naming (e.g. WordPress multi-instance).
 DOMAIN_ENV=""
 if [ "$NEEDS_DOMAIN" = true ] && [ -n "$DOMAIN" ]; then
-    if [ "$DOMAIN" = "-" ]; then
-        if [ "$DOMAIN_TYPE" = "local" ]; then
-            # Local mode without specific domain — pass nothing
-            :
-        elif [ "$APP_NAME" = "gateflow" ]; then
-            # GateFlow has its own mechanism — deploy.sh updates .env.local after Cytrus
-            DOMAIN_ENV="DOMAIN='-'"
-        else
-            # For Cytrus with automatic domain, pass placeholder instead of "-".
-            # install.sh will see a non-empty domain and insert https://__CYTRUS_PENDING__ into docker-compose.
-            # After domain is assigned, sed replaces the placeholder with the real domain (line ~970).
-            DOMAIN_ENV="DOMAIN='$CYTRUS_PLACEHOLDER'"
-        fi
-    else
-        DOMAIN_ENV="DOMAIN='$DOMAIN'"
-    fi
+    DOMAIN_ENV="DOMAIN='$DOMAIN'"
 fi
 
 # Prepare PORT variable for passing (if overridden)
@@ -969,122 +951,12 @@ APP_STACK_DIR="${INSTALLED_STACK_DIR:-/opt/stacks/$APP_NAME}"
 
 if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
     echo ""
-    ORIGINAL_DOMAIN="$DOMAIN"  # Remember if it was "-" (automatic)
     if configure_domain "$APP_PORT" "$SSH_ALIAS"; then
-        # For Cytrus with automatic domain - update config with real domain
-        # After configure_domain(), DOMAIN variable contains the assigned domain
-        if [ "$ORIGINAL_DOMAIN" = "-" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-            echo "🔄 Updating configuration with real domain: $DOMAIN"
-            if [ "$REQUIRES_DOMAIN_UPFRONT" = true ]; then
-                # Static sites - update Caddyfile
-                server_exec "sudo sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' /etc/caddy/Caddyfile && sudo systemctl reload caddy" 2>/dev/null || true
-            elif [ "$APP_NAME" != "gateflow" ]; then
-                # Docker apps - update docker-compose (skip for standalone apps like GateFlow)
-                server_exec "cd $APP_STACK_DIR && sed -i 's|$CYTRUS_PLACEHOLDER|$DOMAIN|g' docker-compose.yaml && docker compose up -d" 2>/dev/null || true
-            fi
-        fi
-
-        # For GateFlow with Cytrus - update .env.local, Supabase and ask about Turnstile
-        if [ "$APP_NAME" = "gateflow" ] && [ "$ORIGINAL_DOMAIN" = "-" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
-            # 1. Add domain configuration to .env.local (install.sh skipped for DOMAIN="-")
-            echo "📝 Updating .env.local with real domain..."
-            server_exec "
-                cd /opt/stacks/gateflow/admin-panel
-                # Add domain configuration
-                cat >> .env.local <<'DOMAIN_EOF'
-
-# Site URLs (added after Cytrus domain assignment)
-SITE_URL=https://$DOMAIN
-MAIN_DOMAIN=$DOMAIN
-NEXT_PUBLIC_SITE_URL=https://$DOMAIN
-NEXT_PUBLIC_BASE_URL=https://$DOMAIN
-DISABLE_HSTS=true
-DOMAIN_EOF
-                # Copy to standalone
-                if [ -d '.next/standalone/admin-panel' ]; then
-                    cp .env.local .next/standalone/admin-panel/.env.local
-                fi
-            " 2>/dev/null || true
-
-            # 2. Restart PM2 to load new configuration
-            # For auto-cytrus, initial installation uses PM2_NAME="gateflow"
-            # After learning the domain we can keep that name (single instance)
-            echo "🔄 Restarting GateFlow..."
-            server_exec "
-                export PATH=\"\$HOME/.bun/bin:\$PATH\"
-                cd /opt/stacks/gateflow/admin-panel/.next/standalone/admin-panel
-                pm2 delete gateflow 2>/dev/null || true
-                unset HOSTNAME
-                set -a && source .env.local && set +a
-                export PORT=\${PORT:-3333}
-                export HOSTNAME=\${HOSTNAME:-::}
-                pm2 start server.js --name gateflow --interpreter node
-                pm2 save
-            " 2>/dev/null || true
-
-            # 3. Update Site URL in Supabase
-            update_supabase_site_url "$DOMAIN" || true
-
-            # Turnstile was not offered earlier (domain was unknown) - ask now
-            if [ "$TURNSTILE_OFFERED" != true ] && [ "$YES_MODE" != true ]; then
-                echo ""
-                echo "🔒 Turnstile Configuration (CAPTCHA)"
-                echo "   Domain: $DOMAIN"
-                echo ""
-                read -p "Configure Turnstile now? [Y/n]: " SETUP_TURNSTILE_NOW
-                if [[ ! "$SETUP_TURNSTILE_NOW" =~ ^[Nn]$ ]]; then
-                    if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
-                        "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN" "$SSH_ALIAS"
-                        # Check if keys were saved
-                        KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
-                        if [ -f "$KEYS_FILE" ]; then
-                            source "$KEYS_FILE"
-                            if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                                GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                                echo -e "${GREEN}✅ Turnstile configured!${NC}"
-                            fi
-                        fi
-                    fi
-                else
-                    SETUP_TURNSTILE_LATER=true
-                fi
-            elif [ "$YES_MODE" = true ]; then
-                # In --yes mode - check saved keys or create automatically
-                KEYS_FILE="$HOME/.config/cloudflare/turnstile_keys_$DOMAIN"
-                CF_TOKEN_FILE="$HOME/.config/cloudflare/turnstile_token"
-
-                if [ -f "$KEYS_FILE" ]; then
-                    # We have saved keys for this domain
-                    source "$KEYS_FILE"
-                    if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                        GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                        configure_supabase_settings "$DOMAIN" "$GATEFLOW_TURNSTILE_SECRET" "" || true
-                    fi
-                elif [ -f "$CF_TOKEN_FILE" ]; then
-                    # We have Cloudflare token - create keys automatically
-                    echo ""
-                    echo "🔒 Automatic Turnstile configuration..."
-                    if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
-                        "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN" "$SSH_ALIAS"
-                        # Check if keys were created
-                        if [ -f "$KEYS_FILE" ]; then
-                            source "$KEYS_FILE"
-                            if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                                GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                                echo -e "${GREEN}✅ Turnstile configured automatically${NC}"
-                            fi
-                        fi
-                    fi
-                else
-                    SETUP_TURNSTILE_LATER=true
-                fi
-            fi
-        fi
         # Wait for domain to start responding (timeout 90s)
         wait_for_domain 90
     else
         echo ""
-        echo -e "${YELLOW}⚠️  Service is running, but domain configuration failed.${NC}"
+        echo -e "${YELLOW}Service is running, but domain configuration failed.${NC}"
         echo "   You can configure the domain manually later."
     fi
 fi
@@ -1092,38 +964,23 @@ fi
 # DOMAIN_PUBLIC configuration (for FileBrowser and similar)
 if [ -n "$DOMAIN_PUBLIC" ]; then
     echo ""
-    echo "🌍 Configuring public domain: $DOMAIN_PUBLIC"
+    echo "Configuring public domain: $DOMAIN_PUBLIC"
 
-    # Check domain type
-    is_cytrus_domain() {
-        case "$1" in
-            *.byst.re|*.bieda.it|*.toadres.pl|*.tojest.dev|*.mikr.us|*.srv24.pl|*.vxm.pl) return 0 ;;
-            *) return 1 ;;
-        esac
-    }
+    WEBROOT=$(server_exec "cat /tmp/domain_public_webroot 2>/dev/null || echo /var/www/public")
 
-    # Get port for public (default 8096)
-    PUBLIC_PORT=$(server_exec "cat /tmp/app_public_port 2>/dev/null || echo 8096")
-
-    if is_cytrus_domain "$DOMAIN_PUBLIC"; then
-        # Cytrus: register domain via API
-        echo "   🍊 Registering in Cytrus on port $PUBLIC_PORT..."
-        "$REPO_ROOT/local/cytrus-domain.sh" "$DOMAIN_PUBLIC" "$PUBLIC_PORT" "$SSH_ALIAS"
-    else
-        # Cloudflare: configure DNS and Caddy file_server
-        echo "   ☁️  Configuring via Cloudflare..."
-        WEBROOT=$(server_exec "cat /tmp/domain_public_webroot 2>/dev/null || echo /var/www/public")
-        # DNS may already exist - that's OK, continue with Caddy
+    # Configure DNS via Cloudflare if available
+    if [ -f "$REPO_ROOT/local/dns-add.sh" ]; then
         "$REPO_ROOT/local/dns-add.sh" "$DOMAIN_PUBLIC" "$SSH_ALIAS" || echo "   DNS already configured or error - continuing"
-        # Configure Caddy file_server
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
-            echo -e "   ${GREEN}✅ Static hosting configured: https://$DOMAIN_PUBLIC${NC}"
-        else
-            echo -e "   ${YELLOW}⚠️  Failed to configure Caddy for $DOMAIN_PUBLIC${NC}"
-        fi
-        # Cleanup
-        server_exec "rm -f /tmp/domain_public_webroot" 2>/dev/null
     fi
+
+    # Configure Caddy file_server
+    if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
+        echo -e "   ${GREEN}Static hosting configured: https://$DOMAIN_PUBLIC${NC}"
+    else
+        echo -e "   ${YELLOW}Failed to configure Caddy for $DOMAIN_PUBLIC${NC}"
+    fi
+    # Cleanup
+    server_exec "rm -f /tmp/domain_public_webroot" 2>/dev/null
 fi
 
 # =============================================================================
@@ -1140,7 +997,7 @@ if [ "$DOMAIN_TYPE" = "local" ]; then
     echo "📋 Access via SSH tunnel:"
     echo -e "   ${BLUE}ssh -L $APP_PORT:localhost:$APP_PORT $SSH_ALIAS${NC}"
     echo "   Then open: http://localhost:$APP_PORT"
-elif [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+elif [ -n "$DOMAIN" ]; then
     echo ""
     echo -e "🌐 Application available at: ${BLUE}https://$DOMAIN${NC}"
 fi

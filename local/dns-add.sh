@@ -12,53 +12,35 @@ source "$SCRIPT_DIR/../lib/server-exec.sh"
 
 CONFIG_FILE="$HOME/.config/cloudflare/config"
 
-# Cytrus IP (reverse proxy)
-CYTRUS_IP="135.181.95.85"
-
 # Arguments
 FULL_DOMAIN="$1"
 SSH_ALIAS="${2:-vps}"
-MODE="${3:-cloudflare}"  # "cloudflare" (IPv6+proxy) or "cytrus" (IPv4, no proxy)
 
 # Usage
 if [ -z "$FULL_DOMAIN" ]; then
-    echo "Usage: $0 <subdomain.domain.com> [ssh_alias] [mode]"
-    echo ""
-    echo "Modes:"
-    echo "  cloudflare  - AAAA record (server IPv6) + proxy ON (default)"
-    echo "  cytrus      - A record → $CYTRUS_IP + proxy OFF"
+    echo "Usage: $0 <subdomain.domain.com> [ssh_alias]"
     echo ""
     echo "Examples:"
     echo "  $0 app.mycompany.com                    # Cloudflare + Caddy"
     echo "  $0 app.mycompany.com vps                # from a different server"
-    echo "  $0 app.mycompany.com vps cytrus          # for Cytrus API"
     echo ""
     echo "Requires prior configuration: ./local/setup-cloudflare.sh"
     exit 1
 fi
 
 # Determine record type and IP
-if [ "$MODE" = "cytrus" ]; then
-    RECORD_TYPE="A"
-    IP_ADDRESS="$CYTRUS_IP"
-    PROXY="false"
-    echo "🍊 Cytrus mode"
-    echo "   Record: A → $IP_ADDRESS"
-    echo "   Proxy: OFF (Cytrus handles SSL)"
-else
-    RECORD_TYPE="AAAA"
-    PROXY="true"
-    echo "☁️  Cloudflare mode"
-    echo "🔍 Fetching server IPv6 '$SSH_ALIAS'..."
+RECORD_TYPE="AAAA"
+PROXY="true"
+echo "Cloudflare mode"
+echo "Fetching server IPv6 '$SSH_ALIAS'..."
     IP_ADDRESS=$(server_exec "ip -6 addr show scope global | grep -oP '(?<=inet6 )[0-9a-f:]+' | head -1" 2>/dev/null)
 
-    if [ -z "$IP_ADDRESS" ]; then
-        echo "❌ Failed to get IPv6 from server '$SSH_ALIAS'"
-        exit 1
-    fi
-    echo "   Record: AAAA → $IP_ADDRESS"
-    echo "   Proxy: ON (orange cloud)"
+if [ -z "$IP_ADDRESS" ]; then
+    echo "Failed to get IPv6 from server '$SSH_ALIAS'"
+    exit 1
 fi
+echo "   Record: AAAA → $IP_ADDRESS"
+echo "   Proxy: ON (orange cloud)"
 echo ""
 
 # Check configuration
@@ -168,16 +150,10 @@ fi
 echo ""
 echo "🎉 DNS configured: $FULL_DOMAIN → $IP_ADDRESS ($RECORD_TYPE)"
 
-if [ "$MODE" = "cytrus" ]; then
-    echo ""
-    echo "🍊 Next step - add the domain to Cytrus:"
-    echo "   ./local/cytrus-domain.sh $FULL_DOMAIN PORT $SSH_ALIAS"
-else
-    echo "☁️  Cloudflare Proxy: ENABLED"
-    echo ""
-    echo "🚀 Next step - expose via Caddy:"
-    echo "   ssh $SSH_ALIAS 'sp-expose $FULL_DOMAIN PORT'"
-fi
+echo "Cloudflare Proxy: ENABLED"
+echo ""
+echo "Next step - expose via Caddy:"
+echo "   ssh $SSH_ALIAS 'sp-expose $FULL_DOMAIN PORT'"
 
 echo ""
 echo "⏳ DNS propagation may take up to 5 minutes."

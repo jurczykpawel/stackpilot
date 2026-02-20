@@ -5,8 +5,8 @@
 # Author: Paweł (Lazy Engineer)
 #
 # Supports:
-# - Shared databases (credentials fetched from API)
-# - Dedicated/purchased databases (credentials saved locally)
+# - Bundled databases (auto-detected from docker-compose in /opt/stacks/*)
+# - Dedicated/external databases (credentials saved locally)
 #
 # Usage:
 #   On the server: ./setup-db-backup.sh
@@ -18,63 +18,81 @@ BACKUP_SCRIPT="/opt/stackpilot/scripts/db-backup.sh"
 CREDENTIALS_DIR="/opt/stackpilot/config"
 CREDENTIALS_FILE="$CREDENTIALS_DIR/db-credentials.conf"
 CRON_FILE="/etc/cron.d/stackpilot-db-backup"
+STACKS_DIR="/opt/stacks"
 
 echo "--- 🗄️ Database Backup Configuration ---"
 echo ""
 
 # =============================================================================
-# PHASE 1: Detect shared databases (from API)
+# PHASE 1: Auto-detect bundled databases from docker-compose files
 # =============================================================================
 
-API_KEY=$(cat /klucz_api 2>/dev/null || true)
-HOSTNAME=$(hostname 2>/dev/null || true)
+echo "🔍 Scanning for bundled databases in $STACKS_DIR..."
 
-HAS_SHARED_POSTGRES=false
-HAS_SHARED_MYSQL=false
+BUNDLED_DATABASES=()
 
-if [ -n "$API_KEY" ]; then
-    echo "🔑 Fetching shared database credentials from API..."
+if [ -d "$STACKS_DIR" ]; then
+    for COMPOSE_FILE in "$STACKS_DIR"/*/docker-compose.yaml "$STACKS_DIR"/*/docker-compose.yml; do
+        [ -f "$COMPOSE_FILE" ] || continue
 
-    RESPONSE=$(curl -s -d "srv=$HOSTNAME&key=$API_KEY" https://api.mikr.us/db.bash 2>/dev/null)
+        STACK_NAME=$(basename "$(dirname "$COMPOSE_FILE")")
 
-    if [ -n "$RESPONSE" ]; then
-        # PostgreSQL shared
-        if echo "$RESPONSE" | grep -q "^psql="; then
-            SHARED_PSQL_HOST=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'Server:' | head -1 | sed 's/.*Server: *//' | tr -d '"')
-            SHARED_PSQL_USER=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'login:' | head -1 | sed 's/.*login: *//')
-            SHARED_PSQL_PASS=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-            SHARED_PSQL_NAME=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//' | tr -d '"')
+        # Check for postgres service
+        if grep -qE '^\s+image:\s*(postgres|postgresql)' "$COMPOSE_FILE" 2>/dev/null; then
+            # Extract credentials from environment variables in the compose file
+            local_db_user=$(grep -A20 'image:.*postgres' "$COMPOSE_FILE" | grep -oP 'POSTGRES_USER[=:]\s*\K[^\s"]+' | head -1)
+            local_db_pass=$(grep -A20 'image:.*postgres' "$COMPOSE_FILE" | grep -oP 'POSTGRES_PASSWORD[=:]\s*\K[^\s"]+' | head -1)
+            local_db_name=$(grep -A20 'image:.*postgres' "$COMPOSE_FILE" | grep -oP 'POSTGRES_DB[=:]\s*\K[^\s"]+' | head -1)
 
-            if [ -n "$SHARED_PSQL_HOST" ] && [ -n "$SHARED_PSQL_USER" ]; then
-                HAS_SHARED_POSTGRES=true
-                echo "   ✅ PostgreSQL (shared): $SHARED_PSQL_HOST / $SHARED_PSQL_NAME"
+            # Fallback defaults
+            local_db_user="${local_db_user:-app}"
+            local_db_name="${local_db_name:-appdb}"
+
+            if [ -n "$local_db_pass" ]; then
+                # Detect the host port mapping for postgres (if exposed)
+                local_db_port=$(grep -B5 -A5 '5432' "$COMPOSE_FILE" | grep -oP '127\.0\.0\.1:(\d+):5432' | grep -oP ':\K\d+(?=:)' | head -1)
+
+                # For bundled DBs we exec into the container, so use internal port
+                BUNDLED_DATABASES+=("${STACK_NAME}-pg:postgres:${STACK_NAME}:5432:${local_db_name}:${local_db_user}:${local_db_pass}")
+                echo "   ✅ PostgreSQL (bundled): $STACK_NAME / $local_db_name"
             fi
         fi
 
-        # MySQL shared
-        if echo "$RESPONSE" | grep -q "^mysql="; then
-            SHARED_MYSQL_HOST=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'Server:' | head -1 | sed 's/.*Server: *//' | tr -d '"')
-            SHARED_MYSQL_USER=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'login:' | head -1 | sed 's/.*login: *//')
-            SHARED_MYSQL_PASS=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-            SHARED_MYSQL_NAME=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//' | tr -d '"')
+        # Check for mysql/mariadb service
+        if grep -qE '^\s+image:\s*(mysql|mariadb)' "$COMPOSE_FILE" 2>/dev/null; then
+            local_db_user=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_USER[=:]\s*\K[^\s"]+' | head -1)
+            local_db_pass=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_PASSWORD[=:]\s*\K[^\s"]+' | head -1)
+            local_db_name=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_DATABASE[=:]\s*\K[^\s"]+' | head -1)
+            local_db_root_pass=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_ROOT_PASSWORD[=:]\s*\K[^\s"]+' | head -1)
 
-            if [ -n "$SHARED_MYSQL_HOST" ] && [ -n "$SHARED_MYSQL_USER" ]; then
-                HAS_SHARED_MYSQL=true
-                echo "   ✅ MySQL (shared): $SHARED_MYSQL_HOST / $SHARED_MYSQL_NAME"
+            # Use root if available, otherwise regular user
+            if [ -n "$local_db_root_pass" ]; then
+                local_db_user="root"
+                local_db_pass="$local_db_root_pass"
+            fi
+
+            local_db_user="${local_db_user:-root}"
+            local_db_name="${local_db_name:-appdb}"
+
+            if [ -n "$local_db_pass" ]; then
+                BUNDLED_DATABASES+=("${STACK_NAME}-mysql:mysql:${STACK_NAME}:3306:${local_db_name}:${local_db_user}:${local_db_pass}")
+                echo "   ✅ MySQL (bundled): $STACK_NAME / $local_db_name"
             fi
         fi
-    fi
-else
-    echo "⚠️  No API key found - skipping shared database detection"
+    done
+fi
+
+if [ ${#BUNDLED_DATABASES[@]} -eq 0 ]; then
+    echo "   No bundled databases found"
 fi
 
 # =============================================================================
-# PHASE 2: Configure dedicated/purchased databases
+# PHASE 2: Configure dedicated/external databases
 # =============================================================================
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  Do you have dedicated/purchased databases?                    ║"
+echo "║  Do you have external/dedicated databases to back up?          ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -88,7 +106,7 @@ if [ -f "$CREDENTIALS_FILE" ]; then
     fi
 fi
 
-read -p "Do you want to add/edit a dedicated database? (y/N): " ADD_CUSTOM || true
+read -p "Do you want to add/edit an external database? (y/N): " ADD_CUSTOM || true
 if [[ "$ADD_CUSTOM" =~ ^[yYtT] ]]; then
 
     while true; do
@@ -155,11 +173,11 @@ fi
 # PHASE 3: Generate backup script
 # =============================================================================
 
-if [ "$HAS_SHARED_POSTGRES" = false ] && [ "$HAS_SHARED_MYSQL" = false ] && [ ${#CUSTOM_DATABASES[@]} -eq 0 ]; then
+if [ ${#BUNDLED_DATABASES[@]} -eq 0 ] && [ ${#CUSTOM_DATABASES[@]} -eq 0 ]; then
     echo ""
     echo "❌ No databases found to back up!"
-    echo "   - Enable a shared database in your hosting panel"
-    echo "   - Or add a dedicated database by running this script again"
+    echo "   - Deploy an application with a bundled database"
+    echo "   - Or add an external database by running this script again"
     exit 1
 fi
 
@@ -176,11 +194,12 @@ cat > "$BACKUP_SCRIPT" << 'BACKUP_HEADER'
 # Generated by setup-db-backup.sh
 #
 # Supports:
-# - Shared databases (credentials from API - always up to date)
-# - Dedicated databases (credentials from file)
+# - Bundled databases (docker exec into containers)
+# - External databases (credentials from file)
 
 BACKUP_DIR="/opt/backups/db"
 CREDENTIALS_FILE="/opt/stackpilot/config/db-credentials.conf"
+STACKS_DIR="/opt/stacks"
 DATE=$(date +%Y%m%d_%H%M%S)
 KEEP_DAYS=7
 LOG_FILE="/var/log/db-backup.log"
@@ -194,67 +213,73 @@ find "$BACKUP_DIR" -name "*.sql.gz" -mtime +$KEEP_DAYS -delete 2>/dev/null
 
 BACKUP_HEADER
 
-# Add shared database backup (from API)
-if [ "$HAS_SHARED_POSTGRES" = true ] || [ "$HAS_SHARED_MYSQL" = true ]; then
-    cat >> "$BACKUP_SCRIPT" << 'SHARED_API'
+# Add bundled database backup (via docker exec)
+if [ ${#BUNDLED_DATABASES[@]} -gt 0 ]; then
+    cat >> "$BACKUP_SCRIPT" << 'BUNDLED_BACKUP'
 
 # =============================================================================
-# SHARED DATABASE BACKUP (credentials from API)
+# BUNDLED DATABASE BACKUP (docker exec into containers)
 # =============================================================================
 
-API_KEY=$(cat /klucz_api 2>/dev/null)
-HOSTNAME=$(hostname 2>/dev/null)
+# Scan /opt/stacks/*/docker-compose.yaml for database containers
+if [ -d "$STACKS_DIR" ]; then
+    for COMPOSE_FILE in "$STACKS_DIR"/*/docker-compose.yaml "$STACKS_DIR"/*/docker-compose.yml; do
+        [ -f "$COMPOSE_FILE" ] || continue
 
-if [ -n "$API_KEY" ]; then
-    RESPONSE=$(curl -s -d "srv=$HOSTNAME&key=$API_KEY" https://api.mikr.us/db.bash 2>/dev/null)
+        STACK_NAME=$(basename "$(dirname "$COMPOSE_FILE")")
+        COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
 
-SHARED_API
-fi
+        # Find postgres containers
+        if grep -qE '^\s+image:\s*(postgres|postgresql)' "$COMPOSE_FILE" 2>/dev/null; then
+            DB_USER=$(grep -A20 'image:.*postgres' "$COMPOSE_FILE" | grep -oP 'POSTGRES_USER[=:]\s*\K[^\s"]+' | head -1)
+            DB_NAME=$(grep -A20 'image:.*postgres' "$COMPOSE_FILE" | grep -oP 'POSTGRES_DB[=:]\s*\K[^\s"]+' | head -1)
+            DB_USER="${DB_USER:-app}"
+            DB_NAME="${DB_NAME:-appdb}"
 
-if [ "$HAS_SHARED_POSTGRES" = true ]; then
-    cat >> "$BACKUP_SCRIPT" << 'SHARED_PSQL'
-    # PostgreSQL shared
-    if echo "$RESPONSE" | grep -q "^psql="; then
-        PSQL_HOST=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'Server:' | head -1 | sed 's/.*Server: *//' | tr -d '"')
-        PSQL_USER=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'login:' | head -1 | sed 's/.*login: *//')
-        PSQL_PASS=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-        PSQL_NAME=$(echo "$RESPONSE" | grep -A4 "^psql=" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//' | tr -d '"')
+            # Find the DB service name (the key under 'services:' that has image: postgres)
+            DB_SERVICE=$(grep -B10 'image:.*postgres' "$COMPOSE_FILE" | grep -oP '^\s+(\w+):' | tail -1 | tr -d ' :')
+            DB_SERVICE="${DB_SERVICE:-db}"
 
-        if [ -n "$PSQL_HOST" ] && [ -n "$PSQL_USER" ]; then
-            export PGPASSWORD="$PSQL_PASS"
-            if pg_dump -h "$PSQL_HOST" -U "$PSQL_USER" "$PSQL_NAME" 2>/dev/null | gzip > "$BACKUP_DIR/shared_postgres_$DATE.sql.gz"; then
-                log "✅ PostgreSQL (shared) backup OK - shared_postgres_$DATE.sql.gz"
+            # Use docker compose exec to dump
+            BACKUP_FILE="$BACKUP_DIR/${STACK_NAME}_postgres_${DATE}.sql.gz"
+            if (cd "$COMPOSE_DIR" && docker compose exec -T "$DB_SERVICE" pg_dump -U "$DB_USER" "$DB_NAME" 2>/dev/null | gzip > "$BACKUP_FILE"); then
+                log "✅ PostgreSQL ($STACK_NAME) backup OK - $(basename "$BACKUP_FILE")"
             else
-                log "❌ PostgreSQL (shared) backup FAILED"
-            fi
-            unset PGPASSWORD
-        fi
-    fi
-SHARED_PSQL
-fi
-
-if [ "$HAS_SHARED_MYSQL" = true ]; then
-    cat >> "$BACKUP_SCRIPT" << 'SHARED_MYSQL'
-    # MySQL shared
-    if echo "$RESPONSE" | grep -q "^mysql="; then
-        MYSQL_HOST=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'Server:' | head -1 | sed 's/.*Server: *//' | tr -d '"')
-        MYSQL_USER=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'login:' | head -1 | sed 's/.*login: *//')
-        MYSQL_PASS=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'Haslo:' | head -1 | sed 's/.*Haslo: *//')
-        MYSQL_NAME=$(echo "$RESPONSE" | grep -A4 "^mysql=" | grep 'Baza:' | head -1 | sed 's/.*Baza: *//' | tr -d '"')
-
-        if [ -n "$MYSQL_HOST" ] && [ -n "$MYSQL_USER" ]; then
-            if mysqldump -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASS" "$MYSQL_NAME" 2>/dev/null | gzip > "$BACKUP_DIR/shared_mysql_$DATE.sql.gz"; then
-                log "✅ MySQL (shared) backup OK - shared_mysql_$DATE.sql.gz"
-            else
-                log "❌ MySQL (shared) backup FAILED"
+                log "❌ PostgreSQL ($STACK_NAME) backup FAILED"
+                rm -f "$BACKUP_FILE"
             fi
         fi
-    fi
-SHARED_MYSQL
-fi
 
-if [ "$HAS_SHARED_POSTGRES" = true ] || [ "$HAS_SHARED_MYSQL" = true ]; then
-    echo "fi" >> "$BACKUP_SCRIPT"
+        # Find mysql/mariadb containers
+        if grep -qE '^\s+image:\s*(mysql|mariadb)' "$COMPOSE_FILE" 2>/dev/null; then
+            DB_USER=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_USER[=:]\s*\K[^\s"]+' | head -1)
+            DB_PASS=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_PASSWORD[=:]\s*\K[^\s"]+' | head -1)
+            DB_NAME=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_DATABASE[=:]\s*\K[^\s"]+' | head -1)
+            DB_ROOT_PASS=$(grep -A20 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP 'MYSQL_ROOT_PASSWORD[=:]\s*\K[^\s"]+' | head -1)
+
+            # Prefer root for full backup
+            if [ -n "$DB_ROOT_PASS" ]; then
+                DB_USER="root"
+                DB_PASS="$DB_ROOT_PASS"
+            fi
+
+            DB_USER="${DB_USER:-root}"
+            DB_NAME="${DB_NAME:-appdb}"
+
+            DB_SERVICE=$(grep -B10 'image:.*m[ay]' "$COMPOSE_FILE" | grep -oP '^\s+(\w+):' | tail -1 | tr -d ' :')
+            DB_SERVICE="${DB_SERVICE:-db}"
+
+            BACKUP_FILE="$BACKUP_DIR/${STACK_NAME}_mysql_${DATE}.sql.gz"
+            if (cd "$COMPOSE_DIR" && docker compose exec -T "$DB_SERVICE" mysqldump -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" 2>/dev/null | gzip > "$BACKUP_FILE"); then
+                log "✅ MySQL ($STACK_NAME) backup OK - $(basename "$BACKUP_FILE")"
+            else
+                log "❌ MySQL ($STACK_NAME) backup FAILED"
+                rm -f "$BACKUP_FILE"
+            fi
+        fi
+    done
+fi
+BUNDLED_BACKUP
 fi
 
 # Add dedicated database backup (from credentials file)
@@ -262,7 +287,7 @@ if [ ${#CUSTOM_DATABASES[@]} -gt 0 ]; then
     cat >> "$BACKUP_SCRIPT" << 'CUSTOM_BACKUP'
 
 # =============================================================================
-# DEDICATED DATABASE BACKUP (credentials from file)
+# EXTERNAL DATABASE BACKUP (credentials from file)
 # =============================================================================
 
 if [ -f "$CREDENTIALS_FILE" ]; then

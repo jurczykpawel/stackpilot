@@ -28,16 +28,14 @@ export const setupServerTool = {
     "with './local/install-toolbox.sh <alias>', then SSH in and run scripts directly " +
     "(e.g. 'ssh vps' → 'deploy.sh uptime-kuma'). This avoids needing bash on Windows.\n\n" +
     "FRESH SERVER: When testing a new server, check if Docker is installed. If not, " +
-    "suggest the user run the built-in 'start' script (ssh <alias> then 'start'). " +
-    "It sets timezone, installs Docker, updates the system, and optionally sets up zsh. " +
-    "Guide the user step by step: T for timezone, 1 for nano, T/N for zsh, T for Docker (required!), T for updates.",
+    "suggest the user install Docker with: curl -fsSL https://get.docker.com | sh",
   inputSchema: {
     type: "object" as const,
     properties: {
       // Setup mode
       host: {
         type: "string",
-        description: "Server address (e.g. 'srv20.mikr.us'). Triggers SETUP mode.",
+        description: "Server address (e.g. 'srv20.example.com'). Triggers SETUP mode.",
       },
       port: {
         type: "number",
@@ -222,7 +220,7 @@ async function handleTest(args: Record<string, unknown>): Promise<ToolResult> {
             "  2. You entered the correct password",
             "",
             "To set up a new connection, call setup_server with:",
-            "  { host: 'srvXX.mikr.us', port: 2222 }",
+            "  { host: 'your-server.example.com', port: 22 }",
           ].join("\n"),
         },
       ],
@@ -301,32 +299,15 @@ async function handleTest(args: Record<string, unknown>): Promise<ToolResult> {
   }
 
   // 5. Detect if initial setup needed (no Docker = fresh server)
-  const needsSetup = !hasDocker;
-  const nonPolishTz = timezone !== "Europe/Warsaw" && timezone !== "unknown";
-
-  if (needsSetup || nonPolishTz) {
+  if (!hasDocker) {
     lines.push("", "--- RECOMMENDED: Initial Server Setup ---");
     lines.push("");
-    lines.push("This looks like a fresh server. Mikrus provides a built-in 'start' script");
-    lines.push("that configures essential settings. Tell the user to run it via SSH:");
+    lines.push("Docker is NOT installed. Most toolbox apps require Docker.");
+    lines.push("Install it with:");
     lines.push("");
-    lines.push(`  ssh ${alias}`);
-    lines.push("  start");
+    lines.push("  curl -fsSL https://get.docker.com | sh");
     lines.push("");
-    lines.push("The script is interactive and asks about:");
-    lines.push("  1. Timezone → answer T (Tak/Yes) to set Europe/Warsaw");
-    lines.push("  2. Default editor → type 1 (nano, easiest for beginners)");
-    lines.push("  3. Shell → zsh with Oh My Zsh: T if user wants a modern shell, N to keep bash");
-    lines.push("  4. Docker → answer T (required for deploying apps with the toolbox)");
-    lines.push("  5. System update → answer T (recommended for security)");
-    lines.push("");
-    lines.push("Guide the user through each step — explain what each question means.");
-    if (!hasDocker) {
-      lines.push("");
-      lines.push("IMPORTANT: Docker is NOT installed. Most toolbox apps require Docker.");
-      lines.push("The user MUST answer T (Yes) to the Docker question in 'start',");
-      lines.push("or install it manually: curl -fsSL https://get.docker.com | sh");
-    }
+    lines.push("After installation, verify with: docker --version");
   }
 
   return { content: [{ type: "text", text: lines.join("\n") }] };

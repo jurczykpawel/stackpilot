@@ -106,7 +106,7 @@ Używane przez aplikacje wymagające PostgreSQL (n8n, listmonk, umami, nocodb, t
 
 | Flaga | Opis | Domyślnie |
 |-------|------|-----------|
-| `--db-source=TYPE` | `shared` (API Mikrus) lub `custom` | pytanie |
+| `--db-source=TYPE` | `bundled` (kontener Docker) lub `custom` | pytanie |
 | `--db-host=HOST` | Host bazy danych | pytanie |
 | `--db-port=PORT` | Port bazy | `5432` |
 | `--db-name=NAME` | Nazwa bazy danych | pytanie |
@@ -114,15 +114,13 @@ Używane przez aplikacje wymagające PostgreSQL (n8n, listmonk, umami, nocodb, t
 | `--db-user=USER` | Użytkownik bazy | pytanie |
 | `--db-pass=PASS` | Hasło bazy | pytanie |
 
-### --db-source=shared
+### --db-source=bundled
 
-Pobiera dane bazy z API Mikrus. Wymaga zalogowania w przeglądarce.
+Uruchamia kontener PostgreSQL/MySQL obok aplikacji. Dane dostępowe generowane automatycznie.
 
 ```bash
-./local/deploy.sh nocodb --ssh=mikrus --db-source=shared --domain=nocodb.example.com --yes
+./local/deploy.sh nocodb --ssh=vps --db-source=bundled --domain=nocodb.example.com --yes
 ```
-
-**Uwaga:** Shared PostgreSQL na Mikrusie to wersja 12, która nie obsługuje `gen_random_uuid()` (wymagane PG 13+). Aplikacje używające Prisma lub pgcrypto **nie działają** na shared: n8n, umami, listmonk, postiz, typebot. Użyj `--db-source=custom` z dedykowaną bazą.
 
 ### --db-source=custom
 
