@@ -451,7 +451,7 @@ if [ -n "$DOCKER_IMAGE" ]; then
 
         # Try Docker Hub API (timeout 5s)
         API_URL="https://hub.docker.com/v2/repositories/${REPO_OWNER}/${REPO_NAME}/tags/${TAG}"
-        COMPRESSED_SIZE=$(curl -sf --max-time 5 "$API_URL" 2>/dev/null | grep -o '"full_size":[0-9]*' | grep -o '[0-9]*')
+        COMPRESSED_SIZE=$(curl -sf --max-time 5 "$API_URL" 2>/dev/null | grep -o '"full_size":[0-9]*' | grep -o '[0-9]*' || true)
 
         if [ -n "$COMPRESSED_SIZE" ] && [ "$COMPRESSED_SIZE" -gt 0 ]; then
             # Compressed * 2.5 ≈ uncompressed size on disk
@@ -884,7 +884,7 @@ if is_on_server; then
     fi
     [ -n "$REMOTE_BUILD_FILE" ] && rm -f "$REMOTE_BUILD_FILE"
 else
-    REMOTE_SCRIPT="/tmp/mikrus-deploy-$$.sh"
+    REMOTE_SCRIPT="/tmp/sp-deploy-$$.sh"
     scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT"
 
     # Cleanup remote build file after install

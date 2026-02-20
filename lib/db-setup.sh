@@ -223,6 +223,61 @@ setup_bundled_db() {
     return 0
 }
 
+# Generate docker-compose YAML snippet for a bundled DB service.
+# Called by app install.sh scripts when BUNDLED_DB_TYPE is set.
+# Usage: inject_bundled_db_service >> docker-compose.yaml
+inject_bundled_db_service() {
+    [ -z "$BUNDLED_DB_TYPE" ] && return 0
+
+    if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
+        cat <<DBEOF
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME:-appdb}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+DBEOF
+    elif [ "$BUNDLED_DB_TYPE" = "mysql" ]; then
+        cat <<DBEOF
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_NAME:-appdb}
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASS}
+    volumes:
+      - db-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+DBEOF
+    fi
+}
+
+# Generate docker-compose volumes section for bundled DB.
+# Usage: inject_bundled_db_volumes >> docker-compose.yaml
+inject_bundled_db_volumes() {
+    [ -z "$BUNDLED_DB_TYPE" ] && return 0
+    cat <<DBEOF
+
+volumes:
+  db-data:
+DBEOF
+}
+
 # =============================================================================
 # CHECKING EXISTING SCHEMAS
 # =============================================================================
@@ -411,6 +466,8 @@ get_mysql_url() {
 export -f ask_database
 export -f ask_custom_db
 export -f setup_bundled_db
+export -f inject_bundled_db_service
+export -f inject_bundled_db_volumes
 export -f check_schema_exists
 export -f warn_if_schema_exists
 export -f fetch_database

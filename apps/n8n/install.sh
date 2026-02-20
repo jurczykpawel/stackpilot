@@ -116,6 +116,33 @@ services:
 
 EOF
 
+# Append bundled database service if using bundled DB
+if [ -n "$BUNDLED_DB_TYPE" ]; then
+    # Add depends_on to n8n service
+    sudo sed -i '/restart: always/a\    depends_on:\n      - db' docker-compose.yaml
+
+    if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
+        cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  db-data:
+DBEOF
+    fi
+fi
+
 echo "--- Starting n8n ---"
 sudo docker compose up -d
 

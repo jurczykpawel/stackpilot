@@ -169,6 +169,34 @@ cat <<EOF | sudo tee -a docker-compose.yaml
 EOF
 fi
 
+# Append bundled database service if using bundled DB
+if [ -n "$BUNDLED_DB_TYPE" ]; then
+    # Add depends_on to main service (first occurrence only)
+    sudo sed -i '0,/restart: unless-stopped/s/restart: unless-stopped/restart: unless-stopped\n    depends_on:\n      - db/' docker-compose.yaml
+
+    if [ "$BUNDLED_DB_TYPE" = "mysql" ]; then
+        cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+    volumes:
+      - db-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  db-data:
+DBEOF
+    fi
+fi
+
 # Bind mounts are used instead of named volumes - data in /opt/stacks/cap/
 # This way backup automatically includes mysql-data/ and minio-data/
 

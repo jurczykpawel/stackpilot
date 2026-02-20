@@ -118,8 +118,34 @@ services:
       resources:
         limits:
           memory: 300M
-
 EOF
+
+# Append bundled database service if using bundled DB
+if [ -n "$BUNDLED_DB_TYPE" ]; then
+    # Add depends_on to first service only (typebot-builder already has depends_on for viewer)
+    sudo sed -i '0,/restart: always/s/restart: always/restart: always\n    depends_on:\n      - db/' docker-compose.yaml
+
+    if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
+        cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  db-data:
+DBEOF
+    fi
+fi
 
 sudo docker compose up -d
 
