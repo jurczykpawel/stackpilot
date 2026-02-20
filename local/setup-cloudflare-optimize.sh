@@ -378,7 +378,7 @@ else
     echo -e "${GREEN}🎉 Optimization complete!${NC}"
     echo ""
     echo "📋 Configured:"
-    echo "   • SSL: Flexible (required for the VPS)"
+    echo "   • SSL: Full (Caddy auto-cert)"
     echo "   • Compression: Brotli"
     echo "   • HTTPS: enforced"
     echo "   • TLS: minimum 1.2"

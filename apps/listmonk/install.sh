@@ -37,9 +37,23 @@ echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 
-# NOTE: Listmonk does not support custom schema (always uses public).
-# If you share the database with other apps, listmonk creates tables in the public schema.
-# This is safe — listmonk table names (campaigns, subscribers, lists, etc.) are unique.
+# WARNING: Listmonk does not support schema isolation (always uses public).
+echo ""
+echo -e "${YELLOW:-\033[1;33m}⚠️  WARNING: Listmonk does not support schema isolation!${NC:-\033[0m}"
+echo "   Tables will be created in the 'public' schema of database '$DB_NAME'."
+echo "   If you share this database with other apps, listmonk tables"
+echo "   (campaigns, subscribers, lists, etc.) will be alongside them."
+echo ""
+if [ "${YES_MODE:-}" = true ]; then
+    echo "   (--yes: accepting automatically)"
+else
+    read -p "   Continue? (y/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 1
+    fi
+fi
 
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then

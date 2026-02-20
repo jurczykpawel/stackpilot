@@ -278,7 +278,7 @@ if [ "$UPDATE_MODE" = true ]; then
     echo "🚀 Starting update..."
 
     # Copy script to server
-    REMOTE_SCRIPT="/tmp/mikrus-update-$$.sh"
+    REMOTE_SCRIPT="/tmp/sp-update-$$.sh"
     server_copy "$UPDATE_SCRIPT" "$REMOTE_SCRIPT"
 
     # If we have a local build file, copy it to the server
@@ -837,8 +837,8 @@ if [ "$DRY_RUN" = true ]; then
         echo "  bash $SCRIPT_PATH"
         echo "  env: DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV"
     else
-        echo "  scp $SCRIPT_PATH $SSH_ALIAS:/tmp/mikrus-deploy-$$.sh"
-        echo "  ssh -t $SSH_ALIAS \"export DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '/tmp/mikrus-deploy-$$.sh'\""
+        echo "  scp $SCRIPT_PATH $SSH_ALIAS:/tmp/sp-deploy-$$.sh"
+        echo "  ssh -t $SSH_ALIAS \"export DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '/tmp/sp-deploy-$$.sh'\""
     fi
     echo ""
     echo -e "${BLUE}[dry-run] After installation:${NC}"

@@ -186,10 +186,10 @@ else
         echo "   Required: DB_HOST, DB_USER, DB_PASS, DB_NAME"
         echo ""
         echo "   Use deploy.sh - it configures the database automatically:"
-        echo "   ./local/deploy.sh wordpress --ssh=mikrus"
+        echo "   ./local/deploy.sh wordpress --ssh=vps"
         echo ""
         echo "   Or use SQLite mode (no MySQL):"
-        echo "   WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=mikrus"
+        echo "   WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=vps"
         exit 1
     fi
     DB_PORT=${DB_PORT:-3306}

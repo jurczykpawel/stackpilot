@@ -3,7 +3,7 @@
 # Tests all apps on a remote server: deploy → check HTTP → cleanup
 #
 # Usage:
-#   ./tests/test-apps.sh                  # uses SSH_HOST=mikrus
+#   ./tests/test-apps.sh                  # uses SSH_HOST=vps
 #   SSH_HOST=myserver ./tests/test-apps.sh
 #   ./tests/test-apps.sh ntfy dockge      # test only specific apps
 #

@@ -477,7 +477,7 @@ configure_domain_cloudflare() {
     if [ -n "$WEBROOT" ]; then
         # Static site (littlelink, etc.) - use file_server mode
         echo "   Detected static site: $WEBROOT"
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static --cloudflare" 2>/dev/null; then
+        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static" 2>/dev/null; then
             echo -e "${GREEN}HTTPS configured (file_server)${NC}"
             CADDY_OK=true
             # Remove marker (don't remove domain_public_webroot!)
@@ -485,7 +485,7 @@ configure_domain_cloudflare() {
         fi
     else
         # Docker app - use reverse_proxy
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT' proxy --cloudflare" 2>/dev/null; then
+        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT' proxy" 2>/dev/null; then
             echo -e "${GREEN}HTTPS configured (reverse_proxy)${NC}"
             CADDY_OK=true
         fi

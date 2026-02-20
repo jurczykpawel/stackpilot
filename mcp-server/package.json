@@ -1,7 +1,7 @@
 {
   "name": "stackpilot-mcp",
   "version": "0.1.0",
-  "description": "MCP server for deploying self-hosted apps to Mikrus VPS",
+  "description": "MCP server for deploying self-hosted apps to any VPS",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {

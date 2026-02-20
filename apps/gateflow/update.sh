@@ -5,9 +5,9 @@
 # Author: Paweł (Lazy Engineer)
 #
 # Usage:
-#   ./local/deploy.sh gateflow --ssh=mikrus --update
-#   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
-#   ./local/deploy.sh gateflow --ssh=mikrus --update --restart (restart without updating)
+#   ./local/deploy.sh gateflow --ssh=vps --update
+#   ./local/deploy.sh gateflow --ssh=vps --update --build-file=~/Downloads/gateflow-build.tar.gz
+#   ./local/deploy.sh gateflow --ssh=vps --update --restart (restart without updating)
 #
 # Environment variables:
 #   BUILD_FILE - path to local tar.gz file (instead of downloading from GitHub)
@@ -142,7 +142,7 @@ if [ "$RESTART_ONLY" = false ]; then
             echo -e "${RED}❌ Failed to download new version${NC}"
             echo ""
             echo "If the repo is private, use --build-file:"
-            echo "   ./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz"
+            echo "   ./local/deploy.sh gateflow --ssh=vps --update --build-file=~/Downloads/gateflow-build.tar.gz"
             exit 1
         fi
     fi

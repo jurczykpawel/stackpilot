@@ -196,7 +196,7 @@ else
                 echo "   • No internet connection"
                 echo ""
                 echo "   Solution: Download the file manually and use the --build-file flag:"
-                echo "   ./local/deploy.sh gateflow --ssh=mikrus --build-file=~/Downloads/gateflow-build.tar.gz"
+                echo "   ./local/deploy.sh gateflow --ssh=vps --build-file=~/Downloads/gateflow-build.tar.gz"
                 exit 1
             fi
         fi
