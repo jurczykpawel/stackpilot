@@ -56,18 +56,18 @@ export const deploySiteTool = {
       ssh_alias: {
         type: "string",
         description:
-          "SSH alias for the Mikrus server. If omitted, uses the default configured server.",
+          "SSH alias for the VPS. If omitted, uses the default configured server.",
       },
       domain_type: {
         type: "string",
-        enum: ["cytrus", "cloudflare", "local"],
+        enum: ["cloudflare", "caddy", "local"],
         description:
-          "'cytrus' = free Mikrus subdomain (*.byst.re). 'cloudflare' = own domain via Caddy. 'local' = no external domain.",
+          "'cloudflare' = own domain via Cloudflare DNS + Caddy. 'caddy' = own domain via Caddy auto-HTTPS. 'local' = no external domain.",
       },
       domain: {
         type: "string",
         description:
-          "'auto' for automatic Cytrus subdomain assignment. Full domain for cloudflare (e.g. 'app.example.com').",
+          "Full domain name (e.g. 'app.example.com'). Required for caddy and cloudflare domain types.",
       },
       port: {
         type: "number",
@@ -187,7 +187,7 @@ export async function handleDeploySite(
     alias,
     strategy,
     domainType:
-      (args.domain_type as "cytrus" | "cloudflare" | "local") ?? "local",
+      (args.domain_type as "cloudflare" | "caddy" | "local") ?? "local",
     domain: args.domain as string | undefined,
     port: (args.port as number) ?? analysis.port ?? undefined,
     startCommand:

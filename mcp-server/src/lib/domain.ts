@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
-import { sshExec } from "./ssh.js";
-import { localScript, execLocalScript } from "./toolbox-paths.js";
+import { existsSync, readFileSync } from "node:fs";
+import { sshExec, sshExecWithStdin } from "./ssh.js";
+import { localScript, systemScript, execLocalScript } from "./toolbox-paths.js";
 
 export interface DomainResult {
   ok: boolean;
@@ -12,7 +12,6 @@ export interface DomainResult {
 const DOMAIN_REGEX = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i;
 
 function validateDomainInput(domain: string): string | null {
-  if (domain === "-") return null; // auto-assign sentinel
   if (!DOMAIN_REGEX.test(domain) || domain.includes("..")) {
     return `Invalid domain: ${domain}. Use only letters, numbers, dots, and dashes.`;
   }
@@ -20,61 +19,62 @@ function validateDomainInput(domain: string): string | null {
 }
 
 /**
- * Register a Cytrus domain using local/cytrus-domain.sh.
- * The script handles: SSH → get API key + hostname, curl Mikrus API, parse response.
+ * Set up a Caddy reverse proxy domain via sp-expose on the server.
+ * Caddy automatically obtains a Let's Encrypt certificate.
+ * Prerequisite: user must point their domain's A record to the server IP.
  */
-export async function setupCytrusDomain(
+export async function setupCaddyDomain(
   alias: string,
   port: number,
-  requestedDomain?: string
+  domain: string
 ): Promise<DomainResult> {
-  const script = localScript("cytrus-domain.sh");
-  if (!existsSync(script)) {
-    return {
-      ok: false,
-      url: null,
-      domain: null,
-      error:
-        "Toolbox script not found: local/cytrus-domain.sh. Clone the full stackpilot repo.",
-    };
-  }
-
-  const domain =
-    !requestedDomain || requestedDomain === "auto" ? "-" : requestedDomain;
-
   const domainErr = validateDomainInput(domain);
   if (domainErr) {
-    return { ok: false, url: null, domain: null, error: domainErr };
+    return { ok: false, url: null, domain, error: domainErr };
   }
 
-  const result = await execLocalScript(
-    script,
-    [domain, String(port), alias],
-    60_000
+  // Ensure Caddy is installed
+  const check = await sshExec(alias, "command -v sp-expose 2>/dev/null", 10_000);
+  if (check.exitCode !== 0) {
+    const caddyScript = systemScript("caddy-install.sh");
+    if (existsSync(caddyScript)) {
+      const installResult = await sshExecWithStdin(
+        alias,
+        "bash -s",
+        readFileSync(caddyScript, "utf-8"),
+        120_000
+      );
+      if (installResult.exitCode !== 0) {
+        return {
+          ok: false,
+          url: null,
+          domain,
+          error: `Failed to install Caddy: ${installResult.stderr}`,
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        url: null,
+        domain,
+        error: "Caddy (sp-expose) not found. Install Caddy first (system/caddy-install.sh).",
+      };
+    }
+  }
+
+  const result = await sshExec(
+    alias,
+    `sp-expose '${domain}' '${port}'`,
+    15_000
   );
-
   if (result.exitCode === 0) {
-    // Parse URL from script output (e.g. "https://xyz.byst.re")
-    const urlMatch = result.stdout.match(/https:\/\/\S+/);
-    const assignedDomain =
-      urlMatch?.[0]?.replace("https://", "") ??
-      (domain !== "-" ? domain : null);
-    return {
-      ok: true,
-      url:
-        urlMatch?.[0] ??
-        (assignedDomain ? `https://${assignedDomain}` : null),
-      domain: assignedDomain,
-      error: null,
-    };
+    return { ok: true, url: `https://${domain}`, domain, error: null };
   }
-
   return {
     ok: false,
     url: null,
-    domain: null,
-    error:
-      (result.stdout || result.stderr || "cytrus-domain.sh failed").trim(),
+    domain,
+    error: `sp-expose failed. Ensure the domain's A record points to the server. ${result.stderr}`,
   };
 }
 

@@ -24,7 +24,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
     NTFY_BASE_URL="https://notify.example.com"
-    echo "✅ Domain: automatic (Cytrus) — BASE_URL will be updated"
+    echo "✅ Domain: automatic (Caddy) — BASE_URL will be updated"
 else
     NTFY_BASE_URL="https://notify.example.com"
     echo "⚠️  No domain - use --domain=... or update BASE_URL later"

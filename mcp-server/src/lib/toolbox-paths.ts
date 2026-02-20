@@ -12,7 +12,7 @@ export function systemScript(name: string): string {
 }
 
 export function hasToolboxScripts(): boolean {
-  return existsSync(localScript("cytrus-domain.sh"));
+  return existsSync(localScript("deploy.sh"));
 }
 
 interface ExecResult {

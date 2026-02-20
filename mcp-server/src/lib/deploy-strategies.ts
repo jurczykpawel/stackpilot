@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { sshExec, sshExecWithStdin, rsyncToServer } from "./ssh.js";
 import {
-  setupCytrusDomain,
+  setupCaddyDomain,
   setupCloudflareProxy,
   localOnly,
   type DomainResult,
@@ -18,7 +18,7 @@ export interface DeployConfig {
   name: string;
   alias: string;
   strategy: "static" | "node" | "docker";
-  domainType: "cytrus" | "cloudflare" | "local";
+  domainType: "cloudflare" | "caddy" | "local";
   domain?: string;
   port?: number;
   startCommand?: string;
@@ -75,9 +75,7 @@ export async function deploy(
 
 // ---------------------------------------------------------------------------
 // Static deployment — uses local/add-static-hosting.sh
-// The script handles:
-//   Cytrus:     nginx container + cytrus-domain.sh
-//   Cloudflare: Caddy file_server + dns-add.sh + sp-expose
+// The script handles Caddy file_server + dns-add.sh + sp-expose
 // ---------------------------------------------------------------------------
 
 async function deployStatic(config: DeployConfig): Promise<DeployResult> {
@@ -122,8 +120,8 @@ async function deployStatic(config: DeployConfig): Promise<DeployResult> {
   if (domainType === "local") {
     return err(
       lines,
-      "Static sites require a domain (domain_type: 'cytrus' or 'cloudflare'). " +
-        "Use domain_type='cytrus' for a free Mikrus subdomain (*.byst.re)."
+      "Static sites require a domain (domain_type: 'caddy' or 'cloudflare'). " +
+        "Use domain_type='caddy' with your own domain."
     );
   }
   return setupStaticViaScript(config, lines, webRoot);
@@ -131,7 +129,6 @@ async function deployStatic(config: DeployConfig): Promise<DeployResult> {
 
 /**
  * Set up static hosting via local/add-static-hosting.sh.
- * The script auto-detects Cytrus vs Cloudflare from domain suffix.
  */
 async function setupStaticViaScript(
   config: DeployConfig,
@@ -150,22 +147,17 @@ async function setupStaticViaScript(
 
   // Determine domain name
   let siteDomain: string;
-  if (domainType === "cytrus") {
-    siteDomain =
-      !domain || domain === "auto" ? `${name}.byst.re` : domain;
-  } else {
-    if (!domain) {
-      return err(
-        lines,
-        "Cloudflare domain_type requires a domain parameter (e.g. 'static.example.com')."
-      );
-    }
-    siteDomain = domain;
-    // Ensure Caddy + sp-expose are installed on server
-    await ensureCaddy(alias, lines);
+  if (!domain) {
+    return err(
+      lines,
+      "domain parameter is required for static sites (e.g. 'static.example.com')."
+    );
   }
+  siteDomain = domain;
+  // Ensure Caddy + sp-expose are installed on server
+  await ensureCaddy(alias, lines);
 
-  // Find a free port (Cytrus needs it for nginx container; Cloudflare ignores it)
+  // Find a free port for the static hosting container
   const port = config.port ?? (await findFreePort(alias, 8096));
 
   lines.push(`Setting up static hosting for ${siteDomain}...`);
@@ -529,13 +521,22 @@ CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${po
  */
 async function setupServiceDomain(
   alias: string,
-  domainType: "cytrus" | "cloudflare" | "local",
+  domainType: "cloudflare" | "caddy" | "local",
   domain: string | undefined,
   port: number,
   lines: string[]
 ): Promise<DomainResult> {
-  if (domainType === "cytrus") {
-    return setupCytrusDomain(alias, port, domain);
+  if (domainType === "caddy") {
+    if (!domain) {
+      return {
+        ok: false,
+        url: null,
+        domain: null,
+        error: "Caddy domain_type requires a domain parameter (e.g. 'myapp.example.com').",
+      };
+    }
+    await ensureCaddy(alias, lines);
+    return setupCaddyDomain(alias, port, domain);
   }
   if (domainType === "cloudflare") {
     if (!domain) {
@@ -543,8 +544,7 @@ async function setupServiceDomain(
         ok: false,
         url: null,
         domain: null,
-        error:
-          "Cloudflare domain_type requires a domain parameter.",
+        error: "Cloudflare domain_type requires a domain parameter.",
       };
     }
     await ensureCaddy(alias, lines);

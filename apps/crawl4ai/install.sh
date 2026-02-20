@@ -50,7 +50,7 @@ fi
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus)"
+    echo "✅ Domain: automatic (Caddy)"
 else
     echo "⚠️  No domain - use --domain=... or access via SSH tunnel"
 fi

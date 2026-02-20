@@ -41,21 +41,6 @@ if [ "$DB_SCHEMA" != "public" ]; then
     echo "   Schema: $DB_SCHEMA"
 fi
 
-# Check for shared DB (doesn't support pgcrypto)
-if [[ "$DB_HOST" == psql*.mikr.us ]]; then
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ ERROR: Umami does NOT work with a shared database!       ║"
-    echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Umami requires the 'pgcrypto' extension, which is not       ║"
-    echo "║  available on the free shared database.                      ║"
-    echo "║                                                              ║"
-    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    exit 1
-fi
-
 # Build DATABASE_URL
 if [ "$DB_SCHEMA" = "public" ]; then
     DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"

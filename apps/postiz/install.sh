@@ -82,21 +82,6 @@ else
     REDIS_URL="redis://postiz-redis:6379"
 fi
 
-# Check for shared DB (doesn't support gen_random_uuid on PG 12)
-if [[ "$DB_HOST" == psql*.mikr.us ]]; then
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ ERROR: Postiz does NOT work with a shared database!      ║"
-    echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Postiz (Prisma) requires gen_random_uuid(), which is not    ║"
-    echo "║  available in PostgreSQL 12 (shared database).               ║"
-    echo "║                                                              ║"
-    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    exit 1
-fi
-
 # Check PostgreSQL credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
     echo "❌ Missing PostgreSQL credentials!"
@@ -125,7 +110,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     FRONTEND_URL="https://$DOMAIN"
     BACKEND_URL="https://$DOMAIN/api"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus) — URLs will be updated"
+    echo "✅ Domain: automatic (Caddy) — URLs will be updated"
     MAIN_URL="http://localhost:$PORT"
     FRONTEND_URL="http://localhost:$PORT"
     BACKEND_URL="http://localhost:$PORT/api"

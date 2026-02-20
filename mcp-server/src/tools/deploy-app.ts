@@ -12,11 +12,11 @@ export const deployAppTool = {
   name: "deploy_app",
   description:
     "Deploy an application to a VPS server. Runs the local deploy.sh script with --yes flag (non-interactive). All required parameters must be provided. For apps requiring a database, specify db_source. For public access, specify domain_type and domain. Use list_apps first to see available apps and their requirements.\n\n" +
-    "IMPORTANT: When domain_type is 'cytrus' or 'cloudflare', this tool automatically configures the domain — no need to call setup_domain separately.\n\n" +
+    "IMPORTANT: When domain_type is 'caddy' or 'cloudflare', this tool automatically configures the domain — no need to call setup_domain separately.\n\n" +
     "WORDPRESS: Before deploying WordPress, ALWAYS ask the user which database mode they prefer:\n" +
     "  - SQLite (recommended for small sites, blogs, portfolios) — pass extra_env: { WP_DB_MODE: 'sqlite' }, no db_source needed\n" +
-    "  - MySQL shared (free Mikrus DB) — pass db_source: 'shared'\n" +
-    "  - MySQL custom (own/paid DB) — pass db_source: 'custom' with db_host, db_name, db_user, db_pass\n\n" +
+    "  - MySQL bundled (auto-provisioned MySQL container) — pass db_source: 'bundled'\n" +
+    "  - MySQL custom (own/external DB) — pass db_source: 'custom' with db_host, db_name, db_user, db_pass\n\n" +
     "GATEFLOW: GateFlow is a self-hosted digital products sales platform (Gumroad alternative). " +
     "It requires a Supabase project (free tier). Use setup_gateflow_config tool FIRST to configure Supabase keys securely " +
     "(opens browser, no secrets in conversation). After config is saved, deploy_app loads it automatically.\n" +
@@ -39,20 +39,20 @@ export const deployAppTool = {
       },
       domain_type: {
         type: "string",
-        enum: ["cytrus", "cloudflare", "local"],
+        enum: ["cloudflare", "caddy", "local"],
         description:
-          "'cytrus' = free Mikrus subdomain (*.byst.re etc.), 'cloudflare' = own domain via Cloudflare DNS, 'local' = no domain (SSH tunnel access only).",
+          "'cloudflare' = own domain via Cloudflare DNS + Caddy. 'caddy' = own domain via Caddy auto-HTTPS (Let's Encrypt). 'local' = no domain (SSH tunnel access only).",
       },
       domain: {
         type: "string",
         description:
-          "Domain name. 'auto' for automatic Cytrus subdomain assignment. Full domain for cloudflare (e.g. 'app.example.com'). Not needed for domain_type='local'.",
+          "Full domain name (e.g. 'app.example.com'). Required for caddy and cloudflare domain types. Not needed for domain_type='local'.",
       },
       db_source: {
         type: "string",
-        enum: ["shared", "custom"],
+        enum: ["bundled", "custom"],
         description:
-          "'shared' = free Mikrus DB (PostgreSQL 12, no gen_random_uuid - does NOT work for n8n/umami/listmonk/postiz/typebot). 'custom' = dedicated DB with explicit credentials. Always check the app's README first.",
+          "'bundled' = auto-provisioned database container (PostgreSQL/MySQL) with generated credentials. 'custom' = external DB with explicit credentials. Always check the app's README first.",
       },
       db_host: { type: "string", description: "Custom database host." },
       db_port: {
@@ -74,7 +74,7 @@ export const deployAppTool = {
       extra_env: {
         type: "object",
         description:
-          "Additional environment variables for specific apps. Examples: { DOMAIN_PUBLIC: 'static.byst.re' } for filebrowser, { WP_DB_MODE: 'sqlite' } for wordpress.",
+          "Additional environment variables for specific apps. Examples: { DOMAIN_PUBLIC: 'static.example.com' } for filebrowser, { WP_DB_MODE: 'sqlite' } for wordpress.",
         additionalProperties: { type: "string" },
       },
       build_file: {
@@ -136,9 +136,6 @@ export async function handleDeployApp(
   const skipDbCheck = appName === "wordpress" && extraEnv.WP_DB_MODE === "sqlite";
   if (meta?.requiresDb && !dbSource && !skipDbCheck) {
     const dbType = meta.dbType === "mysql" ? "MySQL" : "PostgreSQL";
-    const pgcryptoNote = meta.specialNotes.some((n) => n.includes("pgcrypto"))
-      ? `\n\nIMPORTANT: This app requires pgcrypto extension — the free shared Mikrus DB (PostgreSQL 12) does NOT support it. The user MUST use db_source: 'custom' with a dedicated PostgreSQL instance.`
-      : "";
     const wpNote = appName === "wordpress"
       ? `\n\nALTERNATIVE: WordPress can run without MySQL using SQLite mode. Pass extra_env: { WP_DB_MODE: "sqlite" } to skip database requirement entirely.`
       : "";
@@ -147,9 +144,9 @@ export async function handleDeployApp(
       content: [{
         type: "text",
         text: `This app requires ${dbType}. Ask the user which database to use:\n` +
-          `- db_source: 'shared' — free Mikrus DB (no extra params needed)\n` +
-          `- db_source: 'custom' — dedicated DB (ask user for db_host, db_port, db_name, db_user, db_pass)` +
-          pgcryptoNote + wpNote,
+          `- db_source: 'bundled' — auto-provisioned ${dbType} container with generated credentials\n` +
+          `- db_source: 'custom' — external DB (ask user for db_host, db_port, db_name, db_user, db_pass)` +
+          wpNote,
       }],
     };
   }

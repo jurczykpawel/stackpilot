@@ -27,21 +27,6 @@ PORT_VIEWER=8082
 echo "--- 🤖 Typebot Setup ---"
 echo "Requires PostgreSQL Database."
 
-# Check for shared DB (doesn't support gen_random_uuid on PG 12)
-if [[ "$DB_HOST" == psql*.mikr.us ]]; then
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ ERROR: Typebot does NOT work with a shared database!     ║"
-    echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Typebot (Prisma) requires gen_random_uuid(), which is not   ║"
-    echo "║  available in PostgreSQL 12 (shared database).               ║"
-    echo "║                                                              ║"
-    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    exit 1
-fi
-
 # Validate database credentials
 if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ]; then
     echo "❌ Error: Missing database credentials!"

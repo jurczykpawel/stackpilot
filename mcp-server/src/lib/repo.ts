@@ -15,8 +15,8 @@ let cachedRoot: string | null = null;
 export function resolveRepoRoot(): string {
   if (cachedRoot) return cachedRoot;
 
-  // 1. Check MIKRUS_TOOLBOX_PATH env var
-  const envPath = process.env.MIKRUS_TOOLBOX_PATH;
+  // 1. Check STACKPILOT_PATH env var
+  const envPath = process.env.STACKPILOT_PATH;
   if (envPath && existsSync(join(envPath, "local", "deploy.sh"))) {
     cachedRoot = resolve(envPath);
     return cachedRoot;
@@ -54,9 +54,9 @@ export function resolveRepoRoot(): string {
   } catch {
     throw new Error(
       "Cannot find stackpilot scripts.\n\n" +
-      "Option 1: Clone the repo and set MIKRUS_TOOLBOX_PATH:\n" +
+      "Option 1: Clone the repo and set STACKPILOT_PATH:\n" +
       `  git clone ${REPO_URL}\n` +
-      "  export MIKRUS_TOOLBOX_PATH=/path/to/stackpilot\n\n" +
+      "  export STACKPILOT_PATH=/path/to/stackpilot\n\n" +
       "Option 2: Clone to the default location:\n" +
       `  git clone ${REPO_URL} ~/.stackpilot`
     );

@@ -639,7 +639,7 @@ async function testSetupServerNoArgs() {
 
 async function testSetupServerHostNoPort() {
   console.log("\n\ud83d\udd27 handleSetupServer -- host without port");
-  const result = await handleSetupServer({ host: "srv20.mikr.us" });
+  const result = await handleSetupServer({ host: "example.com" });
   assert(result.isError === true, "returns error");
   assert(
     result.content[0].text.includes("port"),
@@ -671,13 +671,13 @@ async function testSetupDomainInvalidPort() {
   );
 }
 
-async function testSetupDomainInvalidDomain() {
-  console.log("\n\ud83c\udf0d handleSetupDomain -- invalid domain");
-  const result = await handleSetupDomain({ port: 3001, domain: "invalid.com" });
+async function testSetupDomainMissingDomain() {
+  console.log("\n\ud83c\udf0d handleSetupDomain -- missing domain");
+  const result = await handleSetupDomain({ port: 3001 });
   assert(result.isError === true, "returns error");
   assert(
-    result.content[0].text.includes("byst.re"),
-    "error mentions supported TLDs"
+    result.content[0].text.includes("domain"),
+    "error mentions domain"
   );
 }
 
@@ -910,7 +910,7 @@ async function main() {
     // 7b. handleSetupDomain validation
     await testSetupDomainNoPort();
     await testSetupDomainInvalidPort();
-    await testSetupDomainInvalidDomain();
+    await testSetupDomainMissingDomain();
     await testSetupDomainInvalidAlias();
 
     // 8. index.ts integrity

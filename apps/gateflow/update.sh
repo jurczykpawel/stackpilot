@@ -238,7 +238,7 @@ set -a
 source .env.local
 set +a
 export PORT="${PORT:-3333}"
-# :: listens on IPv4 and IPv6 (required for Cytrus which connects via IPv6)
+# :: listens on IPv4 and IPv6
 export HOSTNAME="${HOSTNAME:-::}"
 
 pm2 delete $PM2_NAME 2>/dev/null || true

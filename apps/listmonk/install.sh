@@ -37,27 +37,12 @@ echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 
-# Check for shared DB (doesn't support pgcrypto)
-if [[ "$DB_HOST" == psql*.mikr.us ]]; then
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ ERROR: Listmonk does NOT work with a shared database!    ║"
-    echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Listmonk (since v6.0.0) requires the 'pgcrypto' extension, ║"
-    echo "║  which is not available on the free shared database.         ║"
-    echo "║                                                              ║"
-    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    exit 1
-fi
-
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
     ROOT_URL="https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus) — ROOT_URL will be updated"
+    echo "✅ Domain: automatic (Caddy) — ROOT_URL will be updated"
     ROOT_URL="http://localhost:$PORT"
 else
     echo "⚠️  No domain - using localhost"

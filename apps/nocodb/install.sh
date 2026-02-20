@@ -46,7 +46,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
     PUBLIC_URL="https://$DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus) — PUBLIC_URL will be updated"
+    echo "✅ Domain: automatic (Caddy) — PUBLIC_URL will be updated"
     PUBLIC_URL="http://localhost:$PORT"
 else
     echo "⚠️  No domain - using localhost"

@@ -539,7 +539,7 @@ configure_supabase_settings() {
     return 0
 }
 
-# Update Site URL (for Cytrus after domain assignment)
+# Update Site URL (after domain assignment)
 # Site URL MUST be the current domain (used in {{ .SiteURL }} in emails)
 update_supabase_site_url() {
     local NEW_DOMAIN="$1"
@@ -664,7 +664,7 @@ gateflow_configure_supabase() {
     configure_supabase_settings "$DOMAIN" "$TURNSTILE_SECRET" "$SSH_ALIAS"
 }
 
-# Show Turnstile reminder (for automatic Cytrus domain)
+# Show Turnstile reminder (for automatic domain)
 # Called in summary when Turnstile was not configured
 gateflow_show_turnstile_reminder() {
     local DOMAIN="${1:-}"

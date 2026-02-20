@@ -9,15 +9,17 @@ type ToolResult = {
 export const setupDomainTool = {
   name: "setup_domain",
   description:
-    "Configure a Cytrus domain (free Mikrus subdomain) for an application running on a specific port. " +
-    "Calls the Mikrus API to assign a *.byst.re / *.bieda.it / *.toadres.pl / *.tojest.dev subdomain.\n\n" +
+    "Configure a public domain for an application running on a specific port. " +
+    "Uses Caddy reverse proxy with automatic HTTPS (Let's Encrypt).\n\n" +
+    "PREREQUISITES:\n" +
+    "- The user must point their domain's A record to the server's IP address\n" +
+    "- Caddy must be installed on the server (auto-installed if missing)\n\n" +
     "WHEN TO USE:\n" +
     "- After deploy_custom_app, to give the app a public URL\n" +
     "- To add a domain to an existing app that doesn't have one\n" +
     "- To change the domain for an app\n\n" +
     "WHEN NOT TO USE:\n" +
-    "- After deploy_app with domain_type='cytrus' — deploy_app already handles domain setup automatically\n\n" +
-    "Set domain to 'auto' for a random subdomain, or specify a name like 'myapp.byst.re'.",
+    "- After deploy_app with domain_type='caddy' or 'cloudflare' — deploy_app already handles domain setup automatically",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -29,8 +31,7 @@ export const setupDomainTool = {
       domain: {
         type: "string",
         description:
-          "Domain name to assign. Use 'auto' for automatic random subdomain (e.g. 'cool-fox123.byst.re'). " +
-          "Or specify: 'myapp.byst.re', 'myapp.bieda.it', 'myapp.toadres.pl', 'myapp.tojest.dev'. Default: 'auto'.",
+          "Domain name to assign (e.g. 'myapp.example.com'). The domain's A record must point to the server IP.",
       },
       ssh_alias: {
         type: "string",
@@ -38,18 +39,17 @@ export const setupDomainTool = {
           "SSH alias. If omitted, uses the default configured server.",
       },
     },
-    required: ["port"],
+    required: ["port", "domain"],
   },
 };
 
-const VALID_DOMAIN_PATTERN =
-  /^[a-z0-9][a-z0-9-]*\.(byst\.re|bieda\.it|toadres\.pl|tojest\.dev)$/;
+const VALID_DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/i;
 
 export async function handleSetupDomain(
   args: Record<string, unknown>
 ): Promise<ToolResult> {
   const port = args.port as number | undefined;
-  const domain = (args.domain as string) ?? "auto";
+  const domain = args.domain as string | undefined;
   const alias = (args.ssh_alias as string) ?? getDefaultAlias();
 
   // 1. Validate inputs
@@ -77,153 +77,73 @@ export async function handleSetupDomain(
     };
   }
 
-  if (domain !== "auto" && !VALID_DOMAIN_PATTERN.test(domain)) {
+  if (!domain || !VALID_DOMAIN_PATTERN.test(domain)) {
     return {
       isError: true,
       content: [
         {
           type: "text",
           text:
-            `Invalid domain '${domain}'. Use 'auto' or a subdomain like 'myapp.byst.re'.\n` +
-            "Supported TLDs: *.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev",
+            `Invalid or missing domain '${domain ?? ""}'.\n` +
+            "Provide a fully qualified domain name (e.g. 'myapp.example.com').\n" +
+            "The domain's A record must point to the server's IP address.",
         },
       ],
     };
   }
 
-  // 2. Get API key from server
-  const keyResult = await sshExec(alias, "cat /klucz_api 2>/dev/null");
-  const apiKey = keyResult.stdout.trim();
-
-  if (!apiKey || keyResult.exitCode !== 0) {
+  // 2. Check if Caddy/sp-expose is available
+  const caddyCheck = await sshExec(alias, "command -v sp-expose 2>/dev/null");
+  if (caddyCheck.exitCode !== 0) {
     return {
       isError: true,
       content: [
         {
           type: "text",
           text:
-            `Could not read API key from server '${alias}'.\n` +
-            "File /klucz_api not found or empty.\n\n" +
-            "The user must enable API in Mikrus panel: https://mikr.us/panel/?a=api",
+            `Caddy (sp-expose) is not installed on server '${alias}'.\n\n` +
+            "Install it first by deploying any app with domain_type='caddy', or run:\n" +
+            `  ssh ${alias} "curl -fsSL https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/system/caddy-install.sh | bash"`,
         },
       ],
     };
   }
 
-  // 3. Get server hostname (SRV identifier)
-  const hostnameResult = await sshExec(alias, "hostname");
-  const srv = hostnameResult.stdout.trim();
+  // 3. Configure domain via sp-expose
+  const result = await sshExec(
+    alias,
+    `sp-expose '${domain}' '${port}'`,
+    30_000
+  );
 
-  if (!srv) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Could not determine server hostname for '${alias}'.`,
-        },
-      ],
-    };
-  }
-
-  // 4. Call Mikrus API
-  const apiDomain = domain === "auto" ? "-" : domain;
-  const params = new URLSearchParams({
-    key: apiKey,
-    srv,
-    domain: apiDomain,
-    port: String(port),
-  });
-
-  let response: Response;
-  try {
-    response = await fetch("https://api.mikr.us/domain", {
-      method: "POST",
-      body: params,
-    });
-  } catch (err) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Failed to reach Mikrus API: ${err instanceof Error ? err.message : String(err)}`,
-        },
-      ],
-    };
-  }
-
-  const responseText = await response.text();
-
-  // 5. Parse response
-  // Success: contains "gotowe" or "domain" field
-  if (/("status".*gotowe|"domain")/i.test(responseText)) {
-    const domainMatch = responseText.match(/"domain"\s*:\s*"([^"]+)"/);
-    const assignedDomain =
-      domainMatch?.[1] ?? (domain !== "auto" ? domain : null);
-
+  if (result.exitCode === 0) {
     const lines: string[] = [
       "Domain configured successfully!",
       "",
-      `Server: ${srv}`,
+      `Domain: ${domain}`,
       `Port: ${port}`,
+      `URL: https://${domain}`,
+      "",
+      "Caddy will automatically obtain a Let's Encrypt certificate.",
+      "The domain should be active within a few seconds.",
     ];
-
-    if (assignedDomain) {
-      lines.push(`Domain: ${assignedDomain}`);
-      lines.push(`URL: https://${assignedDomain}`);
-    }
-
-    lines.push("", "The domain should be active within a few seconds.");
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 
-  // Domain taken
-  if (/już istnieje|already exists/i.test(responseText)) {
-    const requestedName = domain !== "auto" ? domain.split(".")[0] : "app";
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text:
-            `Domain '${domain}' is already taken.\n\n` +
-            `Suggestions:\n` +
-            `- ${requestedName}-2.byst.re\n` +
-            `- my-${requestedName}.byst.re\n` +
-            `- Use domain='auto' for a random subdomain`,
-        },
-      ],
-    };
-  }
-
-  // Other error
-  if (/error|błąd|fail/i.test(responseText)) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text:
-            `Mikrus API error:\n${responseText}\n\n` +
-            "Check:\n" +
-            "- Is the domain name valid?\n" +
-            "- Is the port correct and not already mapped?\n" +
-            "- Is the API active? https://mikr.us/panel/?a=api",
-        },
-      ],
-    };
-  }
-
-  // Unknown response
+  // Error
   return {
+    isError: true,
     content: [
       {
         type: "text",
         text:
-          `API response (check if domain was configured):\n${responseText}\n\n` +
-          "Verify in Mikrus panel: https://mikr.us/panel/?a=hosting_domeny",
+          `Failed to configure domain '${domain}' on port ${port}.\n\n` +
+          `Error: ${(result.stderr || result.stdout || "sp-expose failed").trim()}\n\n` +
+          "Check:\n" +
+          "- Is the domain's A record pointing to the server IP?\n" +
+          "- Is port 80/443 open on the server firewall?\n" +
+          "- Is Caddy running? Check with: ssh " + alias + ' "systemctl status caddy"',
       },
     ],
   };

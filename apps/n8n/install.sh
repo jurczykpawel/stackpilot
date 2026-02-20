@@ -39,21 +39,6 @@ echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 DB_PORT=${DB_PORT:-5432}
 DB_SCHEMA=${DB_SCHEMA:-n8n}
 
-# Check for shared DB (doesn't support pgcrypto)
-if [[ "$DB_HOST" == psql*.mikr.us ]]; then
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ ERROR: n8n does NOT work with a shared database!         ║"
-    echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  n8n requires the 'pgcrypto' extension (gen_random_uuid),    ║"
-    echo "║  which is not available on the free shared database.         ║"
-    echo "║                                                              ║"
-    echo "║  Solution: Use a dedicated PostgreSQL instance               ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
-    exit 1
-fi
-
 if [ "$DB_SCHEMA" != "public" ]; then
     echo "   Schema: $DB_SCHEMA"
 fi
@@ -63,7 +48,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
     WEBHOOK_URL="https://$DOMAIN/"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus) — WEBHOOK_URL will be updated"
+    echo "✅ Domain: automatic (Caddy) — WEBHOOK_URL will be updated"
     WEBHOOK_URL=""
 else
     echo "⚠️  No domain - webhooks will require manual configuration"

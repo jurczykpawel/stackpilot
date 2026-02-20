@@ -25,7 +25,7 @@ echo "Lightweight API for document conversion (Go + Chromium + LibreOffice)"
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
 elif [ "$DOMAIN" = "-" ]; then
-    echo "✅ Domain: automatic (Cytrus)"
+    echo "✅ Domain: automatic (Caddy)"
 else
     echo "⚠️  No domain - using localhost"
 fi

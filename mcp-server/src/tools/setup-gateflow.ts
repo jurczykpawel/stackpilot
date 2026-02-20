@@ -167,9 +167,9 @@ export async function handleSetupGateflow(
       `SUPABASE_ANON_KEY="${anonKey}"`,
       `SUPABASE_SERVICE_KEY="${serviceKey}"`,
       ``,
-      `# Domain (auto = Cytrus subdomain)`,
-      `DOMAIN="-"`,
-      `DOMAIN_TYPE="cytrus"`,
+      `# Domain (configure after deployment)`,
+      `DOMAIN=""`,
+      `DOMAIN_TYPE="local"`,
     ].join("\n") + "\n";
 
     writeFileSync(CONFIG_PATH, configContent, { mode: 0o600 });
@@ -181,7 +181,7 @@ export async function handleSetupGateflow(
         text: `GateFlow configuration saved to ${CONFIG_PATH}\n\n` +
           `Project: ${projectRef}\n` +
           `Supabase URL: https://${projectRef}.supabase.co\n\n` +
-          `You can now deploy with: deploy_app(app_name="gateflow", domain_type="cytrus", domain="auto")`,
+          `You can now deploy with: deploy_app(app_name="gateflow", domain_type="caddy", domain="gateflow.example.com")`,
       }],
     };
   }
