@@ -83,6 +83,7 @@ cd stackpilot
 | [LinkStack](apps/linkstack/) | Linktree | Link-in-bio page with admin panel. |
 | [LittleLink](apps/littlelink/) | Linktree | Ultra-lightweight link-in-bio page (pure HTML). |
 | [Umami](apps/umami/) | Google Analytics | Privacy-focused web analytics. No cookies, GDPR-compliant. |
+| [AFFiNE](apps/affine/) | Notion / Miro | Knowledge base with docs, whiteboards, and databases. Open-source. |
 
 ### Security and Storage
 
