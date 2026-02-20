@@ -5,7 +5,7 @@
 # Author: Paweł (Lazy Engineer)
 #
 # Zone settings (universal):
-#   - SSL: Flexible (the VPS doesn't have its own certificate)
+#   - SSL: Full (Caddy auto-generates certificate via Let's Encrypt)
 #   - Brotli: ON
 #   - Always HTTPS: ON
 #   - Minimum TLS: 1.2
@@ -45,7 +45,7 @@ if [ -z "$FULL_DOMAIN" ]; then
     echo "Usage: $0 <domain> [--app=wordpress|nextjs]"
     echo ""
     echo "Optimizes Cloudflare settings for a domain:"
-    echo "  - SSL Flexible (required for the VPS)"
+    echo "  - SSL Full (Caddy auto-cert)"
     echo "  - Brotli compression"
     echo "  - Always HTTPS, HTTP/2, HTTP/3"
     echo "  - Early Hints"
@@ -149,8 +149,9 @@ set_zone_setting() {
 
 echo "⚙️  Zone settings..."
 
-# SSL Flexible - REQUIRED for the VPS (no certificate on server)
-set_zone_setting "ssl" '"flexible"' "SSL Flexible"
+# SSL Full - Caddy auto-generates certificate (Let's Encrypt)
+# Don't use Flexible — it breaks other subdomains/servers in the same zone
+set_zone_setting "ssl" '"full"' "SSL Full"
 
 # Brotli - better compression
 set_zone_setting "brotli" '"on"' "Brotli"
@@ -370,7 +371,7 @@ if [ "$PERMISSION_ERRORS" -gt 0 ]; then
     echo ""
     echo "   Create token: https://dash.cloudflare.com/profile/api-tokens"
     echo "   Or configure manually in the Cloudflare dashboard:"
-    echo "   → SSL/TLS: Flexible"
+    echo "   → SSL/TLS: Full"
     echo "   → Speed → Optimization: enable Brotli"
     echo ""
 else

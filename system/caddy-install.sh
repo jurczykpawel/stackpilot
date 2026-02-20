@@ -24,30 +24,50 @@ echo "--- 2. Installing 'sp-expose' Helper Tool ---"
 # Creating a lazy wrapper script to add domains easily
 cat <<'EOF' | sudo tee /usr/local/bin/sp-expose > /dev/null
 #!/bin/bash
-# Usage: sp-expose <domain> <port_or_path> [mode]
+# Usage: sp-expose <domain> <port_or_path> [mode] [--cloudflare]
 # Modes:
 #   proxy (default) - reverse_proxy localhost:PORT
 #   static          - file_server from PATH
 #
+# Flags:
+#   --cloudflare    - HTTP-only (SSL terminates at Cloudflare, prevents redirect loop)
+#
 # Examples:
-#   sp-expose n8n.example.pl 5678              # proxy mode
-#   sp-expose static.example.pl /var/www/app static  # static mode
+#   sp-expose n8n.example.pl 5678                         # proxy mode
+#   sp-expose static.example.pl /var/www/app static       # static mode
+#   sp-expose app.example.pl 5678 proxy --cloudflare      # behind Cloudflare
 
 DOMAIN=$1
 PORT_OR_PATH=$2
 MODE="${3:-proxy}"
+CLOUDFLARE=false
 CADDYFILE="/etc/caddy/Caddyfile"
 
+# Parse --cloudflare from any position
+for arg in "$@"; do
+    if [ "$arg" = "--cloudflare" ]; then
+        CLOUDFLARE=true
+    fi
+done
+# If mode got --cloudflare, reset to default
+if [ "$MODE" = "--cloudflare" ]; then
+    MODE="proxy"
+fi
+
 if [ -z "$DOMAIN" ] || [ -z "$PORT_OR_PATH" ]; then
-    echo "Usage: sp-expose <domain> <port_or_path> [mode]"
+    echo "Usage: sp-expose <domain> <port_or_path> [mode] [--cloudflare]"
     echo ""
     echo "Modes:"
     echo "  proxy  - reverse_proxy localhost:PORT (default)"
     echo "  static - file_server from PATH"
     echo ""
+    echo "Flags:"
+    echo "  --cloudflare - HTTP-only mode (Cloudflare Flexible SSL)"
+    echo ""
     echo "Examples:"
     echo "  sp-expose n8n.example.pl 5678"
     echo "  sp-expose static.example.pl /var/www/app static"
+    echo "  sp-expose app.example.pl 5678 proxy --cloudflare"
     exit 1
 fi
 
@@ -70,6 +90,12 @@ else
     fi
 fi
 
+# Determine site address: http:// prefix for Cloudflare Flexible SSL (prevents redirect loop)
+SITE_ADDR="$DOMAIN"
+if [ "$CLOUDFLARE" = true ]; then
+    SITE_ADDR="http://$DOMAIN"
+fi
+
 # Check if domain already exists to avoid duplicates
 if grep -q "$DOMAIN" "$CADDYFILE"; then
     echo "⚠️  Domain $DOMAIN already exists in Caddyfile. Please edit manually."
@@ -80,7 +106,7 @@ if [ "$MODE" = "static" ]; then
     echo "🚀 Exposing $DOMAIN -> $PORT_OR_PATH (static files)"
     cat <<CONFIG | sudo tee -a "$CADDYFILE"
 
-$DOMAIN {
+$SITE_ADDR {
     root * $PORT_OR_PATH
     file_server
     header Access-Control-Allow-Origin "*"
@@ -90,14 +116,19 @@ else
     echo "🚀 Exposing $DOMAIN -> localhost:$PORT_OR_PATH (reverse proxy)"
     cat <<CONFIG | sudo tee -a "$CADDYFILE"
 
-$DOMAIN {
+$SITE_ADDR {
     reverse_proxy localhost:$PORT_OR_PATH
 }
 CONFIG
 fi
 
-# Reload Caddy to apply changes (zero downtime)
-sudo systemctl reload caddy
+# Ensure Caddy is running and reload
+if ! systemctl is-active --quiet caddy; then
+    sudo systemctl start caddy
+    sudo systemctl enable caddy 2>/dev/null
+else
+    sudo systemctl reload caddy
+fi
 
 echo "✅ Done! Your site should be live at https://$DOMAIN"
 EOF

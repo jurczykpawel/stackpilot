@@ -100,6 +100,52 @@ server_user() {
     fi
 }
 
+# Ensure toolbox is installed on the server
+# Usage: ensure_toolbox [ssh_alias]
+ensure_toolbox() {
+    local ALIAS="${1:-${SSH_ALIAS:-vps}}"
+
+    # On server — toolbox is already here
+    if is_on_server; then
+        return 0
+    fi
+
+    # Check if sp-expose exists (toolbox marker)
+    if server_exec "test -f /opt/stackpilot/local/deploy.sh" 2>/dev/null; then
+        return 0
+    fi
+
+    echo "Installing toolbox on server..."
+
+    # Use rsync if we have local repo, otherwise git clone
+    local SCRIPT_DIR_SE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local REPO_ROOT_SE="$(cd "$SCRIPT_DIR_SE/.." && pwd)"
+
+    if [ -f "$REPO_ROOT_SE/local/deploy.sh" ] && command -v rsync &>/dev/null; then
+        rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'mcp-server' \
+            --exclude '.claude' \
+            --exclude '*.md' \
+            "$REPO_ROOT_SE/" "$ALIAS:/opt/stackpilot/" 2>/dev/null
+    else
+        server_exec "command -v git >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git >/dev/null 2>&1) && rm -rf /opt/stackpilot && git clone --depth 1 https://github.com/jurczykpawel/stackpilot.git /opt/stackpilot 2>&1"
+    fi
+
+    # Add to PATH
+    server_exec "grep -q 'stackpilot/local' ~/.bashrc 2>/dev/null || sed -i '1i\\# StackPilot\nexport PATH=/opt/stackpilot/local:\$PATH\n' ~/.bashrc 2>/dev/null; grep -q 'stackpilot/local' ~/.zshenv 2>/dev/null || (echo '' >> ~/.zshenv && echo '# StackPilot' >> ~/.zshenv && echo 'export PATH=/opt/stackpilot/local:\$PATH' >> ~/.zshenv) 2>/dev/null" || true
+
+    # Verification
+    if server_exec "test -f /opt/stackpilot/local/deploy.sh" 2>/dev/null; then
+        echo -e "${GREEN:-}Toolbox installed${NC:-}"
+        return 0
+    else
+        echo -e "${RED:-}Failed to install toolbox${NC:-}"
+        return 1
+    fi
+}
+
 export _ON_SERVER
 export -f is_on_server server_exec server_exec_tty server_exec_timeout
-export -f server_copy server_pipe_to server_hostname server_user
+export -f server_copy server_pipe_to server_hostname server_user ensure_toolbox

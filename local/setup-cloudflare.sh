@@ -95,11 +95,28 @@ ZONES_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones" \
     -H "Authorization: Bearer $API_TOKEN" \
     -H "Content-Type: application/json")
 
-# Parse domains
-ZONES=$(echo "$ZONES_RESPONSE" | grep -o '"name":"[^"]*"' | sed 's/"name":"//g' | sed 's/"//g')
-ZONE_IDS=$(echo "$ZONES_RESPONSE" | grep -o '"id":"[^"]*"' | head -20 | sed 's/"id":"//g' | sed 's/"//g')
+# Parse domains — extract (id, name) pairs from result[] array
+# jq is preferred, fallback to grep with per-object parsing
+ZONE_PAIRS=""
+if command -v jq &>/dev/null; then
+    ZONE_PAIRS=$(echo "$ZONES_RESPONSE" | jq -r '.result[] | "\(.name)=\(.id)"' 2>/dev/null)
+else
+    # Fallback: extract objects from result array and parse id+name per object
+    # Each zone object has "id" and "name" at the beginning — take them as pairs
+    ZONE_PAIRS=$(echo "$ZONES_RESPONSE" \
+        | tr '{' '\n' \
+        | grep '"name"' \
+        | while IFS= read -r obj; do
+            local_id=$(echo "$obj" | grep -o '"id":"[^"]*"' | head -1 | sed 's/"id":"//;s/"//')
+            local_name=$(echo "$obj" | grep -o '"name":"[^"]*"' | head -1 | sed 's/"name":"//;s/"//')
+            # Filter: real domain must have a dot, no spaces
+            if [ -n "$local_id" ] && [ -n "$local_name" ] && [[ "$local_name" == *.* ]] && [[ "$local_name" != *" "* ]]; then
+                echo "${local_name}=${local_id}"
+            fi
+        done)
+fi
 
-if [ -z "$ZONES" ]; then
+if [ -z "$ZONE_PAIRS" ]; then
     echo "❌ No domains found!"
     echo "   Make sure the token has access to at least one domain."
     exit 1
@@ -107,7 +124,7 @@ fi
 
 echo ""
 echo "Found domains:"
-echo "$ZONES" | nl
+echo "$ZONE_PAIRS" | cut -d= -f1 | nl
 echo ""
 
 # 5. Save configuration
@@ -123,13 +140,8 @@ API_TOKEN=$API_TOKEN
 # Zone mappings (domain=zone_id)
 EOF
 
-# Add domain to zone ID mapping
-ZONE_ARRAY=($ZONE_IDS)
-i=0
-echo "$ZONES" | while read -r domain; do
-    echo "${domain}=${ZONE_ARRAY[$i]}" >> "$CONFIG_FILE"
-    ((i++)) || true
-done
+# Save domain=zone_id pairs
+echo "$ZONE_PAIRS" >> "$CONFIG_FILE"
 
 chmod 600 "$CONFIG_FILE"
 

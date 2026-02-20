@@ -37,6 +37,10 @@ echo "   Host: $DB_HOST | User: $DB_USER | DB: $DB_NAME"
 
 DB_PORT=${DB_PORT:-5432}
 
+# NOTE: Listmonk does not support custom schema (always uses public).
+# If you share the database with other apps, listmonk creates tables in the public schema.
+# This is safe — listmonk table names (campaigns, subscribers, lists, etc.) are unique.
+
 # Domain
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
     echo "✅ Domain: $DOMAIN"
