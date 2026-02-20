@@ -1,104 +1,101 @@
-# 🍪 Cookie Hub (Klaro!) - Zarządzanie Zgodami
+# Cookie Hub (Klaro!) - Consent Management
 
-Centralny serwer zarządzania zgodami RODO/Cookies. Zapomnij o konfigurowaniu banerów na każdej stronie z osobna.
+A central GDPR/Cookie consent management server. Stop configuring cookie banners on every site separately.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh cookie-hub
 ```
 
-Podczas instalacji zostaniesz poproszony o podanie domeny (np. `assets.twojadomena.pl`), pod którą będą serwowane skrypty.
+During installation you will be asked for a domain (e.g. `assets.your-domain.com`) where the scripts will be served.
 
-## 💡 Idea "Centralizacji" (Lazy Engineer Style)
-Zamiast konfigurować wtyczki do cookies na każdej stronie (WordPress, GateFlow, Landing Page) z osobna:
-1. Stawiasz **jeden** Cookie Hub.
-2. Definujesz usługi (Google Analytics, Pixel FB, Umami) w **jednym pliku** na serwerze.
-3. Wklejasz ten sam kod HTML na wszystkie swoje strony.
+## The "Centralization" Idea (Lazy Engineer Style)
+Instead of configuring cookie plugins on every site (WordPress, GateFlow, landing pages) separately:
+1. Set up **one** Cookie Hub.
+2. Define services (Google Analytics, FB Pixel, Umami) in **one file** on the server.
+3. Paste the same HTML snippet on all your sites.
 
-Gdy zmieni się prawo lub dodasz nowe narzędzie śledzące, aktualizujesz tylko plik na Mikrusie, a zmiany pojawiają się wszędzie natychmiastowo.
+When laws change or you add a new tracking tool, update only the file on the server and the changes appear everywhere instantly.
 
-## ⚠️ Kiedy NIE używać Cookie Hub? (Ważne!)
+## When NOT to Use Cookie Hub? (Important!)
 
-Klaro! to świetne narzędzie Open Source, ale ma swoje granice. Bądź ich świadomy:
+Klaro! is a great open-source tool, but it has its limits. Be aware of them:
 
-1.  **Google AdSense / Reklamy Programmatic:**
-    Klaro **NIE JEST** certyfikowanym partnerem IAB TCF v2.2. Jeśli Twój model biznesowy opiera się na **wyświetlaniu reklam** na swojej stronie (zarabiasz na AdSense na blogu), Google wymaga certyfikowanego CMP (np. Cookiebot, Quantcast). W przeciwnym razie reklamy mogą zostać zablokowane.
-    *   **Werdykt:** Zarabiasz na AdSense? ➡️ Kup płatne CMP.
-    *   **Werdykt:** Sprzedajesz swoje produkty (GateFlow, E-booki)? ➡️ Cookie Hub jest idealny.
+1.  **Google AdSense / Programmatic Ads:**
+    Klaro **IS NOT** a certified IAB TCF v2.2 partner. If your business model relies on **displaying ads** on your site (earning from AdSense on a blog), Google requires a certified CMP (e.g. Cookiebot, Quantcast). Otherwise ads may be blocked.
+    *   **Verdict:** Earning from AdSense? Buy a paid CMP.
+    *   **Verdict:** Selling your own products (GateFlow, e-books)? Cookie Hub is perfect.
 
-2.  **Google Consent Mode v2 (Zaawansowany):**
-    W naszej konfiguracji Klaro działa w trybie "twardym" – całkowicie blokuje skrypty Google Ads/GA4 do momentu zgody. Nie wysyła "pingów" do Google w trybie anonimowym (Basic Consent Mode). Jeśli potrzebujesz zaawansowanego modelowania konwersji w Google Ads przy braku zgody, musisz ręcznie skonfigurować wywołania `gtag('consent', ...)` w pliku `config.js` (wymaga wiedzy JS).
+2.  **Google Consent Mode v2 (Advanced):**
+    In our configuration, Klaro works in "hard" mode - it completely blocks Google Ads/GA4 scripts until consent. It does not send "pings" to Google in anonymous mode (Basic Consent Mode). If you need advanced conversion modeling in Google Ads without consent, you must manually configure `gtag('consent', ...)` calls in the `config.js` file (requires JS knowledge).
 
-## 🛡️ PRO: Rejestrowanie Zgód (RODO Log)
+## PRO: Consent Logging (GDPR Log)
 
-Wersja darmowa Klaro zapisuje zgodę tylko w przeglądarce użytkownika. Jeśli chcesz mieć "dowód" w bazie danych (dla świętego spokoju przy kontroli), możesz wysłać informację o zgodzie do swojego **n8n**.
+The free version of Klaro saves consent only in the user's browser. If you want "proof" in a database (for peace of mind during audits), you can send consent info to your **n8n**.
 
-### 1. Kod do `config.js`
-Edytuj plik konfiguracyjny i dodaj funkcję `callback`.
+### 1. Code for `config.js`
+Edit the config file and add a `callback` function.
 
 ```javascript
 var klaroConfig = {
-    // ... reszta konfiguracji ...
-    
-    // Funkcja uruchamiana po zmianie zgody
+    // ... rest of configuration ...
+
+    // Function triggered on consent change
     callback: function(consent, app) {
-        // Wysyłamy tylko jeśli to ostateczna decyzja (np. zamknięcie modala)
-        // Możesz tu dodać logikę debounce, żeby nie wysyłać przy każdym kliknięciu
-        
         var payload = {
             timestamp: new Date().toISOString(),
-            consents: consent, // Obiekt np. { googleAnalytics: true, marketing: false }
+            consents: consent, // Object e.g. { googleAnalytics: true, marketing: false }
             url: window.location.href
         };
 
-        // Wyślij do Twojego n8n (Webhook)
-        // Używamy navigator.sendBeacon dla pewności wysyłki przy zamykaniu strony
-        var webhookUrl = "https://n8n.twojadomena.pl/webhook/cookie-consent-log";
+        // Send to your n8n (Webhook)
+        // Using navigator.sendBeacon to ensure delivery on page close
+        var webhookUrl = "https://n8n.your-domain.com/webhook/cookie-consent-log";
         var blob = new Blob([JSON.stringify(payload)], {type : 'application/json'});
         navigator.sendBeacon(webhookUrl, blob);
     },
-    
-    // ... reszta konfiguracji ...
+
+    // ... rest of configuration ...
 };
 ```
 
-### 2. Logika w n8n (Wizualizacja)
-Stwórz prosty workflow:
+### 2. Logic in n8n (Visualization)
+Create a simple workflow:
 
 ```mermaid
 graph LR
-    A[Webhook Node<br/>(POST)] --> B[Set Node<br/>(Formatowanie Danych)]
+    A[Webhook Node<br/>(POST)] --> B[Set Node<br/>(Format Data)]
     B --> C[Postgres / NocoDB<br/>(Insert Row)]
 ```
 
-**Co zapisywać w bazie?**
-- `timestamp` (Kiedy?)
-- `consents` (Na co się zgodził? JSON)
-- `url` (Na jakiej stronie?)
-- **Nie zapisuj IP** (chyba że masz ważny powód i RODO to dopuszcza). Anonimowy log statystyczny jest bezpieczniejszy prawnie.
+**What to save in the database?**
+- `timestamp` (When?)
+- `consents` (What was consented to? JSON)
+- `url` (On which page?)
+- **Do not save IP** (unless you have a valid reason and GDPR allows it). An anonymous statistical log is legally safer.
 
-## 🛠️ Integracja (Krok po kroku)
+## Integration (Step by Step)
 
-### 1. Dodaj skrypty do swojej strony
-Wklej poniższy kod do sekcji `<head>` na każdej swojej stronie:
+### 1. Add scripts to your site
+Paste the following code into the `<head>` section of every page:
 
 ```html
-<!-- Style i konfiguracja Klaro -->
-<link rel="stylesheet" href="https://TWOJA-DOMENA-COOKIES/klaro.css" />
-<script defer type="text/javascript" src="https://TWOJA-DOMENA-COOKIES/config.js"></script>
-<!-- Główny skrypt Klaro -->
-<script defer type="text/javascript" src="https://TWOJA-DOMENA-COOKIES/klaro.js"></script>
+<!-- Klaro styles and config -->
+<link rel="stylesheet" href="https://YOUR-COOKIE-DOMAIN/klaro.css" />
+<script defer type="text/javascript" src="https://YOUR-COOKIE-DOMAIN/config.js"></script>
+<!-- Main Klaro script -->
+<script defer type="text/javascript" src="https://YOUR-COOKIE-DOMAIN/klaro.js"></script>
 ```
 
-## 📋 Biblioteka Przykładów (Kopiuj-Wklej)
+## Example Library (Copy-Paste)
 
-Aby Klaro działało, musisz zmienić sposób wklejania kodów śledzących.
-Zasada: Zmieniasz `type="text/javascript"` na `type="text/plain"` i dodajesz `data-name="nazwaUslugi"`.
+For Klaro to work, you must change how tracking codes are pasted.
+Rule: Change `type="text/javascript"` to `type="text/plain"` and add `data-name="serviceName"`.
 
-### Google Tag Manager (GTM) - Najprostsza metoda
-Jeśli używasz GTM, najłatwiej jest zablokować wczytywanie całego kontenera do czasu zgody.
-Wymaga zdefiniowania usługi `googleTagManager` w `config.js`.
+### Google Tag Manager (GTM) - Simplest Method
+If you use GTM, the easiest approach is to block loading the entire container until consent.
+Requires defining a `googleTagManager` service in `config.js`.
 
 ```html
 <!-- Google Tag Manager -->
@@ -112,8 +109,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 ```
 
-### Google Analytics 4 (GA4) - Bezpośrednio
-Wymaga zdefiniowania usługi `googleAnalytics` w `config.js`.
+### Google Analytics 4 (GA4) - Direct
+Requires defining a `googleAnalytics` service in `config.js`.
 
 ```html
 <script async type="text/plain" data-type="application/javascript" data-name="googleAnalytics" src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXX"></script>
@@ -126,7 +123,7 @@ Wymaga zdefiniowania usługi `googleAnalytics` w `config.js`.
 ```
 
 ### Meta Pixel (Facebook Ads)
-Wymaga zdefiniowania usługi `metaPixel` w `config.js`.
+Requires defining a `metaPixel` service in `config.js`.
 
 ```html
 <script type="text/plain" data-type="application/javascript" data-name="metaPixel">
@@ -138,26 +135,26 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', 'TWOJ_PIXEL_ID');
+fbq('init', 'YOUR_PIXEL_ID');
 fbq('track', 'PageView');
 </script>
 ```
 
-### Umami (Twoja własna analityka)
-Wymaga usługi `umami` w `config.js`.
+### Umami (Your Own Analytics)
+Requires a `umami` service in `config.js`.
 
 ```html
-<script 
-  type="text/plain" 
-  data-type="application/javascript" 
-  data-name="umami" 
-  src="https://stats.twojadomena.pl/script.js" 
-  data-website-id="twoje-id-umami">
+<script
+  type="text/plain"
+  data-type="application/javascript"
+  data-name="umami"
+  src="https://stats.your-domain.com/script.js"
+  data-website-id="your-umami-id">
 </script>
 ```
 
-### Microsoft Clarity (Heatmapy)
-Wymaga usługi `clarity` w `config.js`.
+### Microsoft Clarity (Heatmaps)
+Requires a `clarity` service in `config.js`.
 
 ```html
 <script type="text/plain" data-type="application/javascript" data-name="clarity">
@@ -165,36 +162,37 @@ Wymaga usługi `clarity` w `config.js`.
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "TWOJ_PROJEKT_ID");
+    })(window, document, "clarity", "script", "YOUR_PROJECT_ID");
 </script>
 ```
 
-### YouTube Embed (Blokowanie filmów)
-Zastąp `src` przez `data-src` i dodaj `data-name="youtube"`.
+### YouTube Embed (Blocking videos)
+Replace `src` with `data-src` and add `data-name="youtube"`.
 
 ```html
-<!-- Film zablokowany do czasu zgody -->
-<iframe 
-  width="560" height="315" 
-  data-name="youtube" 
-  data-src="https://www.youtube.com/embed/VIDEO_ID" 
-  frameborder="0" 
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+<!-- Video blocked until consent -->
+<iframe
+  width="560" height="315"
+  data-name="youtube"
+  data-src="https://www.youtube.com/embed/VIDEO_ID"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
   allowfullscreen>
 </iframe>
 ```
 
 ---
 
-## ⚙️ Edycja konfiguracji
+## Editing Configuration
 
-Konfiguracja znajduje się na Twoim Mikrusie w pliku:
+The configuration is located on your server at:
 `/var/www/cookie-hub/public/config.js`
 
-Aby edytować plik lokalnie:
-1. Pobierz go: `./local/sync.sh down /var/www/cookie-hub/public/config.js ./config.js --ssh=mikrus`
-2. Wyedytuj w VS Code (dodaj nowe usługi do tablicy `services`).
-3. Wyślij z powrotem: `./local/sync.sh up ./config.js /var/www/cookie-hub/public/config.js --ssh=mikrus`
+To edit the file locally:
+1. Download it: `./local/sync.sh down /var/www/cookie-hub/public/config.js ./config.js --ssh=ALIAS`
+2. Edit in VS Code (add new services to the `services` array).
+3. Upload back: `./local/sync.sh up ./config.js /var/www/cookie-hub/public/config.js --ssh=ALIAS`
 
-## 🇵🇱 Język Polski
-System jest w pełni skonfigurowany w języku polskim. Przyciski ("Zaakceptuj wszystko", "Odrzuć"), opisy celów i komunikaty są gotowe do użycia bez żadnych dodatkowych zmian.
+## Polish Language
+
+The system is fully configured in Polish. Buttons ("Accept all", "Reject"), purpose descriptions and messages are ready to use without any additional changes.

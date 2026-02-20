@@ -1,68 +1,68 @@
-# ConvertX - Uniwersalny Konwerter Plików
+# ConvertX - Universal File Converter
 
-Self-hosted konwerter plików obsługujący 1000+ formatów: obrazy, dokumenty, audio, wideo, e-booki, modele 3D.
+Self-hosted file converter supporting 1000+ formats: images, documents, audio, video, e-books, 3D models.
 
-## Instalacja
+## Installation
 
 ```bash
-./local/deploy.sh convertx --ssh=mikrus --domain-type=cytrus --domain=auto
+./local/deploy.sh convertx --ssh=ALIAS --domain-type=caddy --domain=convertx.your-domain.com
 ```
 
-## Wymagania
+## Requirements
 
-- **RAM:** ~70MB idle, ~150MB podczas konwersji (limit kontenera: 512MB)
-- **Dysk:** ~5GB (obraz Docker z bundlowanymi narzędziami: LibreOffice, FFmpeg, texlive, Calibre...)
-- **Baza danych:** SQLite (wbudowany, dane w `./data/`)
+- **RAM:** ~70MB idle, ~150MB during conversion (container limit: 512MB)
+- **Disk:** ~5GB (Docker image with bundled tools: LibreOffice, FFmpeg, texlive, Calibre...)
+- **Database:** SQLite (built-in, data in `./data/`)
 
-## Po instalacji
+## After Installation
 
-1. Otwórz stronę → utwórz konto administratora
-2. **Wyłącz rejestrację** po utworzeniu konta:
+1. Open the page and create an admin account
+2. **Disable registration** after creating your account:
    ```bash
-   ssh mikrus 'cd /opt/stacks/convertx && sed -i "s/ACCOUNT_REGISTRATION=true/ACCOUNT_REGISTRATION=false/" docker-compose.yaml && docker compose up -d'
+   ssh ALIAS 'cd /opt/stacks/convertx && sed -i "s/ACCOUNT_REGISTRATION=true/ACCOUNT_REGISTRATION=false/" docker-compose.yaml && docker compose up -d'
    ```
 
-## Zmienne środowiskowe
+## Environment Variables
 
-| Zmienna | Domyślna | Opis |
-|---------|----------|------|
-| `JWT_SECRET` | (generowany) | Sekret JWT - install.sh generuje automatycznie |
-| `ACCOUNT_REGISTRATION` | true | Rejestracja nowych kont (wyłącz po setup!) |
-| `AUTO_DELETE_EVERY_N_HOURS` | 24 | Auto-usuwanie plików (0 = wyłącz) |
-| `TZ` | Europe/Warsaw | Strefa czasowa |
-| `ALLOW_UNAUTHENTICATED` | false | Dostęp bez logowania (nie używaj w produkcji!) |
-| `HIDE_HISTORY` | false | Ukryj zakładkę historii |
-| `WEBROOT` | / | Ścieżka bazowa (np. `/convert` dla subdirectory) |
-| `FFMPEG_ARGS` | (puste) | Dodatkowe argumenty FFmpeg (np. `-hwaccel cuda`) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | (generated) | JWT secret - install.sh generates automatically |
+| `ACCOUNT_REGISTRATION` | true | New account registration (disable after setup!) |
+| `AUTO_DELETE_EVERY_N_HOURS` | 24 | Auto-delete files (0 = disable) |
+| `TZ` | Europe/Warsaw | Timezone |
+| `ALLOW_UNAUTHENTICATED` | false | Access without login (do not use in production!) |
+| `HIDE_HISTORY` | false | Hide history tab |
+| `WEBROOT` | / | Base path (e.g. `/convert` for subdirectory) |
+| `FFMPEG_ARGS` | (empty) | Extra FFmpeg arguments (e.g. `-hwaccel cuda`) |
 
-## Backendy konwersji
+## Conversion Backends
 
-ConvertX bundluje 20+ narzędzi w jednym obrazie Docker:
+ConvertX bundles 20+ tools in a single Docker image:
 
-| Backend | Formaty |
+| Backend | Formats |
 |---------|---------|
-| FFmpeg | Wideo, audio (MP4, WebM, MP3, FLAC...) |
-| LibreOffice | Dokumenty Office (DOCX, XLSX, PPTX → PDF) |
-| Vips + GraphicsMagick | Obrazy (PNG, JPG, WebP, AVIF, HEIC, TIFF) |
-| Pandoc | Dokumenty tekstowe (Markdown, HTML, LaTeX) |
-| Calibre | E-booki (EPUB, MOBI, AZW3, PDF) |
-| Inkscape | Grafika wektorowa (SVG) |
-| ImageMagick | Zaawansowana obróbka obrazów |
+| FFmpeg | Video, audio (MP4, WebM, MP3, FLAC...) |
+| LibreOffice | Office documents (DOCX, XLSX, PPTX to PDF) |
+| Vips + GraphicsMagick | Images (PNG, JPG, WebP, AVIF, HEIC, TIFF) |
+| Pandoc | Text documents (Markdown, HTML, LaTeX) |
+| Calibre | E-books (EPUB, MOBI, AZW3, PDF) |
+| Inkscape | Vector graphics (SVG) |
+| ImageMagick | Advanced image processing |
 
-## Ograniczenia
+## Limitations
 
-- **Duże pliki** - ConvertX ładuje pliki do RAM podczas konwersji. Przy limicie 512MB, pliki >200MB mogą powodować problemy. Dla dużych plików zwiększ `memory` w docker-compose.yaml.
-- **Wolny start** - Pierwszy start trwa ~60s (sprawdzanie wersji 20+ bundlowanych narzędzi)
-- **Duży obraz** - ~5GB na dysku, na Mikrus 10GB to połowa dysku
-- **Brak SSO/OAuth** - tylko lokalne konta z JWT
-- **Jednowątkowy** - brak skalowalności horyzontalnej
+- **Large files** - ConvertX loads files into RAM during conversion. With a 512MB limit, files >200MB may cause issues. For large files, increase `memory` in docker-compose.yaml.
+- **Slow start** - First start takes ~60s (checking versions of 20+ bundled tools)
+- **Large image** - ~5GB on disk; on a 10GB VPS that is half the disk
+- **No SSO/OAuth** - only local accounts with JWT
+- **Single-threaded** - no horizontal scalability
 
 ## Backup
 
 ```bash
-./local/setup-backup.sh mikrus
+./local/setup-backup.sh ALIAS
 ```
 
-Dane w `/opt/stacks/convertx/data/`:
-- Baza SQLite (konta, historia)
-- Pliki w trakcie konwersji (auto-czyszczone co 24h)
+Data in `/opt/stacks/convertx/data/`:
+- SQLite database (accounts, history)
+- Files during conversion (auto-cleaned every 24h)

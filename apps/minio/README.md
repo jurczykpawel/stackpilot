@@ -1,20 +1,20 @@
 # MinIO - S3-Compatible Object Storage
 
-Self-hosted storage kompatybilny z Amazon S3 API.
+Self-hosted storage compatible with the Amazon S3 API.
 
-## Wymagania
+## Requirements
 
 - **RAM**: ~256MB
-- **Dysk**: Zależy od ilości przechowywanych plików
-- **Plan**: Mikrus 2.1+ (wystarczy podstawowy)
+- **Disk**: Depends on the amount of stored files
+- **Plan**: 1GB+ RAM VPS (basic is sufficient)
 
-## Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh minio --ssh=ALIAS --domain=s3.example.com
 ```
 
-### Opcjonalne zmienne
+### Optional variables
 
 ```bash
 MINIO_ROOT_USER=admin \
@@ -23,77 +23,77 @@ DEFAULT_BUCKET=myfiles \
 ./local/deploy.sh minio --ssh=ALIAS
 ```
 
-## Porty
+## Ports
 
-| Port | Usługa |
-|------|--------|
-| 9000 | S3 API (kompatybilny z AWS S3) |
+| Port | Service |
+|------|---------|
+| 9000 | S3 API (AWS S3 compatible) |
 | 9001 | Console (Web UI) |
 
-## Użycie z innymi aplikacjami
+## Usage with Other Applications
 
-### Cap (nagrania wideo)
+### Cap (video recordings)
 
-W `apps/cap/install.sh`:
+In `apps/cap/install.sh`:
 ```bash
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=admin
-S3_SECRET_KEY=<hasło z /opt/stacks/minio/.env>
+S3_SECRET_KEY=<password from /opt/stacks/minio/.env>
 S3_BUCKET=cap-videos
 ```
 
-### Typebot (uploady plików)
+### Typebot (file uploads)
 
 ```bash
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=admin
-S3_SECRET_KEY=<hasło>
+S3_SECRET_KEY=<password>
 S3_BUCKET=typebot-uploads
 ```
 
-### Własna aplikacja
+### Your own application
 
 ```javascript
-// Node.js z AWS SDK
+// Node.js with AWS SDK
 const s3 = new S3Client({
   endpoint: "http://minio:9000",
   credentials: {
     accessKeyId: "admin",
-    secretAccessKey: "<hasło>"
+    secretAccessKey: "<password>"
   },
   forcePathStyle: true,
   region: "us-east-1"
 });
 ```
 
-## Zarządzanie bucketami
+## Managing Buckets
 
-### Przez Web Console
+### Via Web Console
 
-1. Otwórz https://s3.example.com (lub http://localhost:9001)
-2. Zaloguj się credentials z `.env`
-3. "Create Bucket" → podaj nazwę
+1. Open https://s3.example.com (or http://localhost:9001)
+2. Log in with credentials from `.env`
+3. "Create Bucket" -> enter name
 
-### Przez CLI (mc)
+### Via CLI (mc)
 
 ```bash
-# Wewnątrz kontenera
-docker exec minio mc alias set local http://localhost:9000 admin <hasło>
-docker exec minio mc mb local/nowy-bucket
+# Inside the container
+docker exec minio mc alias set local http://localhost:9000 admin <password>
+docker exec minio mc mb local/new-bucket
 docker exec minio mc ls local/
 ```
 
-### Przez API (curl)
+### Via API (curl)
 
 ```bash
-# Tworzenie bucketu
-curl -X PUT http://localhost:9000/nowy-bucket \
+# Creating a bucket
+curl -X PUT http://localhost:9000/new-bucket \
   -H "Authorization: AWS admin:<signature>"
 ```
 
 ## Backup
 
-Dane MinIO są przechowywane w `/opt/stacks/minio/data/`.
+MinIO data is stored in `/opt/stacks/minio/data/`.
 
 ```bash
 # Backup
@@ -106,26 +106,26 @@ docker compose -f /opt/stacks/minio/docker-compose.yaml restart
 
 ## Troubleshooting
 
-### Kontener nie startuje
+### Container does not start
 
 ```bash
 docker logs minio
 ```
 
-### Brak miejsca na dysku
+### Out of disk space
 
 ```bash
 df -h
-# Usuń niepotrzebne pliki lub rozszerz dysk
+# Remove unnecessary files or expand disk
 ```
 
-### Problemy z uprawnieniami
+### Permission issues
 
 ```bash
 sudo chown -R 1000:1000 /opt/stacks/minio/data
 ```
 
-## Linki
+## Links
 
 - [MinIO Documentation](https://min.io/docs/minio/linux/index.html)
 - [S3 API Reference](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html)

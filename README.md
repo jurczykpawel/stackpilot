@@ -1,126 +1,37 @@
 # StackPilot
 
-**25 self-hosted aplikacji. Jeden serwer. Zero abonamentów.**
+**The AI-native self-hosting toolkit. Deploy 25+ production-optimized Docker apps to any VPS with a single command.**
 
-Zamień tani polski VPS ([mikr.us](https://mikr.us/?r=pavvel)) w pełną infrastrukturę firmy - automatyzacja, mailing, analityka, CRM, sklep z produktami cyfrowymi - za ~20 zł/mies zamiast ~7000 zł/rok w SaaS-ach.
+Replace $300+/month in SaaS subscriptions with a $5/month server. StackPilot is the only self-hosting toolkit with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) integration -- AI assistants like Claude can deploy and manage apps directly.
 
 ```bash
 git clone https://github.com/jurczykpawel/stackpilot.git
 cd stackpilot
-./local/deploy.sh n8n        # → n8n działa na Twoim serwerze
+./local/deploy.sh n8n    # n8n is now running on your server
 ```
-
-Każda aplikacja to jeden `deploy.sh` - skrypt pyta o domenę, bazę danych, sprawdza zasoby serwera i instaluje zoptymalizowaną wersję pod małe VPS-y.
 
 ---
 
-## Spis treści
+## Table of Contents
 
-- [Dla kogo?](#dla-kogo)
-- [25 aplikacji](#25-aplikacji-w-arsenale)
-- [Jak to działa razem](#jak-to-działa-razem)
-- [Szybki start](#szybki-start)
-- [Kalkulator oszczędności](#kalkulator-oszczędności)
-- [Coolify - bonus dla dużych serwerów](#coolify---prywatny-herokuvercel-mikrus-41)
+- [Quick Start](#quick-start)
+- [Apps](#apps)
+- [Deployment Modes](#deployment-modes)
+- [Domain and HTTPS Setup](#domain-and-https-setup)
+- [How It Compares](#how-it-compares)
 - [FAQ](#faq)
 
 ---
 
-## Dla kogo?
+## Quick Start
 
-Dla **solopreneurów, freelancerów i małych firm**, które:
+### Prerequisites
 
-- Płacą za Zapier, Mailchimp, Airtable, Typeform i widzą, jak rachunki rosną z każdym kontaktem
-- Chcą mieć dane na **własnym serwerze** - nie u Google'a, nie w USA
-- Wolą zainwestować raz w konfigurację, niż płacić abonament do końca życia
-- Szukają **dźwigni** - automatyzacji, która pracuje 24/7 bez opłat za "execution"
+- A VPS with 1GB+ RAM (Hetzner, DigitalOcean, Vultr, Linode, OVH, or any provider)
+- A domain name (optional but recommended)
+- A terminal with SSH access
 
-> Nie chcesz wpisywać komend? Sprawdź **[Mikrus n8n Manager](https://manager.cytr.us/)** - GUI, które zainstaluje n8n jednym kliknięciem.
-
----
-
-## 25 aplikacji w arsenale
-
-### Automatyzacja i operacje
-
-| Aplikacja | Zastępuje | Co robi |
-| :--- | :--- | :--- |
-| [**n8n**](apps/n8n/) | Zapier / Make | Mózg firmy. Łączy wszystko ze wszystkim - CRM, maile, płatności, API. |
-| [**Dockge**](apps/dockge/) | Portainer | Panel do zarządzania kontenerami Docker przez przeglądarkę. |
-| [**Uptime Kuma**](apps/uptime-kuma/) | UptimeRobot | Monitoring stron i usług z alertami na telefon. |
-| [**ntfy**](apps/ntfy/) | Pushover | Serwer powiadomień push. Wysyłaj alerty z n8n na telefon. |
-| [**Redis**](apps/redis/) | - | Cache. Przyspiesza n8n, WordPress i inne aplikacje. |
-| [**Crawl4AI**](apps/crawl4ai/) | ScrapingBee | AI web scraper z REST API. Markdown, LLM extraction, JS rendering. |
-| [**MCP Docker**](apps/mcp-docker/) | - | Most AI-serwer. Pozwól Claude/Cursor zarządzać kontenerami. |
-| [**MinIO**](apps/minio/) | AWS S3 | Self-hosted object storage (S3-compatible). |
-
-### Marketing i sprzedaż
-
-| Aplikacja | Zastępuje | Co robi |
-| :--- | :--- | :--- |
-| [**GateFlow**](apps/gateflow/) | Gumroad / EasyCart | Sklep z produktami cyfrowymi. 0 zł/mies, 0% prowizji. Lejki, kupony, Omnibus EU. |
-| [**Listmonk**](apps/listmonk/) | Mailchimp | Newsletter na miliony maili za grosze (przez Amazon SES lub SMTP). |
-| [**Typebot**](apps/typebot/) | Typeform | Chatboty i formularze. Zbieraj leady, rób ankiety, sprzedawaj w rozmowie. |
-| [**Postiz**](apps/postiz/) | Buffer / Hootsuite | Planuj posty na X, LinkedIn, Instagram, Facebook, TikTok. |
-| [**Cap**](apps/cap/) | Loom | Nagrywaj ekran i udostępniaj wideo. Tutoriale, async communication. |
-| [**Umami**](apps/umami/) | Google Analytics | Analityka bez cookies, bez RODO-paniki, z szacunkiem do prywatności. |
-| [**Cookie Hub**](apps/cookie-hub/) | Cookiebot | Centralny serwer zgód RODO dla wszystkich Twoich stron. |
-| [**FileBrowser**](apps/filebrowser/) | Dropbox / Tiiny.host | Prywatny dysk z UI + hosting plików i landing page'y. |
-
-### Biuro i produktywność
-
-| Aplikacja | Zastępuje | Co robi |
-| :--- | :--- | :--- |
-| [**WordPress**](apps/wordpress/) | WordPress.com | Performance Edition: Nginx + PHP-FPM + Redis Object Cache, auto-tuning. |
-| [**NocoDB**](apps/nocodb/) | Airtable | Baza danych z interfejsem arkusza kalkulacyjnego. CRM, projekty, zamówienia. |
-| [**Stirling-PDF**](apps/stirling-pdf/) | Adobe Acrobat | Edycja, łączenie, podpisywanie PDF-ów w przeglądarce. |
-| [**Gotenberg**](apps/gotenberg/) | - | API do konwersji dokumentów (HTML/DOCX/ODT → PDF). Lekki: ~150MB RAM. |
-| [**ConvertX**](apps/convertx/) | CloudConvert | Konwerter 800+ formatów plików w przeglądarce. |
-| [**Vaultwarden**](apps/vaultwarden/) | 1Password | Menedżer haseł dla całej firmy. Kompatybilny z Bitwarden. |
-| [**LinkStack**](apps/linkstack/) | Linktree | Wizytówka "Link in Bio" z panelem admina. |
-| [**LittleLink**](apps/littlelink/) | Linktree | Wizytówka "Link in Bio" - wersja ultra-lekka, czysty HTML. |
-
-> Każda aplikacja ma swój `README.md` z dokumentacją, wymaganiami i opcjami konfiguracji.
-
----
-
-## Jak to działa razem
-
-Te aplikacje to nie oddzielne wyspy. Razem tworzą **system operacyjny firmy**.
-
-**Przykład: automatyczna sprzedaż e-booka**
-
-```
-Klient → Typebot (chatbot) → GateFlow (płatność Stripe)
-                                    ↓
-                              n8n (webhook)
-                             /    |    \     \
-                        NocoDB  Email  Faktura  Listmonk
-                        (CRM)  (ebook)  (API)  (newsletter)
-                                    ↓
-                              Umami (konwersja)
-```
-
-1. **Typebot** - klient rozmawia z botem, który bada potrzeby
-2. **GateFlow** - bot kieruje do płatności za e-booka
-3. **n8n** - wykrywa płatność i automatycznie: dodaje klienta do CRM (**NocoDB**), wysyła e-booka mailem, wystawia fakturę, zapisuje do newslettera (**Listmonk**)
-4. **Umami** - śledzi konwersję
-
-Wszystko na Twoim serwerze. Zero opłat za "execution". Zero limitów.
-
----
-
-## Szybki start
-
-### Wymagania
-
-- **Serwer VPS** - [Mikrus](https://mikr.us/?r=pavvel) 3.0+ (1GB RAM, 10GB dysk, od 20 zł/mies)
-- **Domena** - np. z [OVH](https://www.ovhcloud.com/pl/domains/) (od ~12 zł/rok)
-- **Terminal** z dostępem SSH
-
-> **🎁 1 miesiąc gratis!** Kup Mikrusa przez [ten link](https://mikr.us/?r=pavvel) (reflink), wybierz ofertę (zalecamy 3.0+) i miesiąc gratis zostanie automatycznie doliczony do zamówienia.
-
-### 1. Konfiguracja SSH
+### 1. Set up SSH
 
 ```bash
 # Linux / macOS
@@ -130,231 +41,265 @@ bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/lo
 iwr -useb https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.ps1 | iex
 ```
 
-Skrypt zapyta o dane z maila od Mikrusa (host, port, hasło) i skonfiguruje klucz SSH + alias.
+The script generates an SSH key, configures `~/.ssh/config` with the alias `vps`, and copies the key to your server.
 
-### 2. Pobierz toolbox
+### 2. Clone the toolkit
 
 ```bash
 git clone https://github.com/jurczykpawel/stackpilot.git
 cd stackpilot
 ```
 
-### 3. Zainstaluj fundamenty
+### 3. Install foundations and deploy
 
 ```bash
-./local/deploy.sh system/docker-setup.sh    # Docker + optymalizacja logów
-./local/deploy.sh system/caddy-install.sh   # Reverse proxy z auto-SSL
+./local/deploy.sh system/docker-setup.sh    # Docker + log optimization
+./local/deploy.sh system/caddy-install.sh   # Reverse proxy with auto-SSL
+./local/deploy.sh n8n                       # Your first app
 ```
 
-### 4. Zainstaluj aplikacje
+`deploy.sh` handles everything: checks server resources, prompts for domain and database configuration, deploys the app, and verifies it is running.
+
+### 4. Set up backups
 
 ```bash
-./local/deploy.sh dockge                    # Panel Docker (start od tego)
-./local/deploy.sh n8n                       # Automatyzacja
-./local/deploy.sh uptime-kuma               # Monitoring
+./local/setup-backup.sh     # Encrypted backup to Google Drive / Dropbox / S3
 ```
-
-`deploy.sh` zadba o wszystko - sprawdzi zasoby serwera, zapyta o domenę i bazę danych, zainstaluje aplikację i zweryfikuje czy działa.
-
-### 5. Backup - zrób to od razu
-
-```bash
-./local/setup-backup.sh     # Szyfrowany backup do Google Drive / Dropbox
-```
-
-> Szczegóły: [docs/backup.md](docs/backup.md)
-
-### Domeny i HTTPS
-
-Dwie opcje:
-
-| | Cytrus (łatwiej) | Caddy (więcej kontroli) |
-|---|---|---|
-| Konfiguracja | Panel Mikrusa | Terminal |
-| SSL | Automatyczny | Let's Encrypt |
-| Jak | [Panel → Domeny](https://mikr.us/panel/?a=hosting_domeny) | `ssh mikrus 'sp-expose domena.pl 5678'` |
-
-Z Cloudflare (zalecane - rozwiązuje problem IPv6):
-```bash
-./local/setup-cloudflare.sh                  # jednorazowo
-./local/dns-add.sh n8n.mojafirma.pl          # dodaj rekord DNS
-ssh mikrus 'sp-expose n8n.mojafirma.pl 5678'  # HTTPS
-```
-
-> Szczegóły: [docs/cloudflare-domain-setup.md](docs/cloudflare-domain-setup.md) | [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 
 ---
 
-## Opcja AI - niech Claude zrobi to za Ciebie
+## Apps
 
-Masz zainstalowane [Claude Code](https://docs.anthropic.com/en/docs/claude-code)?
+### Automation and Operations
+
+| App | Replaces | Description |
+| :--- | :--- | :--- |
+| [n8n](apps/n8n/) | Zapier / Make | Workflow automation. Connect CRM, email, payments, APIs. |
+| [Uptime Kuma](apps/uptime-kuma/) | UptimeRobot | Uptime monitoring with push/email/Slack alerts. |
+| [Dockge](apps/dockge/) | Portainer | Manage Docker Compose stacks via a web UI. |
+| [ntfy](apps/ntfy/) | Pushover | Self-hosted push notification server. |
+| [Redis](apps/redis/) | - | In-memory cache. Speeds up n8n, WordPress, and others. |
+
+### Communication and Marketing
+
+| App | Replaces | Description |
+| :--- | :--- | :--- |
+| [Listmonk](apps/listmonk/) | Mailchimp | High-performance newsletter and mailing list manager. |
+| [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
+| [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
+| [Cap](apps/cap/) | Loom | Screen recording and video sharing. |
+| [Cookie Hub](apps/cookie-hub/) | Cookiebot | Centralized GDPR consent server for all your sites. |
+
+### Web and Content
+
+| App | Replaces | Description |
+| :--- | :--- | :--- |
+| [WordPress](apps/wordpress/) | WordPress.com | Performance Edition: Nginx + PHP-FPM + Redis Object Cache. |
+| [GateFlow](apps/gateflow/) | Gumroad | Digital product storefront. Zero fees, zero commissions. |
+| [FileBrowser](apps/filebrowser/) | Dropbox / Tiiny.host | Private file manager with web UI + static hosting. |
+| [LinkStack](apps/linkstack/) | Linktree | Link-in-bio page with admin panel. |
+| [LittleLink](apps/littlelink/) | Linktree | Ultra-lightweight link-in-bio page (pure HTML). |
+| [Umami](apps/umami/) | Google Analytics | Privacy-focused web analytics. No cookies, GDPR-compliant. |
+
+### Security and Storage
+
+| App | Replaces | Description |
+| :--- | :--- | :--- |
+| [Vaultwarden](apps/vaultwarden/) | 1Password / Bitwarden | Password manager for individuals and teams. |
+| [MinIO](apps/minio/) | AWS S3 | S3-compatible object storage. |
+
+### Developer Tools
+
+| App | Replaces | Description |
+| :--- | :--- | :--- |
+| [Stirling PDF](apps/stirling-pdf/) | Adobe Acrobat | Edit, merge, sign PDFs in the browser. |
+| [Gotenberg](apps/gotenberg/) | - | Document conversion API (HTML/DOCX/ODT to PDF). ~150MB RAM. |
+| [ConvertX](apps/convertx/) | CloudConvert | Convert 800+ file formats in the browser. |
+| [NocoDB](apps/nocodb/) | Airtable | Spreadsheet-style database. CRM, projects, orders. |
+| [MCP Docker](apps/mcp-docker/) | - | Let AI assistants manage Docker containers on your server. |
+
+### AI and Data
+
+| App | Replaces | Description |
+| :--- | :--- | :--- |
+| [Crawl4AI](apps/crawl4ai/) | ScrapingBee | AI web scraper with REST API. Markdown output, JS rendering. |
+| [Coolify](apps/coolify/) | Heroku / Vercel | Full PaaS with 280+ one-click apps. Requires 8GB+ RAM. |
+
+> Every app has its own `README.md` with detailed docs, requirements, and configuration options.
+
+---
+
+## Deployment Modes
+
+StackPilot supports two deployment modes: **CLI** for direct control, and **AI/MCP** for conversational deployment.
+
+### CLI Mode
+
+Run `deploy.sh` from your local machine. It connects to your server over SSH, handles domain configuration, database provisioning, and health checks.
 
 ```bash
-cd stackpilot
-claude
+./local/deploy.sh <app> [options]
+
+# Options:
+#   --ssh=ALIAS           SSH alias (default: vps)
+#   --domain-type=TYPE    cloudflare | caddy | local
+#   --domain=DOMAIN       Your domain (e.g. n8n.example.com)
+#   --db-source=SOURCE    bundled | custom
+#   --yes, -y             Skip all confirmation prompts
+
+# Examples:
+./local/deploy.sh n8n --domain-type=cloudflare --domain=n8n.example.com
+./local/deploy.sh uptime-kuma --domain-type=local --yes
+./local/deploy.sh wordpress --domain-type=caddy --domain=blog.example.com
 ```
 
-Powiedz co chcesz:
-- *"Zainstaluj n8n na serwerze mikrus"*
-- *"Skonfiguruj backup do Google Drive"*
-- *"Sprawdź czy wszystkie kontenery działają"*
-- *"Wystaw Dockge pod domeną panel.mojafirma.pl"*
+### AI/MCP Mode
 
-Claude zna ten toolbox (dzięki `AGENTS.md`) i przeprowadzi Cię przez cały proces - DNS, porty, certyfikaty, baza danych.
-
----
-
-## Kalkulator oszczędności
-
-### Koszt Mikrusa
-
-| Plan | RAM | Dysk | Cena/rok |
-|------|-----|------|----------|
-| Mikrus 2.1 | 1GB | 10GB | 75 zł |
-| Mikrus 3.0 | 2GB | 25GB | 130 zł |
-| Mikrus 3.5 | 4GB | 40GB | 197 zł |
-| Mikrus 4.1 (2x CPU + 2x IOPS) | 8GB | 80GB | 395 zł |
-| Mikrus 4.2 (2x CPU + 2x IOPS) | 16GB | 160GB | 790 zł |
-
-#### Usługi dodatkowe
-
-| Usługa | RAM | Dysk | Cena/rok |
-|--------|-----|------|----------|
-| MySQL / MariaDB | 512MB | 10GB | 25 zł |
-| MySQL / MariaDB | 1024MB | 20GB | 47 zł |
-| PostgreSQL | 512MB | 10GB | 29 zł |
-| PostgreSQL | 1024MB | 50GB | 119 zł |
-| MongoDB | 512MB | 5GB | 25 zł |
-| Uptime Kuma | 256MB | 10GB | 15 zł |
-| Umami | 512MB | 1GB | 15 zł |
-| Domena .pl | - | - | ~50 zł |
-
-### Self-hosted vs. SaaS
-
-| Narzędzie | Zastępuje | Cena SaaS/mies | Na Mikrusie |
-|-----------|-----------|----------------|-------------|
-| n8n | Zapier Pro | $29-99 | 0 zł |
-| Listmonk | Mailchimp (5k kontaktów) | $50+ | 0 zł |
-| Typebot | Typeform Pro | $50+ | 0 zł |
-| NocoDB | Airtable Pro | $20+ | 0 zł |
-| GateFlow | Gumroad (10% prowizji) | $$$ | 0 zł |
-| Uptime Kuma | UptimeRobot Pro | $7+ | 0 zł |
-| Vaultwarden | 1Password Teams | $8/user | 0 zł |
-| Postiz | Buffer Pro | $15+ | 0 zł |
-| WordPress | WordPress.com Business | $25+ | 0 zł |
-| Stirling-PDF | Adobe Acrobat Pro | $15+ | 0 zł |
-| Cap | Loom Business | $15+ | 0 zł |
-| FileBrowser | Tiiny.host Pro | $6+ | 0 zł |
-| ConvertX | CloudConvert | $9+ | 0 zł |
-| Umami | Plausible | $9+ | 0 zł |
-| Crawl4AI | ScrapingBee | $49+ | 0 zł |
-| **Suma SaaS** | | **~$300+/mies** | |
-
-### Przykład: solopreneur sprzedający kursy
-
-**SaaS-y:** Zapier + Mailchimp + Typeform + UptimeRobot + hosting = **~$142/mies (~7000 zł/rok)**
-
-**StackPilot:** Mikrus 3.0 (130 zł) + domena (50 zł) + PostgreSQL (29 zł) = **209 zł/rok**
-
-**Oszczędność: ~6800 zł/rok (97%)**
-
----
-
-## Wymagania serwera
-
-| Stack | Plan | RAM |
-|-------|------|-----|
-| Podstawa (Caddy + Dockge) | Mikrus 2.1 | ~100MB |
-| + n8n | Mikrus 2.1 | ~500MB |
-| + Listmonk + Uptime Kuma | Mikrus 2.1 | ~800MB |
-| + Typebot + GateFlow | Mikrus 3.0 | ~1.5GB |
-| Pełny stack (10+ narzędzi) | Mikrus 3.0 | ~1.8GB |
-| Coolify (PaaS, 280+ apek) | Mikrus 4.1 | ~500-800MB (platforma) |
-
-> Stirling-PDF i Crawl4AI wymagają Mikrus 3.0+ (2GB RAM). Lekka alternatywa: Gotenberg (~150MB).
-
----
-
-## Coolify - prywatny Heroku/Vercel (Mikrus 4.1+)
-
-Masz **Mikrus 4.1** (8GB RAM, 80GB dysk, 2x CPU)? Zainstaluj [Coolify](https://coolify.io) - open-source PaaS z **280+ aplikacjami** do deploy jednym kliknięciem.
-
-| | |
-| :--- | :--- |
-| **280+ apek** | WordPress, n8n, Nextcloud, Grafana, Gitea, Supabase, Ollama... |
-| **Auto SSL** | Let's Encrypt dla każdej apki |
-| **Git push deploy** | Push do GitHub/GitLab = automatyczny deploy |
-| **Webowy panel** | Zarządzaj wszystkim przez przeglądarkę |
+Install the MCP server and let Claude (or any MCP-compatible AI) deploy apps conversationally.
 
 ```bash
-./local/deploy.sh coolify --ssh=mikrus
+npx stackpilot-mcp
 ```
 
-> Coolify przejmuje porty 80/443 (Traefik). Nie mieszaj z innymi apkami z toolboxa. Szczegóły: [apps/coolify/README.md](apps/coolify/README.md)
+Or add it to your Claude Code MCP config:
+
+```json
+{
+  "mcpServers": {
+    "stackpilot": {
+      "command": "npx",
+      "args": ["-y", "stackpilot-mcp"]
+    }
+  }
+}
+```
+
+Then talk to Claude naturally:
+
+- *"Deploy n8n on my server"*
+- *"Set up Uptime Kuma with a Cloudflare domain"*
+- *"Check server status and free RAM"*
+- *"Configure backups to Google Drive"*
+
+The AI handles SSH connection, port allocation, domain setup, database provisioning, and post-deploy verification.
 
 ---
 
-## Diagnostyka
+## Domain and HTTPS Setup
+
+Three options, depending on your needs:
+
+| Method | Setup | SSL | Best for |
+| :--- | :--- | :--- | :--- |
+| **Caddy auto-HTTPS** | Automatic | Let's Encrypt | Most users. Zero config HTTPS. |
+| **Cloudflare DNS** | One-time setup | Cloudflare + Let's Encrypt | Custom domains, CDN, DDoS protection. |
+| **SSH tunnel** | None | N/A | Local development, testing. |
+
+### Caddy (recommended)
+
+Caddy is installed during [Quick Start](#quick-start) and automatically provisions Let's Encrypt certificates for every domain you expose.
 
 ```bash
-# Czy kontener działa?
-ssh mikrus 'docker ps | grep nazwa-uslugi'
-
-# Logi (ostatnie 50 linii)
-ssh mikrus 'cd /opt/stacks/nazwa-uslugi && docker compose logs --tail 50'
-
-# Czy port odpowiada? (200/302 = OK)
-ssh mikrus 'curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT'
-
-# Zużycie zasobów
-ssh mikrus 'docker stats --no-stream'
+ssh vps 'sp-expose n8n.example.com 5678'
 ```
 
-> Dostęp bez domeny: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
+### Cloudflare
+
+For custom domains with Cloudflare DNS management:
+
+```bash
+./local/setup-cloudflare.sh                   # One-time API token setup
+./local/dns-add.sh n8n.example.com            # Add DNS record
+ssh vps 'sp-expose n8n.example.com 5678'      # Expose with HTTPS
+```
+
+Details: [docs/cloudflare-domain-setup.md](docs/cloudflare-domain-setup.md)
+
+### SSH tunnel (no domain needed)
+
+Access any app locally without a public domain:
+
+```bash
+ssh -L 5678:localhost:5678 vps
+# Open http://localhost:5678 in your browser
+```
+
+Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
+
+---
+
+## How It Compares
+
+| | StackPilot | Coolify | Dokku | Kamal |
+| :--- | :--- | :--- | :--- | :--- |
+| **Approach** | Bash + SSH + Docker | Full PaaS platform | Git-push PaaS | Docker/SSH deploy tool |
+| **GitHub stars** | New | ~50k | ~32k | ~14k |
+| **Min. RAM** | 512MB | 2GB+ | 1GB+ | 512MB |
+| **AI integration** | Native MCP server | No | No | No |
+| **Pre-built apps** | 25 production-optimized | 280+ (community) | Via plugins | None (bring your own) |
+| **Complexity** | Single deploy command | Web dashboard | CLI + buildpacks | YAML config files |
+| **Dependencies** | Bash, SSH, Docker | Docker, Traefik, PostgreSQL, Redis | Docker, Nginx, buildpacks | Docker, Ruby |
+| **Domain/SSL** | Caddy auto-HTTPS or Cloudflare | Traefik + Let's Encrypt | Nginx + Let's Encrypt | Traefik or manual |
+| **Best for** | Solopreneurs, small teams | Teams wanting a full PaaS | Heroku-like git workflows | Rails/Docker deployments |
+
+### What makes StackPilot different
+
+- **AI-native**: The only self-hosting toolkit with MCP integration. AI assistants can deploy, configure, and troubleshoot your apps conversationally.
+- **Lightweight**: No platform overhead. Just Bash scripts, SSH, and Docker. Each app is a single `deploy.sh` call.
+- **Production-optimized**: Every app config is tuned for small VPS environments -- memory limits, log rotation, health checks, and security headers included.
+- **Database flexibility**: Bundled containers (auto-provisioned) or external databases. Your choice per app.
+
+---
+
+## Repository Structure
+
+```
+local/           -> User-facing scripts (deploy, backup, setup, DNS)
+apps/<app>/      -> App installers: install.sh + README.md
+lib/             -> Shared libraries (CLI parser, DB setup, domain setup, health checks)
+system/          -> System scripts (Docker, Caddy, backup, power tools)
+docs/            -> Documentation (Cloudflare, backups, SSH tunnels, CLI reference)
+```
+
+Configuration is stored in `~/.config/stackpilot/`.
 
 ---
 
 ## FAQ
 
-**Czy to jest bezpieczne?**
-Tak. Usługi w kontenerach Docker, dostęp z zewnątrz tylko przez HTTPS (Caddy/Cytrus), szyfrowane backupy off-site.
+**What VPS providers are supported?**
+Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH.
 
-**Ile RAMu potrzebuję?**
-Mikrus 2.1 (1GB) uciągnie n8n + 2-3 mniejsze usługi. Do pełnego zestawu: Mikrus 3.0 (2GB). Coolify: Mikrus 4.1 (8GB).
+**How much RAM do I need?**
+512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2-3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 8GB+.
 
-**Co z bazą danych?**
-Aplikacje wymagające PostgreSQL/MySQL korzystają z bazy Mikrusa (darmowa 200MB lub dedykowana 10GB za 29 zł/rok). Nie instaluj bazy na serwerze - to zjada zasoby.
+**How do databases work?**
+Apps that need PostgreSQL or MySQL can use a bundled database container (auto-provisioned, zero config) or connect to an external database you provide. WordPress also supports SQLite for simple sites.
 
-**Mogę to postawić na innym VPS?**
-Tak. Skrypty działają na dowolnym VPS z Dockerem. Mikrus jest zalecany bo jest tani i polski, ale `deploy.sh` działa z każdym serwerem po SSH.
+**Is this secure?**
+Apps run in isolated Docker containers. External access is HTTPS-only via Caddy. Ports are bound to `127.0.0.1` by default. Encrypted off-site backups are supported out of the box.
 
-**Jak zaktualizować aplikację?**
-Uruchom `deploy.sh` ponownie - skrypt wykryje istniejącą instalację i zaktualizuje obraz Docker. Dane w volumes zostaną zachowane.
+**How do I update an app?**
+Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved.
 
----
+**Can I deploy custom Docker apps?**
+Yes. Via the MCP server, you can deploy any Docker Compose stack -- not just the 25 built-in apps. The AI generates the compose file and deploys it.
 
-## Struktura repozytorium
+**What is MCP?**
+[Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants interact with external tools. StackPilot's MCP server (`stackpilot-mcp`) gives Claude (and other compatible AIs) the ability to deploy apps, check server status, configure domains, and set up backups -- all through natural conversation.
 
-```
-local/           → Skrypty użytkownika (deploy, backup, setup, dns)
-apps/<app>/      → Instalatory: install.sh + README.md + update.sh
-lib/             → Biblioteki (cli-parser, db-setup, domain-setup, health-check)
-system/          → Skrypty systemowe (docker, caddy, backup, power-tools)
-docs/            → Dokumentacja (Cloudflare, backup, SSH tunele, CLI reference)
-tests/           → Testy automatyczne
-```
+**How is this different from Coolify?**
+Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard, built-in Traefik, and its own PostgreSQL/Redis. It is powerful but heavyweight. StackPilot is minimal: Bash scripts + SSH + Docker. No platform overhead, no web UI to maintain. StackPilot also includes native AI/MCP integration that Coolify does not have. Note: Coolify itself can be deployed *via* StackPilot on servers with 8GB+ RAM.
 
 ---
 
-## Autor
+## Author
 
-**Paweł** ([@jurczykpawel](https://github.com/jurczykpawel)) - Lazy Engineer
+**Pawel** ([@jurczykpawel](https://github.com/jurczykpawel))
 
-Buduję narzędzia dla solopreneurów, którzy wolą automatyzować niż klikać. StackPilot to zestaw, którego sam używam do prowadzenia biznesu.
-
-- [GateFlow](https://github.com/jurczykpawel/gateflow) - open-source sklep z produktami cyfrowymi
-- [Mikrus n8n Manager](https://manager.cytr.us/) - GUI do instalacji n8n na Mikrusie
+- [GateFlow](https://github.com/jurczykpawel/gateflow) -- Open-source digital product storefront
+- [StackPilot](https://github.com/jurczykpawel/stackpilot) -- The AI-native self-hosting toolkit
 
 ---
 
-*Self-hosted infrastructure toolkit for solopreneurs. Deploy 25 open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden and more) on a cheap VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+*Self-hosted infrastructure toolkit. Deploy 25 open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*

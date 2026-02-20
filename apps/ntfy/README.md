@@ -1,49 +1,49 @@
-# 🔔 ntfy - Twoje Centrum Powiadomień
+# ntfy - Your Notification Center
 
-Serwer do wysyłania powiadomień PUSH na telefon i desktop. Zastępuje płatne Pushover.
+A server for sending PUSH notifications to phone and desktop. Replaces paid Pushover.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh ntfy
 ```
 
-## 💡 Jak to działa?
-1. Instalujesz aplikację ntfy na telefonie (Android/iOS).
-2. Subskrybujesz swój temat, np. `moj-tajny-temat`.
-3. W n8n używasz noda HTTP Request, żeby wysłać POST na Twój serwer ntfy.
-4. **BUM!** Masz powiadomienie na telefonie: "Nowe zamówienie w GateFlow: 97 PLN".
+## How Does It Work?
+1. Install the ntfy app on your phone (Android/iOS).
+2. Subscribe to your topic, e.g. `my-secret-topic`.
+3. In n8n, use an HTTP Request node to send a POST to your ntfy server.
+4. **Done!** You get a notification on your phone: "New order in GateFlow: $97".
 
-## 🌐 Po instalacji - konfiguracja domeny
+## After Installation - Domain Configuration
 
-### 1. Skonfiguruj DNS
-Dodaj rekord A w panelu swojego rejestratora domen (np. OVH, Cloudflare, home.pl):
-- **Typ:** `A`
-- **Nazwa:** `notify` (lub inna subdomena, np. `ntfy`, `push`)
-- **Wartość:** IP Twojego serwera Mikrus (znajdziesz w panelu mikr.us)
-- **TTL:** 3600 (lub "Auto")
+### 1. Configure DNS
+Add an A record in your domain registrar panel (e.g. OVH, Cloudflare):
+- **Type:** `A`
+- **Name:** `notify` (or another subdomain, e.g. `ntfy`, `push`)
+- **Value:** Your server's IP address
+- **TTL:** 3600 (or "Auto")
 
-> ⏳ Propagacja DNS może zająć od kilku minut do 24h. Sprawdź: `ping notify.twojadomena.pl`
+> DNS propagation may take from a few minutes to 24h. Check: `ping notify.your-domain.com`
 
-### 2. Wystaw aplikację przez HTTPS
-Uruchom **na swoim komputerze** (nie na serwerze!):
+### 2. Expose the App via HTTPS
+Run **on your local machine** (not on the server!):
 ```bash
-ssh mikrus 'sp-expose notify.twojadomena.pl 8085'
+ssh ALIAS 'sp-expose notify.your-domain.com 8085'
 ```
-Zamień `mikrus` na swój alias SSH jeśli używasz innego, oraz `notify.twojadomena.pl` na swoją domenę.
+Replace `ALIAS` with your SSH alias and `notify.your-domain.com` with your domain.
 
-### 3. Zaktualizuj NTFY_BASE_URL
-ntfy musi znać swoją publiczną domenę. Uruchom **lokalnie**:
+### 3. Update NTFY_BASE_URL
+ntfy needs to know its public domain. Run **locally**:
 ```bash
-ssh mikrus "sed -i 's|notify.example.com|notify.twojadomena.pl|' /opt/stacks/ntfy/docker-compose.yaml && cd /opt/stacks/ntfy && docker compose up -d"
+ssh ALIAS "sed -i 's|notify.example.com|notify.your-domain.com|' /opt/stacks/ntfy/docker-compose.yaml && cd /opt/stacks/ntfy && docker compose up -d"
 ```
 
-### 4. Utwórz użytkownika admin
-ntfy ma własny system użytkowników (niezwiązany z systemem Linux). Uruchom **lokalnie**:
+### 4. Create an Admin User
+ntfy has its own user system (unrelated to the Linux system). Run **locally**:
 ```bash
-ssh mikrus 'docker exec -it ntfy-ntfy-1 ntfy user add --role=admin mojuser'
+ssh ALIAS 'docker exec -it ntfy-ntfy-1 ntfy user add --role=admin myuser'
 ```
-Komenda zapyta o hasło. Ten user służy do logowania w interfejsie webowym ntfy.
+The command will ask for a password. This user is for logging into the ntfy web interface.
 
-## 🔒 Bezpieczeństwo
-Skrypt domyślnie ustawia tryb "deny-all" (nikt nie może czytać/pisać bez hasła). Dlatego krok 4 (utworzenie użytkownika) jest obowiązkowy.
+## Security
+The script sets "deny-all" mode by default (nobody can read/write without a password). This is why step 4 (creating a user) is mandatory.

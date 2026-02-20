@@ -1,41 +1,41 @@
-# Jak kontrybuować do StackPilot
+# How to Contribute to StackPilot
 
-Dzięki, że chcesz pomóc! Każdy wkład jest mile widziany - od poprawki literówki po nową aplikację.
+Thanks for wanting to help! Every contribution is welcome - from fixing a typo to adding a new application.
 
-## Jak dodać nową aplikację
+## How to Add a New Application
 
-### 1. Utwórz strukturę
+### 1. Create the directory structure
 
 ```
-apps/twoja-appka/
-├── install.sh     # Skrypt instalacyjny (wymagany)
-└── README.md      # Dokumentacja (wymagany)
+apps/your-app/
+|-- install.sh     # Install script (required)
++-- README.md      # Documentation (required)
 ```
 
-### 2. Header install.sh
+### 2. install.sh header
 
-Każdy `install.sh` musi zaczynać się od standardowego nagłówka:
+Every `install.sh` must start with a standard header:
 
 ```bash
 #!/bin/bash
 
-# StackPilot - Nazwa Aplikacji
-# Krótki opis po angielsku (1 linia)
-# Author: Twoje Imię
+# StackPilot - Application Name
+# Short description in English (1 line)
+# Author: Your Name
 #
-# IMAGE_SIZE_MB=XXX  # nazwa-obrazu:tag (szacowany rozmiar na dysku)
+# IMAGE_SIZE_MB=XXX  # image-name:tag (estimated disk size)
 #
-# Opcjonalne komentarze o wymaganiach
+# Optional comments about requirements
 ```
 
-**IMAGE_SIZE_MB** jest wymagany - `deploy.sh` używa go do sprawdzania czy serwer ma dość miejsca na dysku.
+**IMAGE_SIZE_MB** is required - `deploy.sh` uses it to check if the server has enough disk space.
 
-### 3. Wzorzec install.sh
+### 3. install.sh pattern
 
 ```bash
 #!/bin/bash
 
-# StackPilot - MojaAppka
+# StackPilot - MyApp
 # Description in English
 # Author: Your Name
 #
@@ -43,11 +43,11 @@ Każdy `install.sh` musi zaczynać się od standardowego nagłówka:
 
 set -e
 
-APP_NAME="mojaappka"
+APP_NAME="myapp"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8080}
 
-# Tworzenie katalogu
+# Create directory
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
@@ -73,83 +73,83 @@ if type wait_for_healthy &>/dev/null; then
 fi
 ```
 
-### 4. README.md aplikacji
+### 4. Application README.md
 
-Minimum:
+Minimum content:
 
 ```markdown
-# Nazwa Aplikacji
+# Application Name
 
-Opis co to robi i co zastępuje.
+Description of what it does and what it replaces.
 
-## Instalacja
+## Installation
 
 \`\`\`bash
-./local/deploy.sh nazwa-appki
+./local/deploy.sh app-name
 \`\`\`
 
-## Wymagania
+## Requirements
 
 - **RAM:** ~XXX MB
-- **Dysk:** ~XXX MB
+- **Disk:** ~XXX MB
 - **Port:** XXXX
-- **Baza danych:** Nie / PostgreSQL / MySQL
+- **Database:** None / PostgreSQL / MySQL
 
-## Po instalacji
+## After Installation
 
-Instrukcje konfiguracji po pierwszym uruchomieniu.
+Instructions for first-run configuration.
 ```
 
-### 5. Zarejestruj w AGENTS.md
+### 5. Register in AGENTS.md
 
-Dodaj swoją appkę do listy w sekcji "Dostępne aplikacje" w `AGENTS.md`.
+Add your app to the list in the "Applications" section in `AGENTS.md`.
 
 ---
 
-## Zgłaszanie bugów
+## Reporting Bugs
 
-Otwórz [Issue](https://github.com/jurczykpawel/stackpilot/issues) z:
-- Nazwa aplikacji
-- Serwer (plan Mikrusa, RAM)
-- Logi błędu (`docker compose logs --tail 30`)
-- Komenda, którą uruchomiłeś
+Open an [Issue](https://github.com/jurczykpawel/stackpilot/issues) with:
+- Application name
+- Server specs (RAM, OS)
+- Error logs (`docker compose logs --tail 30`)
+- Command you ran
 
-## Pull Requesty
+## Pull Requests
 
-1. Forkuj repo
-2. Utwórz branch (`git checkout -b feat/nowa-appka`)
-3. Przetestuj na prawdziwym serwerze (lub przez `tests/test-apps.sh`)
-4. Otwórz PR z opisem co i dlaczego
+1. Fork the repo
+2. Create a branch (`git checkout -b feat/new-app`)
+3. Test on a real server (or via `tests/test-apps.sh`)
+4. Open a PR with a description of what and why
 
-## Styl kodu
+## Code Style
 
-- **Bash** z `set -e` na początku
-- **Komunikaty dla użytkownika po polsku** (komentarze w kodzie mogą być po angielsku)
-- **Zmienne** w `UPPER_CASE`
-- Używaj `sudo` przed `docker compose` i operacjami na `/opt/stacks/`
-- Korzystaj z bibliotek w `lib/` (health-check, db-setup, domain-setup) zamiast pisać od nowa
+- **Bash** with `set -e` at the top
+- **User-facing messages in English**
+- **Variables** in `UPPER_CASE`
+- Use `sudo` before `docker compose` and operations on `/opt/stacks/`
+- Use libraries in `lib/` (health-check, db-setup, domain-setup) instead of writing from scratch
 
-## Testowanie
+## Testing
 
 ```bash
-# Test pojedynczej appki na serwerze
-SSH_HOST=twoj-serwer ./tests/test-apps.sh nazwa-appki
+# Test a single app on a server
+SSH_HOST=your-server ./tests/test-apps.sh app-name
 
-# Test wszystkich appek
-SSH_HOST=twoj-serwer ./tests/test-apps.sh
+# Test all apps
+SSH_HOST=your-server ./tests/test-apps.sh
 ```
 
 ---
 
-## Bezpieczenstwo
+## Security
 
-Znalazles podatnosc? **Nie twórz publicznego Issue!**
+Found a vulnerability? **Do not create a public Issue!**
 
-Zamiast tego uzyj [GitHub Security Advisories](https://github.com/jurczykpawel/stackpilot/security/advisories/new)
-lub napisz prywatnie do autora. Szczegoly w [SECURITY.md](SECURITY.md).
+Instead, use [GitHub Security Advisories](https://github.com/jurczykpawel/stackpilot/security/advisories/new)
+or contact the author privately. Details in [SECURITY.md](SECURITY.md).
 
 ---
 
-## Licencja
+## License
 
-Kontrybuując, zgadzasz się na udostępnienie swojego kodu na licencji [MIT](LICENSE).
+By contributing, you agree to release your code under the [MIT](LICENSE) license.

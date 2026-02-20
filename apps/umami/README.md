@@ -1,26 +1,19 @@
-# 📊 Umami - Analityka bez szpiegowania
+# Umami - Privacy-Friendly Analytics
 
-Prosta, szybka i prywatna alternatywa dla Google Analytics. Zgodna z RODO bez uciążliwych banerów cookie.
+Simple, fast and private alternative to Google Analytics. GDPR-compliant without annoying cookie banners.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh umami
 ```
 
-**Wymagania:**
-- PostgreSQL z rozszerzeniem **pgcrypto**
-- ⚠️ **Współdzielona baza Mikrusa NIE działa!** (brak uprawnień do tworzenia rozszerzeń)
-- Użyj: dedykowany PostgreSQL z [Mikrus Cloud](https://mikr.us/panel/?a=cloud) (od 5 PLN/mies.)
+**Requirements:**
+- PostgreSQL with the **pgcrypto** extension
+- The bundled shared database does NOT work (no permissions to create extensions)
+- Use a dedicated PostgreSQL instance
 
-## 💡 Dlaczego warto?
-- **Masz własność danych:** Google nie sprzedaje Twoich statystyk reklamodawcom.
-- **Lekkość:** Skrypt śledzący waży < 2KB. Twoja strona ładuje się szybciej.
-- **Współdzielenie:** Możesz wygenerować publiczny link do statystyk dla klienta.
-
-## ☁️ Opcja "Smart Saver" (Oszczędzaj RAM)
-Jeśli Twój Mikrus ma mało pamięci (np. 1GB), rozważ wykupienie **Umami jako oddzielnej usługi w chmurze Mikrusa**.
-Zyskasz:
-- Więcej RAM-u na swoim serwerze dla n8n.
-- Gotową, skonfigurowaną usługę bez potrzeby zarządzania bazą danych.
-- Sprawdź ofertę w panelu Mikrusa w sekcji "Usługi dodatkowe".
+## Why Umami?
+- **You own your data:** Google does not sell your stats to advertisers.
+- **Lightweight:** The tracking script weighs < 2KB. Your site loads faster.
+- **Sharing:** You can generate a public stats link for your client.

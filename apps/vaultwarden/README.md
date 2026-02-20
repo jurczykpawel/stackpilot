@@ -1,54 +1,54 @@
-# Vaultwarden - Sejf na hasla
+# Vaultwarden - Password Vault
 
-Lekki serwer Bitwarden napisany w Rust. Twoje hasla do wszystkich uslug w jednym, bezpiecznym miejscu na Twoim serwerze.
+Lightweight Bitwarden server written in Rust. All your passwords for every service in one secure place on your server.
 
-## Dlaczego Vaultwarden, a nie Bitwarden?
+## Why Vaultwarden, not Bitwarden?
 
-Oficjalny serwer Bitwarden wymaga 2-4 GB RAM (8+ kontenerow: .NET, MSSQL, Nginx, Identity, API, Admin...). Na Mikrusie z 1 GB RAM nawet by nie wystartowal.
+The official Bitwarden server requires 2-4 GB RAM (8+ containers: .NET, MSSQL, Nginx, Identity, API, Admin...). On a 1 GB RAM VPS it would not even start.
 
-| | Vaultwarden | Bitwarden oficjalny |
+| | Vaultwarden | Bitwarden official |
 |---|---|---|
 | RAM | ~50 MB | 2-4 GB |
-| Kontenery | 1 | 8+ |
-| Baza danych | SQLite | MSSQL |
-| Klienty Bitwarden | 100% kompatybilny | natywne |
-| Premium features | wszystkie za darmo | wymagana licencja |
-| Jezyk | Rust | .NET (C#) |
+| Containers | 1 | 8+ |
+| Database | SQLite | MSSQL |
+| Bitwarden clients | 100% compatible | native |
+| Premium features | all free | license required |
+| Language | Rust | .NET (C#) |
 
-## Instalacja
+## Installation
 
 ```bash
-./local/deploy.sh vaultwarden --ssh=mikrus --domain-type=cytrus --domain=auto
+./local/deploy.sh vaultwarden --ssh=ALIAS --domain-type=caddy --domain=auto
 ```
 
-## Wymagania
+## Requirements
 
-- **RAM:** ~50MB (Rust, bardzo lekki)
-- **Dysk:** ~330MB (obraz Docker)
-- **Baza danych:** SQLite (wbudowany, zero konfiguracji)
+- **RAM:** ~50MB (Rust, very lightweight)
+- **Disk:** ~330MB (Docker image)
+- **Database:** SQLite (built-in, zero configuration)
 - **Port:** 8088
 
-## HTTPS jest OBOWIAZKOWY
+## HTTPS is MANDATORY
 
-Vaultwarden przechowuje hasla — **nigdy nie uzywaj go bez HTTPS!**
-Bez szyfrowania TLS hasla sa przesylane czystym tekstem. Zawsze uzywaj domeny z certyfikatem SSL (Cytrus lub Cloudflare).
+Vaultwarden stores passwords -- **never use it without HTTPS!**
+Without TLS encryption, passwords are transmitted in plain text. Always use a domain with an SSL certificate (Caddy or Cloudflare).
 
-Tryb `--domain-type=local` (tunel SSH) jest bezpieczny lokalnie, ale nie udostepniaj Vaultwarden publicznie bez HTTPS.
+The `--domain-type=local` mode (SSH tunnel) is secure locally, but do not expose Vaultwarden publicly without HTTPS.
 
-## Po instalacji
+## After Installation
 
-1. **Zarejestruj sie natychmiast** po uruchomieniu uslugi — pierwsze konto zostaje adminem
-2. **Wylacz rejestracje** dla innych, aby nikt obcy nie mogl zalozyc konta:
+1. **Register immediately** after starting the service -- the first account becomes admin
+2. **Disable registration** for others, so nobody else can create an account:
    ```bash
-   ssh mikrus 'cd /opt/stacks/vaultwarden && sed -i "s/SIGNUPS_ALLOWED=true/SIGNUPS_ALLOWED=false/" docker-compose.yaml && docker compose up -d'
+   ssh ALIAS 'cd /opt/stacks/vaultwarden && sed -i "s/SIGNUPS_ALLOWED=true/SIGNUPS_ALLOWED=false/" docker-compose.yaml && docker compose up -d'
    ```
-3. **Panel admina** — token zapisany w `/opt/stacks/vaultwarden/.admin_token`:
+3. **Admin panel** -- token saved in `/opt/stacks/vaultwarden/.admin_token`:
    ```bash
-   ssh mikrus 'cat /opt/stacks/vaultwarden/.admin_token'
+   ssh ALIAS 'cat /opt/stacks/vaultwarden/.admin_token'
    ```
-   Dostep: `https://twoja-domena.byst.re/admin`
-4. Uzywaj aplikacji mobilnej i wtyczki przegladarkowej **Bitwarden** — sa w pelni kompatybilne z Vaultwarden
+   Access: `https://your-domain.com/admin`
+4. Use the **Bitwarden** mobile app and browser extension -- they are fully compatible with Vaultwarden
 
 ## Backup
 
-Dane w `/opt/stacks/vaultwarden/data/` (SQLite + zalaczniki). Wystarczy backup tego katalogu.
+Data in `/opt/stacks/vaultwarden/data/` (SQLite + attachments). Just back up this directory.

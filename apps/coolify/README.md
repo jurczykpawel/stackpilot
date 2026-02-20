@@ -1,117 +1,117 @@
-# Coolify - Twój Prywatny Heroku/Vercel
+# Coolify - Your Private Heroku/Vercel
 
-Open-source PaaS (Platform as a Service) z 280+ apkami do zainstalowania jednym kliknięciem. Automatyczny SSL, backupy, Git push deploy, monitoring.
+Open-source PaaS (Platform as a Service) with 280+ apps to install with one click. Automatic SSL, backups, Git push deploy, monitoring.
 
-**SUPER BONUS** - wymaga Mikrus 4.1+ (8GB RAM, 80GB dysk, 2x CPU).
+**Requires a large VPS** - 8GB RAM, 80GB disk, 2x CPU recommended.
 
-## Co dostajesz
+## What You Get
 
-- **280+ apek** z katalogu (one-click deploy): WordPress, n8n, Nextcloud, Grafana, Gitea, Ghost, Jellyfin, Vaultwarden, Uptime Kuma, PostHog, Supabase, Minio, Ollama...
-- **Automatyczny SSL** - Let's Encrypt dla każdej apki
-- **Git push deploy** - podepnij repo z GitHub/GitLab, push = deploy
-- **Backupy** - automatyczne do S3-compatible storage
-- **Monitoring** - alerty na dysk, CPU, RAM, deployment status
-- **Webowy terminal** - SSH do kontenerów z przeglądarki
-- **Multi-serwer** - zarządzaj wieloma serwerami z jednego panelu
+- **280+ apps** from the catalog (one-click deploy): WordPress, n8n, Nextcloud, Grafana, Gitea, Ghost, Jellyfin, Vaultwarden, Uptime Kuma, PostHog, Supabase, Minio, Ollama...
+- **Automatic SSL** - Let's Encrypt for every app
+- **Git push deploy** - connect a repo from GitHub/GitLab, push = deploy
+- **Backups** - automatic to S3-compatible storage
+- **Monitoring** - alerts on disk, CPU, RAM, deployment status
+- **Web terminal** - SSH to containers from the browser
+- **Multi-server** - manage multiple servers from one panel
 
-## Dlaczego Mikrus 4.1+
+## Why a Large VPS?
 
-| Komponent | RAM |
+| Component | RAM |
 |---|---|
 | Coolify (Laravel app) | ~300-500 MB |
-| PostgreSQL 15 (platforma) | ~50-100 MB |
+| PostgreSQL 15 (platform) | ~50-100 MB |
 | Redis 7 (cache/queues) | ~10-30 MB |
 | Soketi (WebSocket) | ~30-50 MB |
 | Traefik (reverse proxy) | ~50-100 MB |
-| **Suma (platforma)** | **~500-800 MB** |
+| **Total (platform)** | **~500-800 MB** |
 
-Na Mikrus 3.5 (4GB/40GB) byłoby na styk - platforma zjada ~800 MB, zostaje ~3 GB na apki, a dysk (40 GB) szybko się zapełni obrazami Docker.
+On a 4GB/40GB VPS it would be tight - the platform consumes ~800 MB, leaving ~3 GB for apps, and disk (40 GB) fills up quickly with Docker images.
 
-Na Mikrus 4.1 (8GB/80GB) - komfortowo. ~7 GB na apki, 80 GB dysku na obrazy i dane.
+On an 8GB/80GB VPS - comfortable. ~7 GB for apps, 80 GB disk for images and data.
 
-## Instalacja
-
-```bash
-./local/deploy.sh coolify --ssh=mikrus
-```
-
-### Z pre-konfiguracją admina (bezpieczniej)
+## Installation
 
 ```bash
-ROOT_USERNAME=admin ROOT_USER_EMAIL=admin@example.com ROOT_USER_PASSWORD=TajneHaslo123 \
-  ./local/deploy.sh coolify --ssh=mikrus
+./local/deploy.sh coolify --ssh=ALIAS
 ```
 
-Pomija ekran otwartej rejestracji - konto admina jest gotowe od razu.
-
-### Wyłączenie auto-aktualizacji
+### With admin pre-configuration (more secure)
 
 ```bash
-AUTOUPDATE=false ./local/deploy.sh coolify --ssh=mikrus
+ROOT_USERNAME=admin ROOT_USER_EMAIL=admin@example.com ROOT_USER_PASSWORD=SecretPass123 \
+  ./local/deploy.sh coolify --ssh=ALIAS
 ```
 
-Nie wymaga: `--domain-type`, `--domain`, bazy danych. Coolify zarządza tym sam.
+Skips the open registration screen - the admin account is ready immediately.
 
-## Po instalacji
+### Disabling auto-updates
 
-### 1. Utwórz konto admina (NATYCHMIAST!)
-
-Otwórz `http://<IP-serwera>:8000` i zarejestruj się. **Pierwszy zarejestrowany użytkownik = administrator.** Dopóki się nie zarejestrujesz, panel jest otwarty dla każdego!
-
-### 2. Skonfiguruj domenę (opcjonalne)
-
-W panelu Coolify: Settings → General → ustaw Instance's Domain (np. `https://panel.twojadomena.pl`).
-
-DNS: dodaj rekord A `panel.twojadomena.pl` → IP serwera. Traefik automatycznie wystawi SSL.
-
-### 3. Deploy pierwszej apki
-
-Resources → + New → Service → wybierz z katalogu (np. WordPress) → Deploy.
-
-Coolify automatycznie:
-- Pobierze obraz Docker
-- Skonfiguruje bazę danych (jeśli potrzebna)
-- Wystawi SSL przez Let's Encrypt
-- Skonfiguruje routing przez Traefik
-
-## Architektura
-
-```
-Internet → Traefik (:80/:443) → apka1, apka2, apka3...
-                                  ↕
-Browser  → Coolify UI (:8000) → PostgreSQL, Redis (platforma)
+```bash
+AUTOUPDATE=false ./local/deploy.sh coolify --ssh=ALIAS
 ```
 
-### Porty
+Does not require: `--domain-type`, `--domain`, database. Coolify manages those itself.
 
-| Port | Usługa |
+## After Installation
+
+### 1. Create an Admin Account (IMMEDIATELY!)
+
+Open `http://<server-IP>:8000` and register. **The first registered user = administrator.** Until you register, the panel is open to everyone!
+
+### 2. Configure a Domain (optional)
+
+In the Coolify panel: Settings -> General -> set Instance's Domain (e.g. `https://panel.your-domain.com`).
+
+DNS: add an A record `panel.your-domain.com` -> server IP. Traefik will automatically provision SSL.
+
+### 3. Deploy Your First App
+
+Resources -> + New -> Service -> pick from catalog (e.g. WordPress) -> Deploy.
+
+Coolify automatically:
+- Pulls the Docker image
+- Configures the database (if needed)
+- Provisions SSL via Let's Encrypt
+- Configures routing via Traefik
+
+## Architecture
+
+```
+Internet -> Traefik (:80/:443) -> app1, app2, app3...
+                                  |
+Browser  -> Coolify UI (:8000) -> PostgreSQL, Redis (platform)
+```
+
+### Ports
+
+| Port | Service |
 |---|---|
-| 8000 | Panel Coolify (UI) |
-| 80 | Traefik HTTP (redirect → HTTPS) |
-| 443 | Traefik HTTPS (SSL, routing do apek) |
-| 6001 | Soketi WebSocket (wewnętrzny) |
+| 8000 | Coolify Panel (UI) |
+| 80 | Traefik HTTP (redirect to HTTPS) |
+| 443 | Traefik HTTPS (SSL, routing to apps) |
+| 6001 | Soketi WebSocket (internal) |
 
-### Katalogi
+### Directories
 
-| Ścieżka | Co zawiera |
+| Path | Contents |
 |---|---|
-| `/data/coolify/source/` | docker-compose i .env platformy |
-| `/data/coolify/applications/` | dane zainstalowanych apek |
-| `/data/coolify/databases/` | dane baz danych apek |
-| `/data/coolify/backups/` | backupy |
-| `/data/coolify/proxy/` | konfiguracja Traefik |
-| `/data/coolify/ssh/keys/` | klucze SSH (container↔host) |
+| `/data/coolify/source/` | docker-compose and .env for the platform |
+| `/data/coolify/applications/` | data for installed apps |
+| `/data/coolify/databases/` | app database data |
+| `/data/coolify/backups/` | backups |
+| `/data/coolify/proxy/` | Traefik configuration |
+| `/data/coolify/ssh/keys/` | SSH keys (container<->host) |
 
-## Ważne
+## Important Notes
 
-- **Coolify przejmuje serwer.** Traefik na portach 80/443 zarządza całym ruchem HTTP/HTTPS. Nie instaluj obok innych apek z stackpilot (deploy.sh) - będą konflikty portów.
-- **Jeden panel, wszystkie apki.** Po zainstalowaniu Coolify, zarządzaj WSZYSTKIMI apkami przez panel (nie przez deploy.sh).
-- **Auto-update.** Coolify domyślnie aktualizuje się automatycznie. Wyłącz w `/data/coolify/source/.env`: `AUTOUPDATE=false`.
-- **Backup platformy.** Coolify ma wbudowane backupy dla apek (do S3). Sam Coolify = backup `/data/coolify/`.
+- **Coolify takes over the server.** Traefik on ports 80/443 manages all HTTP/HTTPS traffic. Do not install other apps alongside it via deploy.sh - there will be port conflicts.
+- **One panel, all apps.** After installing Coolify, manage ALL apps through the panel (not through deploy.sh).
+- **Auto-update.** Coolify updates itself automatically by default. Disable in `/data/coolify/source/.env`: `AUTOUPDATE=false`.
+- **Platform backup.** Coolify has built-in backups for apps (to S3). For Coolify itself = back up `/data/coolify/`.
 
-## Przykładowe apki z katalogu
+## Example Apps from the Catalog
 
-| Kategoria | Apki |
+| Category | Apps |
 |---|---|
 | AI | Ollama, Open WebUI, Flowise, Langflow, LibreChat, LobeChat |
 | Automation | N8N, Activepieces, Trigger |
@@ -123,27 +123,27 @@ Browser  → Coolify UI (:8000) → PostgreSQL, Redis (platforma)
 | Media | Jellyfin, Plex, Immich, Navidrome |
 | Business | Odoo, Invoice Ninja, Cal.com, Chatwoot |
 
-Pełna lista (280+): [coolify.io/docs/services](https://coolify.io/docs/services/)
+Full list (280+): [coolify.io/docs/services](https://coolify.io/docs/services/)
 
-## Przydatne komendy
+## Useful Commands
 
 ```bash
-# Logi platformy
+# Platform logs
 cd /data/coolify/source && docker compose logs -f
 
-# Restart platformy
+# Restart platform
 cd /data/coolify/source && docker compose restart
 
-# Status kontenerów
+# Container status
 cd /data/coolify/source && docker compose ps
 
-# Ręczna aktualizacja
+# Manual update
 cd /data/coolify/source && docker compose pull && docker compose up -d
 ```
 
-## Ograniczenia
+## Limitations
 
-- **Wymaga dedykowanego serwera** - Coolify przejmuje porty 80/443, nie współgra z innymi apkami z toolboxa
-- **Platforma zjada ~500-800 MB RAM** - overhead za webowy panel i infrastrukturę
-- **Dysk** - każda apka to kolejny obraz Docker (500 MB - 3 GB), na 80 GB mieści się ~10-15 apek
-- **Beta** - Coolify v4 jest w fazie beta (stabilna, ale zdarzają się regressions przy auto-update)
+- **Requires a dedicated server** - Coolify takes over ports 80/443, does not coexist with other toolbox apps
+- **Platform consumes ~500-800 MB RAM** - overhead for the web panel and infrastructure
+- **Disk** - each app is another Docker image (500 MB - 3 GB); on 80 GB you can fit ~10-15 apps
+- **Beta** - Coolify v4 is in beta (stable, but regressions can happen during auto-update)

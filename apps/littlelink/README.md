@@ -1,33 +1,33 @@
-# LittleLink - Wizytowka (Wersja Lekka)
+# LittleLink - Link in Bio (Lightweight Version)
 
-Ekstremalnie lekka alternatywa dla Linktree. Czysty HTML + CSS, zero bazy danych, zero PHP.
+Extremely lightweight Linktree alternative. Pure HTML + CSS, zero database, zero PHP.
 
-## Instalacja
+## Installation
 
 ```bash
-./local/deploy.sh littlelink --ssh=mikrus --domain-type=cytrus --domain=auto
+./local/deploy.sh littlelink --ssh=ALIAS --domain-type=caddy --domain=auto
 ```
 
-## Wymagania
+## Requirements
 
 - **RAM:** ~5MB (nginx:alpine)
-- **Dysk:** ~50MB (obraz Docker)
-- **Baza danych:** brak
+- **Disk:** ~50MB (Docker image)
+- **Database:** none
 - **Port:** 8090
 
-## Jak edytowac?
+## How to Edit?
 
-LittleLink nie ma panelu admina. Edytujesz plik `index.html` bezposrednio.
+LittleLink has no admin panel. You edit the `index.html` file directly.
 
 **Workflow:**
-1. Pobierz pliki na komputer:
+1. Download files to your computer:
    ```bash
-   ./local/sync.sh down /opt/stacks/littlelink/html ./moj-bio --ssh=mikrus
+   ./local/sync.sh down /opt/stacks/littlelink/html ./my-bio --ssh=ALIAS
    ```
-2. Wyedytuj `index.html` w VS Code (dodaj swoje linki, avatar, kolory)
-3. Wyslij zmiany na serwer:
+2. Edit `index.html` in VS Code (add your links, avatar, colors)
+3. Upload changes to the server:
    ```bash
-   ./local/sync.sh up ./moj-bio /opt/stacks/littlelink/html --ssh=mikrus
+   ./local/sync.sh up ./my-bio /opt/stacks/littlelink/html --ssh=ALIAS
    ```
 
-Dziala blyskawicznie nawet na najtanszym Mikrusie.
+Works blazingly fast even on the smallest VPS.

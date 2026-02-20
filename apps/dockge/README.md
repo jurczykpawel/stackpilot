@@ -1,39 +1,39 @@
-# 🐳 Dockge - Panel Sterowania Kontenerami
+# Dockge - Container Management Panel
 
-Dockge to ultralekki interfejs do zarządzania Docker Compose. Zastępuje ciężkiego Portainera.
+Dockge is an ultra-lightweight interface for managing Docker Compose. Replaces the heavy Portainer.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh dockge
 ```
 
-## 💡 Dlaczego Kamil go kocha?
-- **Zjada mało RAM-u:** W przeciwieństwie do Portainera, który potrafi zjeść 200MB+, Dockge bierze tyle co nic.
-- **Pliki > Baza danych:** Dockge nie chowa Twoich konfiguracji w wewnętrznej bazie danych. Zarządza bezpośrednio plikami `compose.yaml` w katalogu `/opt/stacks`. Dzięki temu możesz edytować je zarówno w przeglądarce, jak i przez terminal/VS Code, i nic się nie rozjedzie.
-- **Agent:** Możesz podpiąć inne serwery Mikrusa do jednego panelu.
+## Why Dockge?
+- **Low RAM usage:** Unlike Portainer, which can consume 200MB+, Dockge uses very little.
+- **Files > Database:** Dockge does not hide your configurations in an internal database. It manages `compose.yaml` files directly in the `/opt/stacks` directory. This means you can edit them in the browser, through the terminal, or in VS Code, and nothing gets out of sync.
+- **Agent:** You can connect other servers to a single panel.
 
-## 🌐 Po instalacji - konfiguracja domeny
+## After Installation - Domain Configuration
 
-### 1. Skonfiguruj DNS
-Dodaj rekord A w panelu swojego rejestratora domen (np. OVH, Cloudflare, home.pl):
-- **Typ:** `A`
-- **Nazwa:** `dockge` (lub inna subdomena, np. `docker`, `panel`)
-- **Wartość:** IP Twojego serwera Mikrus (znajdziesz w panelu mikr.us)
-- **TTL:** 3600 (lub "Auto")
+### 1. Configure DNS
+Add an A record in your domain registrar panel (e.g. OVH, Cloudflare):
+- **Type:** `A`
+- **Name:** `dockge` (or another subdomain, e.g. `docker`, `panel`)
+- **Value:** Your server's IP address
+- **TTL:** 3600 (or "Auto")
 
-> ⏳ Propagacja DNS może zająć od kilku minut do 24h. Sprawdź: `ping dockge.twojadomena.pl`
+> DNS propagation may take from a few minutes to 24h. Check: `ping dockge.your-domain.com`
 
-### 2. Wystaw aplikację przez HTTPS
-Uruchom **na swoim komputerze** (nie na serwerze!):
+### 2. Expose the App via HTTPS
+Run **on your local machine** (not on the server!):
 ```bash
-ssh mikrus 'sp-expose dockge.twojadomena.pl 5001'
+ssh ALIAS 'sp-expose dockge.your-domain.com 5001'
 ```
-Zamień `mikrus` na swój alias SSH jeśli używasz innego, oraz `dockge.twojadomena.pl` na swoją domenę.
+Replace `ALIAS` with your SSH alias and `dockge.your-domain.com` with your domain.
 
-### 3. Utwórz konto admina
-Przy pierwszym wejściu na `https://dockge.twojadomena.pl` Dockge poprosi o utworzenie konta administratora. Zapisz dane logowania w bezpiecznym miejscu!
+### 3. Create an Admin Account
+On first visit to `https://dockge.your-domain.com`, Dockge will ask you to create an administrator account. Save the login credentials in a secure place!
 
-## 🛠️ Jak używać?
-Po konfiguracji domeny wejdź na `https://dockge.twojadomena.pl`.
-Kliknij "+ Compose", wpisz nazwę (np. `wordpress`) i wklej konfigurację. To tyle.
+## How to Use?
+After domain configuration, go to `https://dockge.your-domain.com`.
+Click "+ Compose", enter a name (e.g. `wordpress`) and paste the configuration. That is all.

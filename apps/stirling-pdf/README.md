@@ -1,25 +1,25 @@
-# 📄 Stirling-PDF - Scyzoryk do dokumentów
+# Stirling-PDF - Document Swiss Army Knife
 
-Kombajn do PDF-ów. Zastępuje Adobe Acrobat Pro i niebezpieczne strony "online pdf converter".
+All-in-one PDF tool. Replaces Adobe Acrobat Pro and sketchy "online pdf converter" sites.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh stirling-pdf
 ```
 
-## Wymagania
+## Requirements
 
 - **RAM:** ~500MB+ (Java + LibreOffice)
-- **Dysk:** ~1GB
+- **Disk:** ~1GB
 - **Port:** 8087
-- **Baza danych:** Nie
-- **Minimum:** Mikrus 3.0+ (2GB RAM)
+- **Database:** No
+- **Minimum:** 2GB RAM VPS
 
-## 💡 Co potrafi?
-- Łączenie i dzielenie PDF.
-- Konwersja PDF na Word/Zdjęcia (i odwrotnie).
-- OCR (Rozpoznawanie tekstu - uwaga, zjada trochę RAMu!).
-- Podpisywanie i dodawanie znaków wodnych.
+## What Can It Do?
+- Merge and split PDFs.
+- Convert PDF to Word/Images (and vice versa).
+- OCR (Text recognition - note, it uses quite a bit of RAM!).
+- Signing and adding watermarks.
 
-Wszystko dzieje się lokalnie na Twoim serwerze. Żadna umowa nie wycieknie do chmury.
+Everything happens locally on your server. No contracts leak to the cloud.

@@ -1,79 +1,81 @@
-# Backup - Zabezpiecz swoje dane
+# Backup - Protect Your Data
 
-## Opcja A: Backup Mikrusa (darmowy, 200MB)
+## Option A: Database Backup (automatic, daily)
 
-Najprostszy start - wbudowany serwer backupowy Mikrusa (`strych.mikr.us`).
+Automatic daily backup of databases running on your server. Auto-detects PostgreSQL and MySQL containers.
 
-**Co jest backupowane:**
-- `/etc/` - konfiguracje systemowe
-- `/home/` - pliki użytkowników
-- `/var/log/` - logi
+**What is backed up:**
+- PostgreSQL database dumps (all detected containers)
+- MySQL database dumps (all detected containers)
 
-**Kiedy to wystarczy:**
-- Masz tylko konfiguracje aplikacji (docker-compose, nginx, cron)
-- Dane trzymasz w zewnętrznej bazie (PostgreSQL Mikrusa/Cloud)
-- Pliki użytkowników są małe
+**When to use:**
+- You have apps with database containers (n8n, listmonk, WordPress, etc.)
+- You want automated daily backups without manual intervention
 
-**Instalacja:**
-1. Aktywuj backup w [Panelu Mikrus → Backup](https://mikr.us/panel/?a=backup)
-2. Uruchom konfigurację:
-   ```bash
-   ./local/setup-backup.sh mikrus
-   ```
-3. Gotowe! Codziennie backup leci na `strych.mikr.us`.
-
-**Restore:**
+**Setup:**
 ```bash
-ssh mikrus
-ssh -i /backup_key $(whoami)@strych.mikr.us "ls ~/backup/"
-scp -i /backup_key $(whoami)@strych.mikr.us:~/backup/etc/plik.conf /etc/
+# Via MCP:
+setup_backup(backup_type='db')
+
+# Or via CLI:
+./local/setup-backup.sh vps
 ```
 
-> Limit 200MB. Dla większych danych użyj Opcji B.
+The script auto-detects running database containers and creates a cron job for daily dumps.
+
+**Manual backup run:**
+```bash
+ssh vps '/opt/stackpilot/system/setup-db-backup.sh'
+```
 
 ---
 
-## Opcja B: Backup do chmury (Google Drive / Dropbox)
+## Option B: Cloud Backup (Google Drive / Dropbox / S3)
 
-Szyfrowany backup do własnej chmury - bez limitu, pełna kontrola.
+Encrypted backup to your own cloud storage - no limits, full control.
 
-**Co jest backupowane:**
-- `/opt/stacks/` - wszystkie aplikacje Docker (n8n, Listmonk, dane)
-- `/opt/dockge/` - panel zarządzania kontenerami
+**What is backed up:**
+- `/opt/stacks/` - all Docker applications (n8n, Listmonk, data volumes)
+- `/opt/dockge/` - container management panel (if installed)
 
-**Wspierani providerzy:**
+**Supported providers:**
 Google Drive (15GB free), Dropbox, OneDrive, Amazon S3, Wasabi, MinIO, Mega
 
-**Wymagania lokalne:**
-- Terminal z SSH
+**Local requirements:**
+- Terminal with SSH access
 - Rclone: Mac `brew install rclone` | Linux `curl https://rclone.org/install.sh | sudo bash` | Windows `winget install rclone`
 
-**Instalacja:**
+**Setup:**
 ```bash
-./local/setup-backup.sh           # domyślnie 'mikrus'
-./local/setup-backup.sh mikrus     # lub inny serwer
+./local/setup-backup.sh           # uses default SSH alias
+./local/setup-backup.sh vps       # or specify the server
 ```
 
-Kreator poprowadzi Cię przez: wybór providera → logowanie → szyfrowanie (zalecane).
-Serwer co noc o 3:00 wysyła dane do chmury.
+The wizard guides you through: choose provider -> log in via browser -> encryption (recommended).
+The server will run the backup every night at 3:00 AM via cron.
 
 **Restore:**
 ```bash
-./local/restore.sh           # domyślnie 'mikrus'
-./local/restore.sh mikrus     # lub inny serwer
+./local/restore.sh           # uses default SSH alias
+./local/restore.sh vps       # or specify the server
 ```
 
-**Ręczny backup / sprawdzenie:**
+**Manual backup / verification:**
 ```bash
-ssh mikrus '~/backup-core.sh'
-ssh mikrus 'tail -50 /var/log/mikrus-backup.log'
+ssh vps '~/backup-core.sh'
+ssh vps 'tail -50 /var/log/stackpilot-backup.log'
 ```
 
-**Zmiana backupowanych katalogów:**
+**See what is in the cloud:**
 ```bash
-ssh mikrus 'nano ~/backup-core.sh'
+ssh vps 'rclone ls backup_remote:vps-backup/stacks/'
 ```
-Znajdź sekcję `SOURCE_DIRS` i dodaj/usuń katalogi:
+
+**Customize backed-up directories:**
+```bash
+ssh vps 'nano ~/backup-core.sh'
+```
+Find the `SOURCE_DIRS` section and add/remove directories:
 ```bash
 SOURCE_DIRS=(
     "/opt/dockge"
@@ -83,4 +85,4 @@ SOURCE_DIRS=(
 )
 ```
 
-> Backup jest szyfrowany na serwerze przed wysłaniem. Nawet Google nie widzi Twoich danych.
+> Backups are encrypted on the server before upload. Even your cloud provider cannot read your data.

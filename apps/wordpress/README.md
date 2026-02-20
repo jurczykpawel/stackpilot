@@ -1,303 +1,273 @@
 # WordPress - Performance Edition
 
-Najpopularniejszy CMS na świecie, zoptymalizowany pod małe serwery VPS.
+The world's most popular CMS, optimized for small VPS servers.
 
-**TTFB ~200ms** z cache (vs 2-5s na typowych hostingach). Zero konfiguracji — wszystko automatyczne.
+**TTFB ~200ms** with cache (vs 2-5s on typical hosting). Zero configuration -- everything is automatic.
 
-## Co jest w środku?
+## What Is Inside?
 
-Stack wydajnościowy — to co dostajesz u Kinsta ($35/mies) czy WP Engine ($25/mies):
+Performance stack -- what you get at Kinsta ($35/mo) or WP Engine ($25/mo):
 
 ```
-Cytrus/Caddy (host) → Nginx (gzip, FastCGI cache, rate limiting, security)
-                        └── PHP-FPM alpine (OPcache + JIT, redis ext, WP-CLI)
-                        └── Redis (object cache, bundled)
-                             └── MySQL (zewnętrzny) lub SQLite
+Caddy (host) -> Nginx (gzip, FastCGI cache, rate limiting, security)
+                 +-- PHP-FPM alpine (OPcache + JIT, redis ext, WP-CLI)
+                 +-- Redis (object cache, bundled)
+                      +-- MySQL (external) or SQLite
 ```
 
-### Optymalizacje (automatyczne, zero konfiguracji)
+### Optimizations (automatic, zero configuration)
 
-| Optymalizacja | Co daje | Na managed hostingu |
+| Optimization | What it does | On managed hosting |
 |---|---|---|
-| Nginx FastCGI cache + auto-purge | Cached strony ~200ms TTFB (bez PHP i DB) | wliczone w plan $25-35/mies |
-| Redis Object Cache (drop-in) | -70% zapytań do DB | Kinsta: addon $100/mies (!) |
-| PHP-FPM alpine (nie Apache) | -35MB RAM, mniejszy obraz | standard |
-| OPcache + JIT | 2-3x szybszy PHP | standard |
-| Nginx Helper plugin (auto-purge) | Cache czyszczony przy edycji treści | wbudowane w Kinsta/WP Engine |
-| WooCommerce-aware cache rules | Koszyk/checkout omija cache, reszta cachowana | WP Rocket ~$59/rok |
-| session.cache_limiter bypass | Cache działa z Breakdance/Elementor (session_start fix) | ręczna konfiguracja |
-| fastcgi_ignore_headers | Nginx cachuje mimo Set-Cookie z page builderów | ręczna konfiguracja |
-| FastCGI cache lock | Ochrona przed thundering herd (1 req do PHP) | Nginx — darmowe, ale trzeba umieć |
-| Gzip compression | -60-80% transferu | standard |
-| Open file cache | -80% disk I/O na statycznych plikach | standard |
-| Realpath cache 4MB | -30% response time (mniej stat() calls) | ręczna konfiguracja |
-| FPM ondemand + RAM tuning | Dynamiczny profil na podstawie RAM serwera | managed hosting |
-| tmpfs /tmp | 20x szybsze I/O dla temp files | ręczna konfiguracja |
+| Nginx FastCGI cache + auto-purge | Cached pages ~200ms TTFB (no PHP or DB) | included in $25-35/mo plan |
+| Redis Object Cache (drop-in) | -70% DB queries | Kinsta: addon $100/mo (!) |
+| PHP-FPM alpine (not Apache) | -35MB RAM, smaller image | standard |
+| OPcache + JIT | 2-3x faster PHP | standard |
+| Nginx Helper plugin (auto-purge) | Cache cleared on content edit | built into Kinsta/WP Engine |
+| WooCommerce-aware cache rules | Cart/checkout skip cache, rest cached | WP Rocket ~$59/yr |
+| session.cache_limiter bypass | Cache works with Breakdance/Elementor (session_start fix) | manual configuration |
+| fastcgi_ignore_headers | Nginx caches despite Set-Cookie from page builders | manual configuration |
+| FastCGI cache lock | Thundering herd protection (1 req to PHP) | Nginx -- free, but requires know-how |
+| Gzip compression | -60-80% transfer | standard |
+| Open file cache | -80% disk I/O on static files | standard |
+| Realpath cache 4MB | -30% response time (fewer stat() calls) | manual configuration |
+| FPM ondemand + RAM tuning | Dynamic profile based on server RAM | managed hosting |
+| tmpfs /tmp | 20x faster I/O for temp files | manual configuration |
 | Security headers | X-Frame, X-Content-Type, Referrer-Policy | standard |
-| Rate limiting wp-login | Ochrona brute force bez obciążania PHP | plugin lub ręcznie |
-| Blokada xmlrpc.php | Zamknięty wektor DDoS | plugin lub ręcznie |
-| Blokada user enumeration | ?author=N → 403 | plugin lub ręcznie |
-| WP-Cron → system cron | Brak opóźnień dla odwiedzających | ręczna konfiguracja |
-| Autosave co 5 min | -80% zapisów do DB (domyślne 60s) | ręczna konfiguracja |
-| Blokada wrażliwych plików | wp-config.php, .env, uploads/*.php | plugin lub ręcznie |
-| no-new-privileges | Kontener nie eskaluje uprawnień | Docker know-how |
-| Log rotation | Logi nie zapchają dysku (max 30MB) | standard |
-| Converter for Media (WebP) | Auto-konwersja obrazów do WebP (-25-35% vs JPEG) | plugin + ręczna konfig. |
-
-**Porównanie cenowe:** Kinsta od $35/mies, WP Engine od $25/mies, Redis addon u Kinsta $100/mies.
-Na Mikrusie: **75 PLN/rok** (~6 PLN/mies) za Mikrus 2.1 (1GB RAM) + darmowy shared MySQL.
+| Rate limiting wp-login | Brute force protection without loading PHP | plugin or manual |
+| xmlrpc.php blocked | Closed DDoS vector | plugin or manual |
+| User enumeration blocked | ?author=N -> 403 | plugin or manual |
+| WP-Cron -> system cron | No delays for visitors | manual configuration |
+| Autosave every 5 min | -80% DB writes (default is 60s) | manual configuration |
+| Sensitive file blocking | wp-config.php, .env, uploads/*.php | plugin or manual |
+| no-new-privileges | Container cannot escalate privileges | Docker know-how |
+| Log rotation | Logs do not fill up disk (max 30MB) | standard |
+| Converter for Media (WebP) | Auto-convert images to WebP (-25-35% vs JPEG) | plugin + manual config |
 
 ### Benchmark: TTFB
 
-| Metryka | Shared hosting | Mikrus WP |
+| Metric | Shared hosting | VPS WP |
 |---|---|---|
-| TTFB (strona główna) | 800-3000ms | **~200ms** (cache HIT) |
-| TTFB (cold, bez cache) | 2000-5000ms | **300-400ms** |
-| TTFB z Breakdance/Elementor | 2000-5000ms (session kill cache) | **~200ms** (session bypass) |
+| TTFB (homepage) | 800-3000ms | **~200ms** (cache HIT) |
+| TTFB (cold, no cache) | 2000-5000ms | **300-400ms** |
+| TTFB with Breakdance/Elementor | 2000-5000ms (session kills cache) | **~200ms** (session bypass) |
 
-### Porównanie z polskimi hostingami WordPress
+## Installation
 
-Ceny odnowienia (nie promocyjne pierwszego roku). Plany porównywalne z 1 GB RAM.
-
-| Hosting | Cena/rok | RAM | Redis | Server cache | Auto-purge | WooCommerce rules |
-|---|---|---|---|---|---|---|
-| **Mikrus 2.1 + Toolbox** | **75 PLN** | 1 GB | wbudowany | FastCGI 24h | Nginx Helper | auto |
-| Smarthost Pro Mini | ~170 PLN | 1 GB | tak | LSCache | plugin | ręcznie |
-| LH.pl Orange | 199 PLN* | 1 GB | **brak** | **brak** | brak | brak |
-| MyDevil MD1 | 200 PLN | 1 GB | tak (ręczna konfig.) | **brak** | brak | brak |
-| dhosting EWH | 359 PLN* | auto-scale | tak | LSCache | plugin | ręcznie |
-| cyber_Folks wp_START! | 328 PLN** | 2 GB NVMe | tak | LSCache | plugin | ręcznie |
-| nazwa.pl WP Start | 360 PLN* | 8 GB | b/d | b/d | b/d | b/d |
-| Zenbox Firma 10k | 648 PLN | b/d | **brak** | LSCache | plugin | ręcznie |
-
-\* cena netto (bez VAT 23%) | \*\* 299 PLN plan + 29 PLN SSL, limit transferu 250 GB/mies
-
-**Co Mikrus + Toolbox daje za 75 PLN/rok, a czego brak na shared hostingu:**
-- Redis Object Cache — u LH.pl dopiero od planu Mango (399 PLN/rok netto), u Kinsta addon $100/mies
-- Nginx FastCGI cache z auto-purge — na shared hostingach trzeba ręcznie konfigurować LiteSpeed Cache plugin
-- WooCommerce skip rules — trzeba kupić WP Rocket (~$59/rok) albo konfigurować ręcznie
-- Breakdance/Elementor session fix — na żadnym shared hostingu, trzeba wiedzieć co ustawić
-- Nielimitowany transfer — np. cyber_Folks wp_START! (328 PLN/rok) ma limit 250 GB/mies
-- Darmowy SSL (Cytrus/Caddy) — u cyber_Folks SSL to dodatkowe 29 PLN/rok
-- Pełny root + Docker — na shared hostingach niedostępny
-- **Serwer, nie tylko hosting WP** — na tym samym Mikrusie obok WordPressa postawisz strony statyczne, n8n, Uptime Kuma, Vaultwarden, NocoDB i [25 innych aplikacji](../../AGENTS.md). Shared hosting = tylko WordPress
-
-## Instalacja
-
-### Tryb MySQL (domyślny)
+### MySQL Mode (default)
 
 ```bash
-# Shared MySQL z Mikrusa (darmowy)
-./local/deploy.sh wordpress --ssh=mikrus --domain-type=cytrus --domain=auto
+# Bundled MySQL (free)
+./local/deploy.sh wordpress --ssh=ALIAS --domain-type=caddy --domain=auto
 
-# Własny MySQL
-./local/deploy.sh wordpress --ssh=mikrus --db-source=custom --domain-type=cytrus --domain=auto
+# Custom MySQL
+./local/deploy.sh wordpress --ssh=ALIAS --db-source=custom --domain-type=caddy --domain=auto
 ```
 
-### Tryb SQLite (lekki, bez MySQL)
+### SQLite Mode (lightweight, no MySQL)
 
 ```bash
-WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=mikrus --domain-type=cytrus --domain=auto
+WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=ALIAS --domain-type=caddy --domain=auto
 ```
 
 ### Redis (external vs bundled)
 
-Domyślnie auto-detekcja: jeśli port 6379 nasłuchuje na serwerze, WordPress łączy się z istniejącym Redis (bez nowego kontenera). W przeciwnym razie bundluje `redis:alpine`.
+By default, auto-detection: if port 6379 is listening on the server, WordPress connects to the existing Redis (no new container). Otherwise it bundles `redis:alpine`.
 
 ```bash
-# Wymuś bundled Redis (nawet gdy istnieje external)
-WP_REDIS=bundled ./local/deploy.sh wordpress --ssh=mikrus
+# Force bundled Redis (even when external exists)
+WP_REDIS=bundled ./local/deploy.sh wordpress --ssh=ALIAS
 
-# Wymuś external Redis (host)
-WP_REDIS=external ./local/deploy.sh wordpress --ssh=mikrus
+# Force external Redis (host)
+WP_REDIS=external ./local/deploy.sh wordpress --ssh=ALIAS
 
-# External Redis z hasłem
-REDIS_PASS=tajneHaslo WP_REDIS=external ./local/deploy.sh wordpress --ssh=mikrus
+# External Redis with password
+REDIS_PASS=secretPassword WP_REDIS=external ./local/deploy.sh wordpress --ssh=ALIAS
 
-# Auto-detekcja (domyślne)
-./local/deploy.sh wordpress --ssh=mikrus
+# Auto-detection (default)
+./local/deploy.sh wordpress --ssh=ALIAS
 ```
 
-## Wiele stron WordPress na jednym serwerze
+## Multiple WordPress Sites on One Server
 
-Każdy deploy z osobną domeną tworzy niezależną instancję:
+Each deploy with a separate domain creates an independent instance:
 
 ```bash
-./local/deploy.sh wordpress --domain=blog.example.com    # → /opt/stacks/wordpress-blog/
-./local/deploy.sh wordpress --domain=shop.example.com    # → /opt/stacks/wordpress-shop/
-./local/deploy.sh wordpress --domain=news.example.com    # → /opt/stacks/wordpress-news/
+./local/deploy.sh wordpress --domain=blog.example.com    # -> /opt/stacks/wordpress-blog/
+./local/deploy.sh wordpress --domain=shop.example.com    # -> /opt/stacks/wordpress-shop/
+./local/deploy.sh wordpress --domain=news.example.com    # -> /opt/stacks/wordpress-news/
 ```
 
-Co jest współdzielone, a co osobne:
+What is shared vs separate:
 
-| Element | Współdzielony? |
+| Element | Shared? |
 |---|---|
-| Redis | tak — jeden `redis-shared` na `127.0.0.1:6379` (instalowany automatycznie) |
-| Nginx | nie — osobny per instancja |
-| PHP-FPM | nie — osobny per instancja |
-| Pliki WP | nie — osobny volume per instancja |
-| Redis klucze | izolowane prefiksem (`wordpress-blog:`, `wordpress-shop:`) |
+| Redis | yes -- one `redis-shared` on `127.0.0.1:6379` (installed automatically) |
+| Nginx | no -- separate per instance |
+| PHP-FPM | no -- separate per instance |
+| WP files | no -- separate volume per instance |
+| Redis keys | isolated by prefix (`wordpress-blog:`, `wordpress-shop:`) |
 
-Każda dodatkowa strona to ~80MB RAM (PHP-FPM + Nginx). Redis współdzielony oszczędza ~96MB vs osobny per site.
+Each additional site costs ~80MB RAM (PHP-FPM + Nginx). Shared Redis saves ~96MB vs separate per site.
 
-## Wymagania
+## Requirements
 
-- **RAM:** ~80-100MB idle (WP + Nginx + Redis), działa na Mikrus 2.1 (1GB RAM)
-- **Dysk:** ~550MB (obrazy Docker: WP+redis ext, Nginx, Redis)
-- **MySQL:** Shared Mikrus (darmowy) lub własny. SQLite nie wymaga.
+- **RAM:** ~80-100MB idle (WP + Nginx + Redis), works on a 1GB RAM VPS
+- **Disk:** ~550MB (Docker images: WP+redis ext, Nginx, Redis)
+- **MySQL:** Bundled or custom. SQLite mode does not require MySQL.
 
-## Po instalacji
+## After Installation
 
-1. Otwórz stronę → kreator instalacji WordPress (jedyny ręczny krok)
+1. Open the page -> WordPress installation wizard (the only manual step)
 
-Optymalizacje `wp-init.sh` uruchamiają się **automatycznie** po kreatorze. Nie trzeba nic robić ręcznie.
+Optimizations from `wp-init.sh` run **automatically** after the wizard. No manual steps required.
 
-`wp-init.sh` automatycznie:
-- Generuje `wp-config-performance.php` (HTTPS fix, limity, Redis config)
-- Instaluje, aktywuje i **konfiguruje** plugin **Redis Object Cache** — włącza drop-in (`wp redis enable`), gotowy od razu
-- Instaluje, aktywuje i **konfiguruje** plugin **Nginx Helper** — ustawia file-based purge, auto-purge przy edycji/usunięciu/komentarzu
-- Instaluje i aktywuje plugin **Converter for Media** — nowe obrazy konwertowane do WebP automatycznie, nginx serwuje WebP bez dodatkowej konfiguracji
-- Dodaje systemowy cron co 5 min (zastępuje wp-cron)
-- Czyści FastCGI cache po konfiguracji
+`wp-init.sh` automatically:
+- Generates `wp-config-performance.php` (HTTPS fix, limits, Redis config)
+- Installs, activates and **configures** the **Redis Object Cache** plugin -- enables drop-in (`wp redis enable`), ready immediately
+- Installs, activates and **configures** the **Nginx Helper** plugin -- sets file-based purge, auto-purge on edit/delete/comment
+- Installs and activates the **Converter for Media** plugin -- new images converted to WebP automatically, nginx serves WebP without extra configuration
+- Adds system cron every 5 min (replaces wp-cron)
+- Clears FastCGI cache after configuration
 
-**Wszystkie pluginy działają od razu — zero konfiguracji w panelu WordPress.**
+**All plugins work out of the box -- zero configuration in the WordPress panel.**
 
-Jeśli WordPress nie jest jeszcze zainicjalizowany, wp-init.sh ustawia retry cron (co minutę, max 30 prób) i dokończy konfigurację automatycznie.
+If WordPress is not yet initialized, wp-init.sh sets a retry cron (every minute, max 30 attempts) and will finish configuration automatically.
 
 ## FastCGI Cache
 
-Strony są cache'owane przez Nginx na 24h. **TTFB ~200ms** z cache vs 300-3000ms bez.
+Pages are cached by Nginx for 24h. **TTFB ~200ms** with cache vs 300-3000ms without.
 
-### Automatyczny purge (Nginx Helper)
+### Automatic purge (Nginx Helper)
 
-Plugin Nginx Helper automatycznie czyści cache gdy:
-- Edytujesz/publikujesz stronę lub post
-- Usuwasz stronę lub post
-- Ktoś dodaje/usuwa komentarz
-- Aktualizujesz menu lub widgety
+The Nginx Helper plugin automatically clears cache when:
+- You edit/publish a page or post
+- You delete a page or post
+- Someone adds/removes a comment
+- You update menus or widgets
 
-Tryb: **file-based purge** (unlink_files) — najszybszy, bez HTTP requests.
+Mode: **file-based purge** (unlink_files) -- fastest, no HTTP requests.
 
 ### Skip cache rules
 
-Cache jest automatycznie pomijany dla:
-- Zalogowanych użytkowników (cookie `wordpress_logged_in`)
-- Panelu admina (`/wp-admin/`)
+Cache is automatically skipped for:
+- Logged-in users (cookie `wordpress_logged_in`)
+- Admin panel (`/wp-admin/`)
 - API (`/wp-json/`)
-- Requestów POST
-- **WooCommerce:** koszyk, checkout, my-account (cookie `woocommerce_cart_hash`)
+- POST requests
+- **WooCommerce:** cart, checkout, my-account (cookie `woocommerce_cart_hash`)
 
-### Kompatybilność z page builderami
+### Page builder compatibility
 
-Breakdance, Elementor i inne page buildery wywołują `session_start()`, co domyślnie wysyła `Cache-Control: no-store` i blokuje cachowanie. Nasze rozwiązanie:
-- `session.cache_limiter =` — PHP nie wysyła nagłówka Cache-Control
-- `fastcgi_ignore_headers Cache-Control Expires Set-Cookie` — Nginx cachuje mimo Set-Cookie
+Breakdance, Elementor and other page builders call `session_start()`, which by default sends `Cache-Control: no-store` and blocks caching. Our solution:
+- `session.cache_limiter =` -- PHP does not send Cache-Control header
+- `fastcgi_ignore_headers Cache-Control Expires Set-Cookie` -- Nginx caches despite Set-Cookie
 
-**Efekt:** strony z Breakdance cachowane normalnie (~200ms vs 2-5s na innych hostingach).
+**Result:** pages with Breakdance cached normally (~200ms vs 2-5s on other hosting).
 
 ### Thundering herd protection
 
-Gdy wielu użytkowników prosi o tę samą niecachowaną stronę, tylko 1 request trafia do PHP-FPM, reszta czeka na cache. `fastcgi_cache_background_update` serwuje stale content podczas odświeżania.
+When many users request the same uncached page, only 1 request hits PHP-FPM, the rest wait for cache. `fastcgi_cache_background_update` serves stale content during refresh.
 
-### Ręczne czyszczenie cache
+### Manual cache clearing
 
 ```bash
-ssh mikrus 'cd /opt/stacks/wordpress && ./flush-cache.sh'
+ssh ALIAS 'cd /opt/stacks/wordpress && ./flush-cache.sh'
 ```
 
-Header `X-FastCGI-Cache` w odpowiedzi HTTP pokazuje status: `HIT`, `MISS`, `BYPASS`.
+The `X-FastCGI-Cache` header in HTTP responses shows status: `HIT`, `MISS`, `BYPASS`.
 
-### Dlaczego Nginx, a nie LiteSpeed?
+### Why Nginx, not LiteSpeed?
 
-Wiele polskich hostingów reklamuje się "LiteSpeed Cache". To brzmi jak przewaga, ale niezależne benchmarki pokazują co innego:
+Many hosting providers advertise "LiteSpeed Cache". It sounds like an advantage, but independent benchmarks show otherwise:
 
-**Z włączonym cache obie technologie dają praktycznie identyczny TTFB.** Obie serwują stronę z cache na poziomie serwera, bez dotykania PHP i bazy danych.
+**With caching enabled, both technologies give practically identical TTFB.** Both serve pages from server-level cache, without touching PHP or the database.
 
-Niezależne testy (nie marketing hostingów):
+Independent tests (not hosting marketing):
 
-| Test | Nginx | OpenLiteSpeed | Różnica | Źródło |
+| Test | Nginx | OpenLiteSpeed | Difference | Source |
 |---|---|---|---|---|
 | Cached TTFB | 67ms | 68ms | **1ms** | [WPJohnny](https://wpjohnny.com/nginx-vs-openlitespeed-speed-comparison/) |
-| Throughput (cached) | 26 880 hits | 26 748 hits | **0.5%** | [RunCloud](https://runcloud.io/blog/openlitespeed-vs-nginx-vs-apache) |
-| Uncached req/sec | **40 req/s** | 23 req/s | **Nginx 1.75x szybszy** | [WPJohnny](https://wpjohnny.com/litespeed-vs-nginx/) |
+| Throughput (cached) | 26,880 hits | 26,748 hits | **0.5%** | [RunCloud](https://runcloud.io/blog/openlitespeed-vs-nginx-vs-apache) |
+| Uncached req/sec | **40 req/s** | 23 req/s | **Nginx 1.75x faster** | [WPJohnny](https://wpjohnny.com/litespeed-vs-nginx/) |
 
-Cytat z WPJohnny (niezależny konsultant WP): *"OpenLiteSpeed and NGINX are just about equal in performance with caching on. Anybody claiming one is incredibly superior than the other is either biased or hasn't tested them side-by-side."*
+Quote from WPJohnny (independent WP consultant): *"OpenLiteSpeed and NGINX are just about equal in performance with caching on. Anybody claiming one is incredibly superior than the other is either biased or hasn't tested them side-by-side."*
 
-Co więcej — **na stronach bez cache (MISS) Nginx + PHP-FPM jest szybszy** niż OpenLiteSpeed.
+Furthermore -- **on pages without cache (MISS), Nginx + PHP-FPM is faster** than OpenLiteSpeed.
 
-| | Nginx FastCGI cache (my) | LiteSpeed LSCache |
+| | Nginx FastCGI cache (ours) | LiteSpeed LSCache |
 |---|---|---|
 | TTFB (cache HIT) | ~200ms | ~200ms |
-| TTFB (cache MISS) | **szybszy** (PHP-FPM) | wolniejszy |
+| TTFB (cache MISS) | **faster** (PHP-FPM) | slower |
 | Auto-purge | Nginx Helper (plugin) | LSCache (plugin) |
-| Redis Object Cache | tak (bundled) | tak (jeśli hosting daje) |
-| Gzip | tak (-82% transferu) | tak |
-| WooCommerce rules | auto (skip_cache) | ręczna konfig. w plugin |
-| Breakdance/Elementor fix | auto (session.cache_limiter) | ręczna konfig. |
+| Redis Object Cache | yes (bundled) | yes (if hosting provides it) |
+| Gzip | yes (-82% transfer) | yes |
+| WooCommerce rules | auto (skip_cache) | manual plugin config |
+| Breakdance/Elementor fix | auto (session.cache_limiter) | manual config |
 
-Hostingi chwalą się LiteSpeed, bo mają go w infrastrukturze. My mamy Nginx z FastCGI cache — **ten sam TTFB na cached, szybszy na uncached**. "LiteSpeed" to nazwa serwera, nie magiczne przyspieszenie.
+Hosting providers boast LiteSpeed because they have it in their infrastructure. We have Nginx with FastCGI cache -- **same TTFB on cached, faster on uncached**. "LiteSpeed" is a server name, not a magic speed boost.
 
-## Dodatkowa optymalizacja (ręczna)
+## Additional Optimization (manual)
 
 ### Cloudflare Edge Cache
 
-Przy deploy z `--domain-type=cloudflare`, optymalizacja zone i cache rules uruchamia się **automatycznie**.
+When deploying with `--domain-type=cloudflare`, zone and cache rule optimization runs **automatically**.
 
-Ręczne uruchomienie (np. po zmianie domeny):
+Manual run (e.g. after domain change):
 ```bash
-./local/setup-cloudflare-optimize.sh wp.mojadomena.pl --app=wordpress
+./local/setup-cloudflare-optimize.sh wp.your-domain.com --app=wordpress
 ```
 
-Co ustawia:
+What it sets:
 - **Zone:** SSL Flexible, Brotli, Always HTTPS, HTTP/2+3, Early Hints
 - **Bypass cache:** `/wp-admin/*`, `/wp-login.php`, `/wp-json/*`, `/wp-cron.php`
-- **Cache 1 rok:** `/wp-content/uploads/*` (media), `/wp-includes/*` (core static)
-- **Cache 1 tydzień:** `/wp-content/themes/*`, `/wp-content/plugins/*` (assets)
+- **Cache 1 year:** `/wp-content/uploads/*` (media), `/wp-includes/*` (core static)
+- **Cache 1 week:** `/wp-content/themes/*`, `/wp-content/plugins/*` (assets)
 
-Cloudflare edge cache działa **nad** Nginx FastCGI cache - statyki serwowane z CDN bez dotykania serwera. Dla stron HTML FastCGI cache jest lepszy (zna kontekst zalogowanego usera).
+Cloudflare edge cache works **on top of** Nginx FastCGI cache - statics served from CDN without touching the server. For HTML pages, FastCGI cache is better (knows logged-in user context).
 
 ### Converter for Media (WebP)
 
-Plugin **Converter for Media** jest instalowany i aktywowany automatycznie. Nowe obrazy uploadowane do Media Library są konwertowane do WebP od razu.
+The **Converter for Media** plugin is installed and activated automatically. New images uploaded to the Media Library are converted to WebP right away.
 
-Aby skonwertować istniejące obrazy, użyj bulk conversion w panelu WP (Media → Converter for Media → Start Bulk Optimization) lub WP-CLI:
+To convert existing images, use bulk conversion in the WP panel (Media -> Converter for Media -> Start Bulk Optimization) or WP-CLI:
 
 ```bash
-ssh mikrus 'docker exec $(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) wp converter-for-media regenerate --path=/var/www/html'
+ssh ALIAS 'docker exec $(docker compose -f /opt/stacks/wordpress/docker-compose.yaml ps -q wordpress) wp converter-for-media regenerate --path=/var/www/html'
 ```
 
 ## Security
 
-| Zabezpieczenie | Opis |
+| Protection | Description |
 |---|---|
-| Rate limiting wp-login.php | 1 req/s z burst 3 (429 Too Many Requests) |
-| xmlrpc.php zablokowany | deny all (wektor DDoS i brute force) |
-| User enumeration blocked | ?author=N → 403 |
-| Edycja plików z panelu WP | Zablokowana (DISALLOW_FILE_EDIT) |
-| PHP w uploads/ | Zablokowane (deny all) |
-| no-new-privileges | Kontener nie może eskalować uprawnień |
+| Rate limiting wp-login.php | 1 req/s with burst 3 (429 Too Many Requests) |
+| xmlrpc.php blocked | deny all (DDoS and brute force vector) |
+| User enumeration blocked | ?author=N -> 403 |
+| File editing from WP panel | Blocked (DISALLOW_FILE_EDIT) |
+| PHP in uploads/ | Blocked (deny all) |
+| no-new-privileges | Container cannot escalate privileges |
 | Security headers | X-Frame, X-Content-Type, Referrer-Policy, Permissions-Policy |
 
 ## Backup
 
 ```bash
-./local/setup-backup.sh mikrus
+./local/setup-backup.sh ALIAS
 ```
 
-Dane w `/opt/stacks/wordpress/`:
-- `wp-content/` - wtyczki, motywy, uploady, baza SQLite
-- `config/` - konfiguracja PHP/Nginx/FPM
-- `redis-data/` - cache Redis
+Data in `/opt/stacks/wordpress/`:
+- `wp-content/` - plugins, themes, uploads, SQLite database
+- `config/` - PHP/Nginx/FPM configuration
+- `redis-data/` - Redis cache
 - `docker-compose.yaml`
 
 ## RAM Profiling
 
-Skrypt automatycznie wykrywa RAM i dostosowuje PHP-FPM:
+The script automatically detects RAM and adjusts PHP-FPM:
 
-| RAM serwera | FPM workers | WP limit | Nginx limit |
+| Server RAM | FPM workers | WP limit | Nginx limit |
 |---|---|---|---|
 | 512MB | 4 | 192M | 32M |
 | 1GB | 8 | 256M | 48M |
 | 2GB+ | 15 | 256M | 64M |
 
-Redis: 64MB maxmemory (allkeys-lru) + 96MB Docker limit dla wszystkich profili.
+Redis: 64MB maxmemory (allkeys-lru) + 96MB Docker limit for all profiles.

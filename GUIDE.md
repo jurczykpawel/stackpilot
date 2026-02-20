@@ -1,504 +1,464 @@
-# StackPilot - Referencja operacyjna
+# StackPilot - Operational Reference
 
-> **Główne instrukcje dla AI → [`AGENTS.md`](AGENTS.md)**. Ten dokument to szczegółowa referencja - sięgaj tu gdy potrzebujesz konkretnych komend, procedur diagnostycznych lub szczegółów architektury.
+> **Main instructions for AI -> [`AGENTS.md`](AGENTS.md)**. This document is a detailed reference -- consult it when you need specific commands, diagnostic procedures, or architecture details.
 
-Kompletna dokumentacja techniczna StackPilot. Przeznaczona dla agentów AI i ludzi.
+Complete technical documentation for StackPilot. Intended for AI agents and humans alike.
 
-## Spis treści
+## Table of Contents
 
-1. [Połączenie z serwerem](#połączenie-z-serwerem)
-2. [Dostępne aplikacje](#dostępne-aplikacje)
-3. [Komendy deployment](#komendy-deployment)
-4. [Backup i restore](#backup-i-restore)
-5. [Diagnostyka i troubleshooting](#diagnostyka-i-troubleshooting)
-6. [Brakujące narzędzia](#brakujące-narzędzia)
-7. [Architektura](#architektura)
-8. [Limity i ograniczenia](#limity-i-ograniczenia)
+1. [Server Connection](#server-connection)
+2. [Available Applications](#available-applications)
+3. [Deployment Commands](#deployment-commands)
+4. [Backup and Restore](#backup-and-restore)
+5. [Diagnostics and Troubleshooting](#diagnostics-and-troubleshooting)
+6. [Missing Tools](#missing-tools)
+7. [Architecture](#architecture)
+8. [Limits and Constraints](#limits-and-constraints)
 
 ---
 
-## Połączenie z serwerem
+## Server Connection
 
 ### SSH Alias
 
-Serwery Mikrus są dostępne przez SSH. Alias jest skonfigurowany w `~/.ssh/config`:
+Servers are accessed via SSH. The alias is configured in `~/.ssh/config`:
 
 ```bash
-# Sprawdź dostępne aliasy
+# Check available aliases
 grep "^Host " ~/.ssh/config
 
-# Typowe aliasy: mikrus, mikrus, srv42, etc.
+# Typical aliases: vps, production, staging, etc.
 ```
 
-### Weryfikacja połączenia
+### Verifying the Connection
 
 ```bash
-# Test połączenia
-ssh mikrus 'echo "OK: $(hostname)"'
+# Test connectivity
+ssh vps 'echo "OK: $(hostname)"'
 
-# Sprawdź informacje o serwerze
-ssh mikrus 'hostname && cat /etc/os-release | head -2'
+# Check server information
+ssh vps 'hostname && cat /etc/os-release | head -2'
 ```
 
-### Klucz API Mikrusa
+### Initial Server Setup
 
-Klucz API znajduje się na serwerze w `/klucz_api`:
+On a fresh VPS, ensure Docker is installed:
 
 ```bash
-# Pobierz klucz API
-ssh mikrus 'cat /klucz_api'
-
-# Klucz jest wymagany do:
-# - API bazy danych (https://api.mikr.us/db.bash)
-# - API domen Cytrus (https://api.mikr.us/domain)
+ssh vps
+# Install Docker:
+curl -fsSL https://get.docker.com | sh
 ```
 
-Jeśli klucz nie istnieje, użytkownik musi włączyć API w panelu:
-https://mikr.us/panel/?a=api
-
-### Pierwsza konfiguracja serwera (skrypt `start`)
-
-Każdy serwer Mikrus ma wbudowany skrypt `start` do początkowej konfiguracji. Warto go uruchomić zaraz po zakupie:
-
+Verify Docker installation:
 ```bash
-ssh mikrus
-start
+ssh vps 'docker --version'
+# If it fails: install Docker as shown above
 ```
 
-Skrypt interaktywnie przeprowadza przez 5 kroków:
+### Running Scripts on the Server (Windows/PowerShell)
 
-1. **Strefa czasowa** → `T` (Tak) — ustawia Europe/Warsaw
-2. **Edytor** → `1` (nano) — najprostszy wybór
-3. **Shell zsh + Oh My Zsh** → `T` (modern shell) lub `N` (zostaje bash)
-4. **Docker** → `T` (**wymagane** do deployowania aplikacji toolboxem!)
-5. **Aktualizacja systemu** → `T` (zalecane dla bezpieczeństwa)
-
-Sprawdzenie czy Docker jest zainstalowany:
-```bash
-ssh mikrus 'docker --version'
-# Jeśli nie: ssh mikrus → start → odpowiedz T na pytanie o Dockera
-# Alternatywa: ssh mikrus 'curl -fsSL https://get.docker.com | sh'
-```
-
-### Uruchamianie skryptów na serwerze (Windows/PowerShell)
-
-Użytkownicy Windows po konfiguracji SSH (`setup-ssh.ps1`) mogą uruchamiać skrypty bezpośrednio na serwerze:
+Windows users after SSH setup (`setup-ssh.ps1`) can run scripts directly on the server:
 
 ```bash
-# 1. Z komputera lokalnego - zainstaluj toolbox na serwerze:
-./local/install-toolbox.sh mikrus
+# 1. From your local machine - install toolbox on the server:
+./local/install-toolbox.sh vps
 
-# 2. Połącz się z serwerem:
-ssh mikrus
+# 2. Connect to the server:
+ssh vps
 
-# 3. Uruchamiaj skrypty bezpośrednio:
+# 3. Run scripts directly:
 deploy.sh uptime-kuma
-cytrus-domain.sh - 3001
-monitor-gateflow.sh mikrus 60
 ```
 
-Detekcja środowiska: skrypty automatycznie wykrywają czy działają na serwerze (plik `/klucz_api`) i pomijają SSH — komendy wykonują się bezpośrednio.
+Environment detection: scripts automatically detect whether they are running on the server and skip SSH -- commands execute directly.
 
-Skrypty **tylko lokalne** (nie działają na serwerze): `setup-ssh.sh`, `sync.sh`
+Local-only scripts (do not work on the server): `setup-ssh.sh`, `sync.sh`
 
 ---
 
-## Dostępne aplikacje
+## Available Applications
 
-Aplikacje znajdują się w `apps/<nazwa>/install.sh`:
+Applications are located in `apps/<name>/install.sh`:
 
-| Aplikacja | Opis | Baza danych | Port |
-|-----------|------|-------------|------|
-| **uptime-kuma** | Monitoring usług (jak UptimeRobot) | - | 3001 |
-| **ntfy** | Powiadomienia push | - | 8085 |
-| **filebrowser** | Menedżer plików web | - | 8095 |
-| **dockge** | UI do zarządzania Docker Compose | - | 5001 |
-| **stirling-pdf** | Narzędzia PDF online | - | 8087 |
-| **n8n** | Automatyzacja workflow | PostgreSQL* | 5678 |
+| Application | Description | Database | Port |
+|-------------|-------------|----------|------|
+| **uptime-kuma** | Service monitoring (like UptimeRobot) | - | 3001 |
+| **ntfy** | Push notifications | - | 8085 |
+| **filebrowser** | Web file manager | - | 8095 |
+| **dockge** | Docker Compose management UI | - | 5001 |
+| **stirling-pdf** | Online PDF tools | - | 8087 |
+| **n8n** | Workflow automation | PostgreSQL* | 5678 |
 | **umami** | Web analytics (alt. Google Analytics) | PostgreSQL* | 3000 |
-| **nocodb** | Baza danych (alt. Airtable) | PostgreSQL | 8080 |
-| **listmonk** | Newsletter i mailing | PostgreSQL* | 9000 |
-| **typebot** | Kreator chatbotów | PostgreSQL* | 8081/8082 |
-| **vaultwarden** | Menedżer haseł (Bitwarden) | SQLite | 8088 |
-| **linkstack** | Strona z linkami (alt. Linktree) | SQLite | 8090 |
-| **redis** | Cache/baza klucz-wartość | - | 6379 |
+| **nocodb** | Database (alt. Airtable) | PostgreSQL | 8080 |
+| **listmonk** | Newsletter and mailing | PostgreSQL* | 9000 |
+| **typebot** | Chatbot builder | PostgreSQL* | 8081/8082 |
+| **vaultwarden** | Password manager (Bitwarden) | SQLite | 8088 |
+| **linkstack** | Link page (alt. Linktree) | SQLite | 8090 |
+| **redis** | Cache / key-value store | - | 6379 |
 | **wordpress** | CMS (Performance Edition: FPM+Nginx+Redis) | MySQL/SQLite | 8080 |
-| **convertx** | Konwerter plików (100+ formatów) | SQLite | 3000 |
+| **convertx** | File converter (100+ formats) | SQLite | 3000 |
 | **postiz** | Social media scheduler | PostgreSQL* | 5000 |
-| **crawl4ai** | Web crawler z AI extraction | - | 8000 |
-| **cap** | Screen recording i sharing | MySQL | 3000 |
-| **gateflow** | Waitlist / launch page | PostgreSQL (Supabase) | 3333 |
+| **crawl4ai** | Web crawler with AI extraction | - | 8000 |
+| **cap** | Screen recording and sharing | MySQL | 3000 |
+| **gateflow** | Digital product sales / launch page | PostgreSQL (Supabase) | 3333 |
 | **minio** | Object storage (S3-compatible) | - | 9000 |
-| **gotenberg** | API do konwersji dokumentów (PDF) | - | 3000 |
+| **gotenberg** | Document conversion API (PDF) | - | 3000 |
 | **cookie-hub** | Consent management (GDPR) | - | 8091 |
-| **littlelink** | Strona z linkami (prostsza alt.) | - | 8090 |
-| **mcp-docker** | MCP server do zarządzania Docker | - | - |
+| **littlelink** | Link page (simpler alternative) | - | 8090 |
+| **mcp-docker** | MCP server for Docker management | - | - |
 
-*PostgreSQL z gwiazdką wymaga `gen_random_uuid()` (PG 13+) — NIE działa ze współdzieloną bazą Mikrusa (PG 12). Dotyczy: n8n, umami, listmonk, typebot, postiz. Wymagana dedykowana baza.
+*PostgreSQL with an asterisk requires `gen_random_uuid()` (PG 13+). Applies to: n8n, umami, listmonk, typebot, postiz. Use `bundled` or a dedicated database (PG 13+).
 
-**WordPress** to specjalna aplikacja z własnym Dockerfile (PHP redis ext + WP-CLI), bundled Redis,
-auto-tuning FPM na podstawie RAM i post-install skryptem `wp-init.sh`. Szczegóły: `apps/wordpress/README.md`.
-
----
-
-## Komendy deployment
-
-### Wszystkie skrypty lokalne (`local/`)
-
-| Skrypt | Opis | Użycie |
-|--------|------|--------|
-| `deploy.sh` | Instalacja aplikacji | `./local/deploy.sh APP [opcje]` |
-| `cytrus-domain.sh` | Dodanie domeny Cytrus | `./local/cytrus-domain.sh DOMENA PORT [SSH]` |
-| `dns-add.sh` | Dodanie DNS Cloudflare | `./local/dns-add.sh DOMENA [SSH]` |
-| `add-static-hosting.sh` | Hosting plików statycznych | `./local/add-static-hosting.sh DOMENA [SSH] [DIR] [PORT]` |
-| `setup-backup.sh` | Konfiguracja backupów | `./local/setup-backup.sh [SSH]` |
-| `restore.sh` | Przywracanie backupu | `./local/restore.sh [SSH]` |
-| `setup-cloudflare.sh` | Konfiguracja Cloudflare API | `./local/setup-cloudflare.sh` |
-| `setup-turnstile.sh` | Konfiguracja Turnstile (CAPTCHA) | `./local/setup-turnstile.sh DOMENA [SSH]` |
-| `sync.sh` | Synchronizacja plików (rsync) | `./local/sync.sh up/down SRC DEST [--ssh=ALIAS]` |
+**WordPress** is a special application with its own Dockerfile (PHP redis ext + WP-CLI), bundled Redis, auto-tuning FPM based on RAM, and a post-install script `wp-init.sh`. Details: `apps/wordpress/README.md`.
 
 ---
 
-### deploy.sh - Instalacja aplikacji
+## Deployment Commands
+
+### All Local Scripts (`local/`)
+
+| Script | Description | Usage |
+|--------|-------------|-------|
+| `deploy.sh` | Install applications | `./local/deploy.sh APP [options]` |
+| `dns-add.sh` | Add Cloudflare DNS record | `./local/dns-add.sh DOMAIN [SSH]` |
+| `add-static-hosting.sh` | Static file hosting | `./local/add-static-hosting.sh DOMAIN [SSH] [DIR] [PORT]` |
+| `setup-backup.sh` | Configure backups | `./local/setup-backup.sh [SSH]` |
+| `restore.sh` | Restore from backup | `./local/restore.sh [SSH]` |
+| `setup-cloudflare.sh` | Configure Cloudflare API | `./local/setup-cloudflare.sh` |
+| `setup-turnstile.sh` | Configure Turnstile (CAPTCHA) | `./local/setup-turnstile.sh DOMAIN [SSH]` |
+| `sync.sh` | File sync (rsync) | `./local/sync.sh up/down SRC DEST [--ssh=ALIAS]` |
+
+---
+
+### deploy.sh - Application Installation
 
 ```bash
-./local/deploy.sh APP [opcje]
+./local/deploy.sh APP [options]
 
-# Opcje:
-#   --ssh=ALIAS           SSH alias (domyślnie: mikrus)
-#   --domain-type=TYPE    cytrus | cloudflare | local
-#   --domain=DOMAIN       Domena lub "auto" dla Cytrus
-#   --db-source=SOURCE    shared | custom (bazy danych)
-#   --yes, -y             Pomiń wszystkie potwierdzenia
-#   --dry-run             Tylko pokaż co zostanie zrobione
+# Options:
+#   --ssh=ALIAS           SSH alias (default: vps)
+#   --domain-type=TYPE    cloudflare | caddy | local
+#   --domain=DOMAIN       Domain for the app
+#   --db-source=SOURCE    bundled | custom (databases)
+#   --yes, -y             Skip all confirmation prompts
+#   --dry-run             Show what would be done without executing
 
-# Przykłady:
-./local/deploy.sh n8n --ssh=mikrus --domain-type=cytrus --domain=auto
-./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=local --yes
-./local/deploy.sh gateflow --ssh=mikrus --domain-type=cloudflare --domain=gateflow.example.com
+# Examples:
+./local/deploy.sh n8n --ssh=vps --domain-type=cloudflare --domain=n8n.example.com
+./local/deploy.sh uptime-kuma --ssh=vps --domain-type=local --yes
+./local/deploy.sh gateflow --ssh=vps --domain-type=cloudflare --domain=gateflow.example.com
 ```
 
-**Flow deploy.sh:**
-1. Potwierdza deployment
-2. Pyta o bazę danych (jeśli wymagana)
-3. Pyta o domenę (Cytrus/Cloudflare/lokalnie)
-4. Pokazuje "Teraz się zrelaksuj - pracuję..."
-5. Wykonuje instalację
-6. Konfiguruje domenę (po uruchomieniu usługi!)
-7. Pokazuje podsumowanie
+**deploy.sh flow:**
+1. Confirms deployment
+2. Asks about database (if required)
+3. Asks about domain (Cloudflare/Caddy/local)
+4. Performs resource checks (RAM, disk, ports)
+5. Executes installation
+6. Configures domain (after service is running)
+7. Shows summary
 
 ---
 
-### sync.sh - Synchronizacja plików
+### sync.sh - File Sync
 
 ```bash
 ./local/sync.sh up   <local_path> <remote_path> [--ssh=ALIAS]
 ./local/sync.sh down <remote_path> <local_path> [--ssh=ALIAS]
 
-# Opcje:
-#   --ssh=ALIAS    SSH alias (domyślnie: mikrus)
-#   --dry-run      Pokaż co się wykona bez wykonania
+# Options:
+#   --ssh=ALIAS    SSH alias (default: vps)
+#   --dry-run      Show what would happen without executing
 
-# Przykłady:
-./local/sync.sh up ./my-website /var/www/html --ssh=mikrus
-./local/sync.sh down /opt/stacks/n8n/.env ./backup/ --ssh=hanna
+# Examples:
+./local/sync.sh up ./my-website /var/www/html --ssh=vps
+./local/sync.sh down /opt/stacks/n8n/.env ./backup/ --ssh=prod
 ./local/sync.sh up ./dist /var/www/public/app --dry-run
 ```
 
-Prosty wrapper na rsync do szybkiego przesyłania plików. Idealne do:
-- Edycji konfiguracji lokalnie (pobierz → edytuj → wyślij)
-- Uploadu stron statycznych na serwer
-- Backupu pojedynczych plików
+A simple rsync wrapper for quick file transfers. Ideal for:
+- Editing configuration locally (download -> edit -> upload)
+- Uploading static sites to the server
+- Backing up individual files
 
 ---
 
-### cytrus-domain.sh - Domeny Mikrusa
+### dns-add.sh - Cloudflare DNS
 
 ```bash
-./local/cytrus-domain.sh <domena|-> <port> [ssh_alias]
+./local/dns-add.sh <subdomain.domain.com> [ssh_alias] [mode]
 
-# Przykłady:
-./local/cytrus-domain.sh - 3001 mikrus              # automatyczna (xyz123.byst.re)
-./local/cytrus-domain.sh mojapp.byst.re 3001 mikrus # własna subdomena
-./local/cytrus-domain.sh app.bieda.it 8080 mikrus    # inna domena Mikrusa
-```
-
-Obsługiwane domeny Cytrus:
-- `*.byst.re`
-- `*.bieda.it`
-- `*.toadres.pl`
-- `*.tojest.dev`
-
----
-
-### dns-add.sh - DNS Cloudflare
-
-```bash
-./local/dns-add.sh <subdomena.domena.pl> [ssh_alias] [mode]
-
-# Wymaga: ./local/setup-cloudflare.sh (jednorazowa konfiguracja)
-# Przykłady:
-./local/dns-add.sh app.example.com mikrus        # rekord AAAA (IPv6)
-./local/dns-add.sh api.mojadomena.pl mikrus ipv4  # rekord A (IPv4)
+# Requires: ./local/setup-cloudflare.sh (one-time setup)
+# Examples:
+./local/dns-add.sh app.example.com vps           # AAAA record (IPv6)
+./local/dns-add.sh api.example.com vps ipv4       # A record (IPv4)
 ```
 
 ---
 
-### add-static-hosting.sh - Hosting statyczny
+### add-static-hosting.sh - Static Hosting
 
 ```bash
-./local/add-static-hosting.sh DOMENA [SSH_ALIAS] [KATALOG] [PORT]
+./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY] [PORT]
 
-# Przykłady:
-./local/add-static-hosting.sh static.byst.re
-./local/add-static-hosting.sh cdn.example.com mikrus /var/www/assets 8097
+# Examples:
+./local/add-static-hosting.sh static.example.com
+./local/add-static-hosting.sh cdn.example.com vps /var/www/assets 8097
 ```
 
 ---
 
-### sync.sh - Synchronizacja plików
+### System Scripts: `system/`
 
 ```bash
-./local/sync.sh up ./local-folder /remote/path    # Upload
-./local/sync.sh down /remote/path ./local-folder  # Download
-```
-
----
-
-### Skrypty systemowe: `system/`
-
-```bash
-./local/deploy.sh system/docker-setup.sh   # Instalacja Docker
-./local/deploy.sh system/caddy-install.sh  # Instalacja Caddy (reverse proxy)
+./local/deploy.sh system/docker-setup.sh   # Install Docker
+./local/deploy.sh system/caddy-install.sh  # Install Caddy (reverse proxy)
 ./local/deploy.sh system/power-tools.sh    # CLI tools (yt-dlp, ffmpeg, pup)
-./local/deploy.sh system/bun-setup.sh      # Instalacja Bun + PM2
+./local/deploy.sh system/bun-setup.sh      # Install Bun + PM2
 ```
 
 ---
 
-## Backup i restore
+## Backup and Restore
 
-### Jak działa backup
+### How Backup Works
 
-Wszystkie aplikacje przechowują dane w `/opt/stacks/<app>/` używając bind mounts.
-Skrypt `backup-core.sh` używa rclone do synchronizacji tego katalogu z chmurą.
+All applications store data in `/opt/stacks/<app>/` using bind mounts.
+The `backup-core.sh` script uses rclone to sync this directory to the cloud.
 
 ```
-/opt/stacks/                    ☁️ Chmura (Google Drive, Dropbox, etc.)
-├── uptime-kuma/data/     ───►  mikrus-backup/stacks/uptime-kuma/data/
-├── ntfy/cache/           ───►  mikrus-backup/stacks/ntfy/cache/
-├── vaultwarden/data/     ───►  mikrus-backup/stacks/vaultwarden/data/
-└── ...
+/opt/stacks/                          Cloud (Google Drive, Dropbox, etc.)
+|-- uptime-kuma/data/          --->   vps-backup/stacks/uptime-kuma/data/
+|-- ntfy/cache/                --->   vps-backup/stacks/ntfy/cache/
+|-- vaultwarden/data/          --->   vps-backup/stacks/vaultwarden/data/
++-- ...
 ```
 
-### Konfiguracja backupu (jednorazowo)
+### Backup Configuration (one-time)
 
 ```bash
-# Uruchom wizard - skonfiguruje rclone i cron
-./local/setup-backup.sh mikrus
+# Run the wizard - configures rclone and cron
+./local/setup-backup.sh vps
 
-# Wizard:
-# 1. Wybierz provider (Google Drive, Dropbox, OneDrive, S3...)
-# 2. Zaloguj się przez przeglądarkę (OAuth)
-# 3. Opcjonalnie włącz szyfrowanie
-# 4. Gotowe - cron uruchomi backup codziennie o 3:00
+# Wizard steps:
+# 1. Choose provider (Google Drive, Dropbox, OneDrive, S3...)
+# 2. Log in via browser (OAuth)
+# 3. Optionally enable encryption
+# 4. Done - cron will run backup daily at 3:00 AM
 ```
 
-### Ręczne uruchomienie backupu
+### Database Backup (automatic)
+
+For apps using PostgreSQL or MySQL, an automatic daily database dump can be configured:
 
 ```bash
-# Uruchom backup teraz
-ssh mikrus '~/backup-core.sh'
+# Via MCP:
+setup_backup(backup_type='db')
 
-# Sprawdź logi
-ssh mikrus 'tail -30 /var/log/mikrus-backup.log'
-
-# Zobacz co jest w chmurze
-ssh mikrus 'rclone ls backup_remote:mikrus-backupstacks/'
+# Or manually on the server:
+# The setup-db-backup.sh script auto-detects running database containers
+# and sets up a cron job for daily dumps.
 ```
 
-### Restore (przywracanie danych)
+### Manual Backup / Verification
 
 ```bash
-# Przywróć wszystkie dane z chmury
-./local/restore.sh mikrus
+# Run backup now
+ssh vps '~/backup-core.sh'
 
-# Lub ręcznie - przywróć konkretną aplikację
-ssh mikrus 'rclone sync backup_remote:mikrus-backupstacks/uptime-kuma /opt/stacks/uptime-kuma'
-ssh mikrus 'cd /opt/stacks/uptime-kuma && docker compose up -d'
+# Check logs
+ssh vps 'tail -30 /var/log/stackpilot-backup.log'
+
+# See what is in the cloud
+ssh vps 'rclone ls backup_remote:vps-backup/stacks/'
 ```
 
-### Weryfikacja backupu
+### Restore
 
 ```bash
-# Sprawdź czy cron jest ustawiony
-ssh mikrus 'crontab -l | grep backup'
+# Restore all data from the cloud
+./local/restore.sh vps
 
-# Sprawdź ostatni backup
-ssh mikrus 'tail -10 /var/log/mikrus-backup.log'
+# Or manually - restore a specific app
+ssh vps 'rclone sync backup_remote:vps-backup/stacks/uptime-kuma /opt/stacks/uptime-kuma'
+ssh vps 'cd /opt/stacks/uptime-kuma && docker compose up -d'
+```
 
-# Porównaj lokalnie vs chmura
-ssh mikrus 'rclone check /opt/stacks backup_remote:mikrus-backupstacks/'
+### Backup Verification
+
+```bash
+# Check if cron is set
+ssh vps 'crontab -l | grep backup'
+
+# Check last backup
+ssh vps 'tail -10 /var/log/stackpilot-backup.log'
+
+# Compare local vs cloud
+ssh vps 'rclone check /opt/stacks backup_remote:vps-backup/stacks/'
 ```
 
 ---
 
-## Diagnostyka i troubleshooting
+## Diagnostics and Troubleshooting
 
-### Status kontenerów
-
-```bash
-# Lista uruchomionych kontenerów
-ssh mikrus 'docker ps'
-
-# Szczegóły z portami
-ssh mikrus 'docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"'
-
-# Wszystkie kontenery (także zatrzymane)
-ssh mikrus 'docker ps -a'
-```
-
-### Logi aplikacji
+### Container Status
 
 ```bash
-# Logi konkretnej aplikacji
-ssh mikrus 'cd /opt/stacks/uptime-kuma && docker compose logs --tail 50'
+# List running containers
+ssh vps 'docker ps'
 
-# Logi na żywo (follow)
-ssh mikrus 'cd /opt/stacks/uptime-kuma && docker compose logs -f'
+# Details with ports
+ssh vps 'docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"'
 
-# Logi z czasem
-ssh mikrus 'cd /opt/stacks/uptime-kuma && docker compose logs --tail 50 -t'
+# All containers (including stopped)
+ssh vps 'docker ps -a'
 ```
 
-### Test lokalny
+### Application Logs
 
 ```bash
-# Sprawdź czy aplikacja odpowiada na porcie
-ssh mikrus 'curl -s localhost:3001 | head -5'
+# Logs for a specific app
+ssh vps 'cd /opt/stacks/uptime-kuma && docker compose logs --tail 50'
 
-# Sprawdź nagłówki HTTP
-ssh mikrus 'curl -sI localhost:3001'
+# Follow logs in real time
+ssh vps 'cd /opt/stacks/uptime-kuma && docker compose logs -f'
 
-# Test z zewnątrz (przez domenę)
-curl -sI https://mojapp.byst.re
+# Logs with timestamps
+ssh vps 'cd /opt/stacks/uptime-kuma && docker compose logs --tail 50 -t'
 ```
 
-### Typowe problemy i rozwiązania
-
-#### 1. Kontener nie startuje
+### Local Testing
 
 ```bash
-# Sprawdź logi
-ssh mikrus 'cd /opt/stacks/<app> && docker compose logs --tail 100'
+# Check if the app responds on its port
+ssh vps 'curl -s localhost:3001 | head -5'
 
-# Sprawdź czy obraz się pobrał
-ssh mikrus 'docker images | grep <app>'
+# Check HTTP headers
+ssh vps 'curl -sI localhost:3001'
 
-# Restart kontenera
-ssh mikrus 'cd /opt/stacks/<app> && docker compose restart'
+# Test from outside (via domain)
+curl -sI https://status.example.com
 ```
 
-#### 2. Brak połączenia z bazą danych
+### Common Problems and Solutions
+
+#### 1. Container does not start
 
 ```bash
-# Sprawdź czy baza jest dostępna
-ssh mikrus 'nc -zv <db_host> 5432'
+# Check logs
+ssh vps 'cd /opt/stacks/<app> && docker compose logs --tail 100'
 
-# Test połączenia PostgreSQL
-ssh mikrus 'PGPASSWORD=<pass> psql -h <host> -U <user> -d <db> -c "SELECT 1"'
+# Check if the image was pulled
+ssh vps 'docker images | grep <app>'
+
+# Restart the container
+ssh vps 'cd /opt/stacks/<app> && docker compose restart'
 ```
 
-#### 3. Domena nie działa (502/504)
-
-- Sprawdź czy kontener działa: `docker ps`
-- Sprawdź czy port jest otwarty: `curl localhost:PORT`
-- Dla Cytrus: poczekaj 3-5 minut na propagację
-- Sprawdź czy port NIE jest bound do 127.0.0.1 (musi być 0.0.0.0 lub bez prefixu)
-
-#### 4. Brak miejsca na dysku
+#### 2. Cannot connect to the database
 
 ```bash
-# Sprawdź miejsce
-ssh mikrus 'df -h /'
+# Check if the database is reachable
+ssh vps 'nc -zv <db_host> 5432'
 
-# Wyczyść nieużywane obrazy Docker
-ssh mikrus 'docker system prune -af'
-
-# Wyczyść logi kontenerów
-ssh mikrus 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'
+# Test PostgreSQL connection
+ssh vps 'PGPASSWORD=<pass> psql -h <host> -U <user> -d <db> -c "SELECT 1"'
 ```
 
-#### 5. Aplikacja działa lokalnie ale nie przez domenę
+#### 3. Domain not working (502/504)
 
-Dla Cytrus: port musi być dostępny zewnętrznie (nie 127.0.0.1):
+- Check if the container is running: `docker ps`
+- Check if the port is open: `curl localhost:PORT`
+- Check if the port is NOT bound to 127.0.0.1 when using external domain access (must be 0.0.0.0 or no prefix)
+- Verify DNS records point to the correct server IP
+- Check Caddy status: `ssh vps 'systemctl status caddy'`
+
+#### 4. Out of disk space
+
+```bash
+# Check disk usage
+ssh vps 'df -h /'
+
+# Clean unused Docker images
+ssh vps 'docker system prune -af'
+
+# Truncate container logs
+ssh vps 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'
+```
+
+#### 5. App works locally but not via domain
+
+Ensure the port binding allows external access:
 ```yaml
-# ŹLE - tylko localhost
+# WRONG - localhost only
 ports:
   - "127.0.0.1:3000:3000"
 
-# DOBRZE - wszystkie interfejsy
+# CORRECT - all interfaces (needed for external reverse proxy)
 ports:
   - "3000:3000"
 ```
 
-### Restart aplikacji
+For Caddy reverse proxy, 127.0.0.1 binding is fine since Caddy runs on the same server.
+
+### Restarting Applications
 
 ```bash
 # Restart
-ssh mikrus 'cd /opt/stacks/<app> && docker compose restart'
+ssh vps 'cd /opt/stacks/<app> && docker compose restart'
 
-# Pełny restart (down + up)
-ssh mikrus 'cd /opt/stacks/<app> && docker compose down && docker compose up -d'
+# Full restart (down + up)
+ssh vps 'cd /opt/stacks/<app> && docker compose down && docker compose up -d'
 
-# Restart z pobraniem nowego obrazu
-ssh mikrus 'cd /opt/stacks/<app> && docker compose pull && docker compose up -d'
+# Restart with new image
+ssh vps 'cd /opt/stacks/<app> && docker compose pull && docker compose up -d'
 ```
 
-### Usunięcie aplikacji
+### Removing Applications
 
 ```bash
-# Zatrzymaj i usuń kontenery (zachowaj dane)
-ssh mikrus 'cd /opt/stacks/<app> && docker compose down'
+# Stop and remove containers (keep data)
+ssh vps 'cd /opt/stacks/<app> && docker compose down'
 
-# Zatrzymaj, usuń kontenery i dane (volumes)
-ssh mikrus 'cd /opt/stacks/<app> && docker compose down -v'
+# Stop, remove containers and data (volumes)
+ssh vps 'cd /opt/stacks/<app> && docker compose down -v'
 
-# Usuń całkowicie (kontenery + pliki)
-ssh mikrus 'cd /opt/stacks/<app> && docker compose down -v && rm -rf /opt/stacks/<app>'
+# Remove completely (containers + files)
+ssh vps 'cd /opt/stacks/<app> && docker compose down -v && rm -rf /opt/stacks/<app>'
 ```
 
 ---
 
-## Brakujące narzędzia
+## Missing Tools
 
-### Co jest dostępne na Mikrusie
+### What is Available on a Typical VPS
 
-Standardowo zainstalowane:
-- `docker`, `docker compose` (po uruchomieniu docker-setup.sh)
+Commonly pre-installed:
+- `docker`, `docker compose` (after docker-setup.sh)
 - `curl`, `wget`
 - `git`
 - `nano`, `vim`
 - `htop`, `ncdu`
 
-### Instalacja brakujących narzędzi
+### Installing Missing Tools
 
 ```bash
-# Aktualizacja pakietów (Debian/Ubuntu)
-ssh mikrus 'apt update && apt install -y <package>'
+# Update packages (Debian/Ubuntu)
+ssh vps 'apt update && apt install -y <package>'
 
-# Przykłady:
-ssh mikrus 'apt install -y jq'      # JSON processor
-ssh mikrus 'apt install -y tree'    # Drzewo katalogów
-ssh mikrus 'apt install -y ncdu'    # Disk usage analyzer
+# Examples:
+ssh vps 'apt install -y jq'      # JSON processor
+ssh vps 'apt install -y tree'    # Directory tree viewer
+ssh vps 'apt install -y ncdu'    # Disk usage analyzer
 ```
 
-### Power Tools (opcjonalne)
+### Power Tools (optional)
 
-Skrypt `system/power-tools.sh` instaluje:
-- `yt-dlp` - pobieranie wideo
-- `ffmpeg` - konwersja mediów
-- `pup` - parsowanie HTML
+The `system/power-tools.sh` script installs:
+- `yt-dlp` - video downloading
+- `ffmpeg` - media conversion
+- `pup` - HTML parsing
 
 ```bash
 ./local/deploy.sh system/power-tools.sh
@@ -506,65 +466,63 @@ Skrypt `system/power-tools.sh` instaluje:
 
 ---
 
-## Architektura
+## Architecture
 
-### Struktura katalogów na serwerze
+### Server Directory Structure
 
 ```
-/opt/stacks/           # Aplikacje Docker Compose
-  ├── uptime-kuma/
-  │   ├── docker-compose.yaml
-  │   └── data/        # Dane aplikacji (volumes)
-  ├── n8n/
-  └── ...
-
-/klucz_api             # Klucz API Mikrusa
+/opt/stacks/           # Docker Compose applications
+  |-- uptime-kuma/
+  |   |-- docker-compose.yaml
+  |   +-- data/        # Application data (volumes)
+  |-- n8n/
+  +-- ...
 ```
 
-### Dwa sposoby na domenę HTTPS
+### Two Ways to Get HTTPS Domains
 
-#### 1. Cytrus (domeny Mikrusa) - ZALECANE
+#### 1. Cloudflare + Caddy (recommended for production)
 
-- Automatyczne SSL
-- Domeny: `*.byst.re`, `*.bieda.it`, `*.toadres.pl`, `*.tojest.dev`
-- Konfiguracja przez API (bez DNS)
-- Port musi być dostępny zewnętrznie (nie 127.0.0.1!)
+- Requires Cloudflare account and API token
+- DNS record (AAAA/A) pointing through Cloudflare proxy
+- Caddy as reverse proxy with auto-SSL on the server
+- Benefits: CDN, DDoS protection, IPv4-to-IPv6 translation
 
 ```bash
-./local/cytrus-domain.sh mojapp.byst.re 3000 mikrus
+./local/setup-cloudflare.sh           # One-time: configure API token
+./local/dns-add.sh app.example.com vps  # Add DNS record
 ```
 
-#### 2. Cloudflare + Caddy (własne domeny)
+#### 2. Caddy Direct (own domain, no Cloudflare)
 
-- Wymaga konfiguracji Cloudflare (`./local/setup-cloudflare.sh`)
-- Rekord AAAA do IPv6 serwera
-- Caddy jako reverse proxy z auto-SSL
+- Point DNS directly to server IP
+- Caddy handles Let's Encrypt certificates automatically
+- Simpler setup, no third-party dependency
 
-### Bazy danych
+### Databases
 
-#### Współdzielona baza Mikrusa (darmowa)
+#### Bundled Database (Docker container)
 
-- Dane z API: `https://api.mikr.us/db.bash`
-- PostgreSQL: `psql*.mikr.us`
-- MySQL: `mysql*.mikr.us`
-- MongoDB: `mongo*.mikr.us`
-- **Ograniczenia:** brak uprawnień do rozszerzeń (np. pgcrypto)
+- PostgreSQL or MySQL runs as a container alongside the app
+- Credentials auto-generated by deploy.sh
+- Data stored in `/opt/stacks/<app>/` (backed up with the app)
+- Best for simplicity
 
-#### Dedykowana baza (płatna)
+#### Custom Database (external)
 
-- Panel: https://mikr.us/panel/?a=cloud
-- Host: `mws*.mikr.us` (PostgreSQL)
-- Pełne uprawnienia, własna baza
+- Provide your own database host, credentials, etc.
+- Useful for managed database services or shared databases
+- Full control over the database instance
 
 ---
 
-## Limity i ograniczenia
+## Limits and Constraints
 
-### Zasoby serwera
+### Server Resources
 
-- RAM: ~512MB - 2GB (zależnie od pakietu)
-- Dysk: ~10-20GB
-- **Zawsze ustawiaj limity pamięci w docker-compose.yaml!**
+- RAM: varies by VPS plan (512MB - 8GB+)
+- Disk: varies by VPS plan (10GB - 80GB+)
+- **Always set memory limits in docker-compose.yaml!**
 
 ```yaml
 deploy:
@@ -573,70 +531,62 @@ deploy:
       memory: 256M
 ```
 
-### Rekomendowane limity pamięci
+### Recommended Memory Limits
 
-| Aplikacja | Limit RAM |
-|-----------|-----------|
+| Application | RAM Limit |
+|-------------|-----------|
 | uptime-kuma | 256M |
 | ntfy | 128M |
 | n8n | 512-768M |
 | nocodb | 512M |
 | vaultwarden | 128M |
 
-### Porty
+### Ports
 
-- Porty 80 i 443 są zajęte przez Cytrus/Caddy
-- Używaj portów > 1024 dla aplikacji
-- Unikaj konfliktów - sprawdź `docker ps` przed instalacją
-
----
-
-## Przykłady sesji
-
-### Instalacja nowej aplikacji
-
-```bash
-# 1. Sprawdź czy Docker jest zainstalowany
-ssh mikrus 'docker --version' || ./local/deploy.sh system/docker-setup.sh
-
-# 2. Zainstaluj aplikację
-./local/deploy.sh uptime-kuma mikrus
-
-# 3. Zweryfikuj
-ssh mikrus 'docker ps | grep uptime'
-curl -sI https://przydzielona-domena.byst.re
-```
-
-### Debug niedziałającej aplikacji
-
-```bash
-# 1. Sprawdź status
-ssh mikrus 'docker ps -a | grep <app>'
-
-# 2. Sprawdź logi
-ssh mikrus 'cd /opt/stacks/<app> && docker compose logs --tail 50'
-
-# 3. Sprawdź lokalnie
-ssh mikrus 'curl -s localhost:<port> | head -10'
-
-# 4. Restart jeśli potrzebny
-ssh mikrus 'cd /opt/stacks/<app> && docker compose restart'
-```
-
-### Aktualizacja aplikacji
-
-```bash
-# Pobierz nowy obraz i zrestartuj
-ssh mikrus 'cd /opt/stacks/<app> && docker compose pull && docker compose up -d'
-
-# Wyczyść stare obrazy
-ssh mikrus 'docker image prune -f'
-```
+- Ports 80 and 443 are used by Caddy (reverse proxy)
+- Use ports > 1024 for applications
+- Avoid conflicts - check `docker ps` before installing
 
 ---
 
-## Kontakt i pomoc
+## Session Examples
 
-- Panel Mikrus: https://mikr.us/panel/
-- Dokumentacja API: https://api.mikr.us/
-- Tickety support: przez panel Mikrus
+### Installing a New Application
+
+```bash
+# 1. Check Docker is installed
+ssh vps 'docker --version' || ssh vps 'curl -fsSL https://get.docker.com | sh'
+
+# 2. Install the application
+./local/deploy.sh uptime-kuma --ssh=vps
+
+# 3. Verify
+ssh vps 'docker ps | grep uptime'
+curl -sI https://status.example.com
+```
+
+### Debugging a Broken Application
+
+```bash
+# 1. Check status
+ssh vps 'docker ps -a | grep <app>'
+
+# 2. Check logs
+ssh vps 'cd /opt/stacks/<app> && docker compose logs --tail 50'
+
+# 3. Test locally
+ssh vps 'curl -s localhost:<port> | head -10'
+
+# 4. Restart if needed
+ssh vps 'cd /opt/stacks/<app> && docker compose restart'
+```
+
+### Updating an Application
+
+```bash
+# Pull new image and restart
+ssh vps 'cd /opt/stacks/<app> && docker compose pull && docker compose up -d'
+
+# Clean old images
+ssh vps 'docker image prune -f'
+```

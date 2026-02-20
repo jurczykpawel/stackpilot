@@ -1,43 +1,36 @@
-# 📈 Uptime Kuma - Twój Stróż Nocny
+# Uptime Kuma - Your Night Watchman
 
-Piękny i prosty dashboard do monitoringu. Zastępuje płatnego UptimeRobota.
+Beautiful and simple monitoring dashboard. Replaces the paid UptimeRobot.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh uptime-kuma
 ```
 
-## 💡 Zastosowanie w biznesie
-Twoje automatyzacje w n8n muszą działać 24/7. Ale skąd wiesz, czy działają?
-1. Skonfiguruj Uptime Kuma, aby sprawdzał Twoje webhooki n8n lub stronę GateFlow co minutę.
-2. Podepnij powiadomienia (np. do **ntfy** lub na Telegram).
-3. Śpij spokojnie. Jak coś padnie, telefon Cię obudzi.
+## Business Use Case
+Your n8n automations must run 24/7. But how do you know if they are running?
+1. Configure Uptime Kuma to check your n8n webhooks or GateFlow page every minute.
+2. Connect notifications (e.g. to **ntfy** or Telegram).
+3. Sleep peacefully. If something goes down, your phone will wake you up.
 
-## 🌐 Po instalacji - konfiguracja domeny
+## After Installation - Domain Configuration
 
-### 1. Skonfiguruj DNS
-Dodaj rekord A w panelu swojego rejestratora domen (np. OVH, Cloudflare, home.pl):
-- **Typ:** `A`
-- **Nazwa:** `status` (lub inna subdomena, np. `uptime`, `monitor`)
-- **Wartość:** IP Twojego serwera Mikrus (znajdziesz w panelu mikr.us)
-- **TTL:** 3600 (lub "Auto")
+### 1. Configure DNS
+Add an A record in your domain registrar panel (e.g. OVH, Cloudflare):
+- **Type:** `A`
+- **Name:** `status` (or another subdomain, e.g. `uptime`, `monitor`)
+- **Value:** Your server's IP address
+- **TTL:** 3600 (or "Auto")
 
-> ⏳ Propagacja DNS może zająć od kilku minut do 24h. Sprawdź: `ping status.twojadomena.pl`
+> DNS propagation may take from a few minutes to 24h. Check: `ping status.your-domain.com`
 
-### 2. Wystaw aplikację przez HTTPS
-Uruchom **na swoim komputerze** (nie na serwerze!):
+### 2. Expose the App via HTTPS
+Run **on your local machine** (not on the server!):
 ```bash
-ssh mikrus 'sp-expose status.twojadomena.pl 3001'
+ssh ALIAS 'sp-expose status.your-domain.com 3001'
 ```
-Zamień `mikrus` na swój alias SSH jeśli używasz innego, oraz `status.twojadomena.pl` na swoją domenę.
+Replace `ALIAS` with your SSH alias and `status.your-domain.com` with your domain.
 
-### 3. Utwórz konto admina
-Przy pierwszym wejściu na `https://status.twojadomena.pl` Uptime Kuma poprosi o utworzenie konta administratora. Zapisz dane logowania w bezpiecznym miejscu!
-
-## ☁️ Opcja "Smart Saver" (Oszczędzaj RAM)
-Jeśli Twój Mikrus ma mało pamięci (np. 1GB), możesz wykupić **Uptime Kuma jako oddzielną usługę w chmurze Mikrusa**.
-Zyskasz:
-- Zero obciążenia Twojego serwera monitoringiem.
-- Większą wiarygodność monitoringu (jeśli Twój główny serwer padnie, Kuma działająca na innym serwerze od razu Cię powiadomi).
-- Sprawdź ofertę w panelu Mikrusa w sekcji "Usługi dodatkowe".
+### 3. Create an Admin Account
+On first visit to `https://status.your-domain.com`, Uptime Kuma will ask you to create an administrator account. Save the login credentials in a secure place!

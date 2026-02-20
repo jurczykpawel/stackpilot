@@ -1,72 +1,72 @@
 # CLI Reference - StackPilot
 
-Pełna dokumentacja interfejsu wiersza poleceń dla StackPilot.
+Complete command-line interface documentation for StackPilot.
 
-## Spis treści
+## Table of Contents
 
-- [Przegląd](#przegląd)
-- [Priorytet konfiguracji](#priorytet-konfiguracji)
-- [deploy.sh - główny skrypt](#deploysh---główny-skrypt)
-- [Opcje globalne](#opcje-globalne)
-- [Konfiguracja bazy danych](#konfiguracja-bazy-danych)
-- [Konfiguracja domeny](#konfiguracja-domeny)
-- [Tryby pracy](#tryby-pracy)
-- [Config file](#config-file)
-- [Zmienne środowiskowe per aplikacja](#zmienne-środowiskowe-per-aplikacja)
-- [Przykłady](#przykłady)
+- [Overview](#overview)
+- [Configuration Priority](#configuration-priority)
+- [deploy.sh - Main Script](#deploysh---main-script)
+- [Global Options](#global-options)
+- [Database Configuration](#database-configuration)
+- [Domain Configuration](#domain-configuration)
+- [Operating Modes](#operating-modes)
+- [Config File](#config-file)
+- [Per-Application Environment Variables](#per-application-environment-variables)
+- [Examples](#examples)
 
 ---
 
-## Przegląd
+## Overview
 
-StackPilot obsługuje trzy tryby pracy:
+StackPilot supports three operating modes:
 
-1. **Interaktywny** - skrypt pyta o brakujące wartości
-2. **Semi-automatyczny** - część wartości z CLI, reszta interaktywnie
-3. **Pełna automatyzacja** - wszystkie wartości z CLI + `--yes`
+1. **Interactive** - the script prompts for missing values
+2. **Semi-automatic** - some values from CLI, rest interactively
+3. **Fully automated** - all values from CLI + `--yes`
 
 ```bash
-# Interaktywny
-./local/deploy.sh uptime-kuma --ssh=mikrus
+# Interactive
+./local/deploy.sh uptime-kuma --ssh=vps
 
-# Pełna automatyzacja
-./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=cytrus --domain=auto --yes
+# Fully automated
+./local/deploy.sh uptime-kuma --ssh=vps --domain-type=caddy --domain=status.example.com --yes
 ```
 
 ---
 
-## Priorytet konfiguracji
+## Configuration Priority
 
-Wartości są pobierane w następującej kolejności (od najwyższego priorytetu):
+Values are resolved in the following order (highest priority first):
 
 ```
-1. Flagi CLI             --db-host=psql.example.com
-2. Zmienne środowiskowe  DB_HOST=psql.example.com ./deploy.sh ...
+1. CLI flags             --db-host=psql.example.com
+2. Environment vars      DB_HOST=psql.example.com ./deploy.sh ...
 3. Config file           ~/.config/stackpilot/defaults.sh
-4. Pytania interaktywne  (tylko gdy brak --yes)
+4. Interactive prompts   (only when --yes is not set)
 ```
 
 ---
 
-## deploy.sh - główny skrypt
+## deploy.sh - Main Script
 
 ```bash
-./local/deploy.sh APP [opcje]
+./local/deploy.sh APP [options]
 ```
 
-### Argumenty
+### Arguments
 
-| Argument | Opis |
-|----------|------|
-| `APP` | Nazwa aplikacji (np. `n8n`, `uptime-kuma`) lub ścieżka do skryptu |
+| Argument | Description |
+|----------|-------------|
+| `APP` | Application name (e.g. `n8n`, `uptime-kuma`) or path to a script |
 
-### Przykłady
+### Examples
 
 ```bash
-# Po nazwie aplikacji
+# By application name
 ./local/deploy.sh n8n
 
-# Po ścieżce
+# By path
 ./local/deploy.sh apps/n8n/install.sh
 
 # System script
@@ -75,219 +75,220 @@ Wartości są pobierane w następującej kolejności (od najwyższego priorytetu
 
 ---
 
-## Opcje globalne
+## Global Options
 
 ### SSH
 
-| Flaga | Opis | Domyślnie |
-|-------|------|-----------|
-| `--ssh=ALIAS` | SSH alias z `~/.ssh/config` | `mikrus` |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--ssh=ALIAS` | SSH alias from `~/.ssh/config` | `vps` |
 
 ```bash
-./local/deploy.sh n8n --ssh=mikrus
-./local/deploy.sh n8n --ssh mikrus2
+./local/deploy.sh n8n --ssh=vps
+./local/deploy.sh n8n --ssh production
 ```
 
-### Tryby pracy
+### Operating Modes
 
-| Flaga | Opis |
-|-------|------|
-| `--yes`, `-y` | Pomiń wszystkie potwierdzenia. Wymaga podania wszystkich wymaganych parametrów. |
-| `--dry-run` | Pokaż co zostanie wykonane bez faktycznego wykonania. |
-| `--help`, `-h` | Pokaż pomoc. |
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip all confirmation prompts. All required parameters must be provided. |
+| `--dry-run` | Show what would be done without actually executing. |
+| `--help`, `-h` | Show help. |
 
 ---
 
-## Konfiguracja bazy danych
+## Database Configuration
 
-Używane przez aplikacje wymagające PostgreSQL (n8n, listmonk, umami, nocodb, typebot).
+Used by applications that require PostgreSQL (n8n, listmonk, umami, nocodb, typebot) or MySQL (wordpress, cap).
 
-### Flagi
+### Flags
 
-| Flaga | Opis | Domyślnie |
-|-------|------|-----------|
-| `--db-source=TYPE` | `bundled` (kontener Docker) lub `custom` | pytanie |
-| `--db-host=HOST` | Host bazy danych | pytanie |
-| `--db-port=PORT` | Port bazy | `5432` |
-| `--db-name=NAME` | Nazwa bazy danych | pytanie |
-| `--db-schema=SCHEMA` | Schema PostgreSQL | `public` |
-| `--db-user=USER` | Użytkownik bazy | pytanie |
-| `--db-pass=PASS` | Hasło bazy | pytanie |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--db-source=TYPE` | `bundled` (Docker container) or `custom` | prompt |
+| `--db-host=HOST` | Database host | prompt |
+| `--db-port=PORT` | Database port | `5432` |
+| `--db-name=NAME` | Database name | prompt |
+| `--db-schema=SCHEMA` | PostgreSQL schema | `public` |
+| `--db-user=USER` | Database user | prompt |
+| `--db-pass=PASS` | Database password | prompt |
 
 ### --db-source=bundled
 
-Uruchamia kontener PostgreSQL/MySQL obok aplikacji. Dane dostępowe generowane automatycznie.
+Runs a PostgreSQL/MySQL container alongside the application. Credentials are generated automatically.
 
 ```bash
-./local/deploy.sh nocodb --ssh=vps --db-source=bundled --domain=nocodb.example.com --yes
+./local/deploy.sh nocodb --ssh=vps --db-source=bundled --domain-type=caddy --domain=nocodb.example.com --yes
 ```
 
 ### --db-source=custom
 
-Ręczna konfiguracja bazy danych.
+Manual database configuration with your own credentials.
 
 ```bash
-./local/deploy.sh n8n --ssh=mikrus \
+./local/deploy.sh n8n --ssh=vps \
   --db-source=custom \
   --db-host=psql.example.com \
   --db-port=5432 \
   --db-name=n8n_db \
   --db-user=n8n_user \
   --db-pass=secretpassword \
+  --domain-type=cloudflare \
   --domain=n8n.example.com \
   --yes
 ```
 
 ---
 
-## Konfiguracja domeny
+## Domain Configuration
 
-### Flagi
+### Flags
 
-| Flaga | Opis | Domyślnie |
-|-------|------|-----------|
-| `--domain=DOMAIN` | Domena aplikacji lub `auto` | pytanie |
-| `--domain-type=TYPE` | `cytrus`, `cloudflare`, `local` | pytanie |
-
-### --domain-type=cytrus
-
-Domena przydzielana przez system Cytrus (*.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev). Użyj `--domain=auto` dla automatycznego przydziału.
-
-```bash
-./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=cytrus --domain=auto --yes
-```
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--domain=DOMAIN` | Application domain | prompt |
+| `--domain-type=TYPE` | `cloudflare`, `caddy`, or `local` | prompt |
 
 ### --domain-type=cloudflare
 
-Własna domena zarządzana przez Cloudflare. Wymaga tunelu Cloudflare.
+Own domain managed via Cloudflare. DNS record added through Cloudflare API, Caddy serves as reverse proxy with auto-SSL on the server.
 
 ```bash
-./local/deploy.sh n8n --ssh=mikrus \
-  --domain-type=cloudflare \
-  --domain=n8n.mojafirma.pl \
+./local/deploy.sh uptime-kuma --ssh=vps --domain-type=cloudflare --domain=status.example.com --yes
+```
+
+### --domain-type=caddy
+
+Direct domain with Caddy reverse proxy and automatic Let's Encrypt SSL. DNS must point directly to your server IP.
+
+```bash
+./local/deploy.sh n8n --ssh=vps \
+  --domain-type=caddy \
+  --domain=n8n.example.com \
   --yes
 ```
 
 ### --domain-type=local
 
-Brak domeny. Dostęp przez tunel SSH.
+No domain. Access via SSH tunnel only.
 
 ```bash
-./local/deploy.sh dockge --ssh=mikrus --domain-type=local --yes
-# Dostęp: ssh -L 5001:localhost:5001 mikrus && http://localhost:5001
+./local/deploy.sh dockge --ssh=vps --domain-type=local --yes
+# Access: ssh -L 5001:localhost:5001 vps  then open http://localhost:5001
 ```
 
 ---
 
-## Tryby pracy
+## Operating Modes
 
-### Tryb interaktywny (domyślny)
+### Interactive Mode (default)
 
-Skrypt pyta o brakujące wartości.
+The script prompts for missing values.
 
 ```bash
-./local/deploy.sh n8n --ssh=mikrus
-# > Wybierz źródło bazy danych [shared/custom]: _
-# > Podaj domenę: _
+./local/deploy.sh n8n --ssh=vps
+# > Choose database source [bundled/custom]: _
+# > Enter domain: _
 ```
 
-### Tryb --yes (automatyczny)
+### --yes Mode (automated)
 
-Wymaga wszystkich wartości. Brak wartości = błąd.
+Requires all values upfront. Missing values result in an error.
 
 ```bash
-# OK - wszystkie wartości podane
-./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=local --yes
+# OK - all values provided
+./local/deploy.sh uptime-kuma --ssh=vps --domain-type=local --yes
 
-# BŁĄD - brak wymaganych wartości
-./local/deploy.sh n8n --ssh=mikrus --yes
-# > Błąd: --db-source jest wymagane w trybie --yes
+# ERROR - missing required values
+./local/deploy.sh n8n --ssh=vps --yes
+# > Error: --db-source is required in --yes mode
 ```
 
-### Tryb --dry-run
+### --dry-run Mode
 
-Pokazuje co zostanie wykonane bez faktycznego wykonania.
+Shows what would be done without executing.
 
 ```bash
-./local/deploy.sh n8n --ssh=mikrus --dry-run
-# [dry-run] Symulacja wykonania:
-#   scp apps/n8n/install.sh mikrus:/tmp/mikrus-deploy-123.sh
-#   ssh -t mikrus "export DB_HOST=... ; bash '/tmp/mikrus-deploy-123.sh'"
+./local/deploy.sh n8n --ssh=vps --dry-run
+# [dry-run] Simulating execution:
+#   scp apps/n8n/install.sh vps:/tmp/stackpilot-deploy-123.sh
+#   ssh -t vps "export DB_HOST=... ; bash '/tmp/stackpilot-deploy-123.sh'"
 ```
 
 ---
 
-## Config file
+## Config File
 
-Domyślne wartości można zapisać w `~/.config/stackpilot/defaults.sh`:
+Default values can be saved in `~/.config/stackpilot/defaults.sh`:
 
 ```bash
 # ~/.config/stackpilot/defaults.sh
 
-export DEFAULT_SSH="mikrus"
+export DEFAULT_SSH="vps"
 export DEFAULT_DB_PORT="5432"
 export DEFAULT_DB_SCHEMA="public"
-export DEFAULT_DOMAIN_TYPE="cytrus"
+export DEFAULT_DOMAIN_TYPE="cloudflare"
 ```
 
-Dostępne zmienne:
+Available variables:
 
-| Zmienna | Opis |
-|---------|------|
-| `DEFAULT_SSH` | Domyślny SSH alias |
-| `DEFAULT_DB_PORT` | Domyślny port bazy |
-| `DEFAULT_DB_SCHEMA` | Domyślna schema PostgreSQL |
-| `DEFAULT_DOMAIN_TYPE` | Domyślny typ domeny |
+| Variable | Description |
+|----------|-------------|
+| `DEFAULT_SSH` | Default SSH alias |
+| `DEFAULT_DB_PORT` | Default database port |
+| `DEFAULT_DB_SCHEMA` | Default PostgreSQL schema |
+| `DEFAULT_DOMAIN_TYPE` | Default domain type |
 
 ---
 
-## Zmienne środowiskowe per aplikacja
+## Per-Application Environment Variables
 
-Każda aplikacja akceptuje zmienne środowiskowe. Deploy.sh automatycznie je przekazuje.
+Each application accepts environment variables. deploy.sh automatically passes them to the installer.
 
-### Aplikacje z bazą danych (PostgreSQL)
+### Database Applications (PostgreSQL)
 
 **n8n, listmonk, umami, nocodb, typebot**
 
 ```bash
-DB_HOST=...     # Host bazy
-DB_PORT=...     # Port (domyślnie 5432)
-DB_NAME=...     # Nazwa bazy
-DB_USER=...     # Użytkownik
-DB_PASS=...     # Hasło
-DB_SCHEMA=...   # Schema (domyślnie public)
-DOMAIN=...      # Opcjonalna domena
+DB_HOST=...     # Database host
+DB_PORT=...     # Port (default 5432)
+DB_NAME=...     # Database name
+DB_USER=...     # User
+DB_PASS=...     # Password
+DB_SCHEMA=...   # Schema (default public)
+DOMAIN=...      # Optional domain
 ```
 
 ### Redis
 
 ```bash
-REDIS_PASS=...  # Hasło (auto-generowane jeśli brak)
+REDIS_PASS=...  # Password (auto-generated if empty)
 ```
 
 ### Vaultwarden
 
 ```bash
-ADMIN_TOKEN=... # Token admina (auto-generowany jeśli brak)
-DOMAIN=...      # Opcjonalna domena
+ADMIN_TOKEN=... # Admin token (auto-generated if empty)
+DOMAIN=...      # Optional domain
 ```
 
 ### Cap (Loom alternative)
 
-Wymaga MySQL + S3.
+Requires MySQL + S3.
 
 ```bash
-# Opcja 1: Zewnętrzna baza MySQL
+# Option 1: External MySQL
 DB_HOST=mysql.example.com
 DB_PORT=3306
 DB_NAME=cap
 DB_USER=capuser
 DB_PASS=secret
 
-# Opcja 2: Lokalna baza MySQL
+# Option 2: Local MySQL
 MYSQL_ROOT_PASS=rootsecret
 
-# Opcja 1: Zewnętrzny S3
+# Option 1: External S3
 S3_ENDPOINT=https://xxx.r2.cloudflarestorage.com
 S3_PUBLIC_URL=https://cdn.example.com
 S3_REGION=auto
@@ -295,101 +296,97 @@ S3_BUCKET=cap-videos
 S3_ACCESS_KEY=xxx
 S3_SECRET_KEY=yyy
 
-# Opcja 2: Lokalny MinIO
+# Option 2: Local MinIO
 USE_LOCAL_MINIO=true
 
-# Wymagane
+# Required
 DOMAIN=cap.example.com
 ```
 
 ### GateFlow
 
-GateFlow używa **Bun + PM2** (nie Docker). Instalacja jest **interaktywna** - skrypt przeprowadzi Cię przez konfigurację Supabase i Stripe.
+GateFlow uses **Bun + PM2** (not Docker). Installation is **interactive** - the script guides you through Supabase and Stripe configuration.
 
 ```bash
-# Interaktywny setup (zalecane)
-./local/deploy.sh gateflow --ssh=mikrus
+# Interactive setup (recommended)
+./local/deploy.sh gateflow --ssh=vps
 
-# Z domeną Cytrus
-./local/deploy.sh gateflow --ssh=mikrus --domain-type=cytrus --domain=shop.byst.re
+# With Cloudflare domain
+./local/deploy.sh gateflow --ssh=vps --domain-type=cloudflare --domain=shop.example.com
 
-# Z domeną Cloudflare
-./local/deploy.sh gateflow --ssh=mikrus --domain-type=cloudflare --domain=shop.mojafirma.pl
+# With Caddy domain
+./local/deploy.sh gateflow --ssh=vps --domain-type=caddy --domain=shop.example.com
 ```
 
-Opcjonalne zmienne środowiskowe (jeśli chcesz pominąć interaktywne pytania):
+Optional environment variables (to skip interactive prompts):
 
 ```bash
-# Supabase (z dashboardu → Settings → API)
+# Supabase (from dashboard > Settings > API)
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
 
-# Stripe (z dashboard.stripe.com/apikeys)
+# Stripe (from dashboard.stripe.com/apikeys)
 STRIPE_PK=pk_live_...
 STRIPE_SK=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...  # opcjonalne, dodasz po instalacji
+STRIPE_WEBHOOK_SECRET=whsec_...  # optional, added after installation
 
-# Domena
+# Domain
 DOMAIN=shop.example.com
 ```
 
-**Wymagania:** Mikrus 2.1+ (1GB RAM), konto Supabase (darmowe), konto Stripe
+**Requirements:** VPS with 1GB+ RAM, Supabase account (free tier), Stripe account
 
 ### FileBrowser
 
 ```bash
-DOMAIN=...         # Opcjonalna domena panelu admin
-DOMAIN_PUBLIC=...  # Opcjonalna domena dla public hosting
-PORT=...           # Port FileBrowser (domyślnie 8095)
-PORT_PUBLIC=...    # Port static hosting (domyślnie 8096)
+DOMAIN=...         # Optional admin panel domain
+DOMAIN_PUBLIC=...  # Optional public hosting domain
+PORT=...           # FileBrowser port (default 8095)
+PORT_PUBLIC=...    # Static hosting port (default 8096)
 ```
 
-Przykłady instalacji:
+Installation examples:
 
 ```bash
-# Cytrus - pełny setup (admin + public)
-DOMAIN_PUBLIC=static.byst.re ./local/deploy.sh filebrowser \
-  --ssh=mikrus --domain-type=cytrus --domain=files.byst.re --yes
-
-# Cloudflare - pełny setup
+# Cloudflare - full setup (admin + public)
 DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
-  --ssh=mikrus --domain-type=cloudflare --domain=files.example.com --yes
+  --ssh=vps --domain-type=cloudflare --domain=files.example.com --yes
 
-# Tylko admin (bez public hosting)
-./local/deploy.sh filebrowser --ssh=mikrus --domain-type=cytrus --domain=files.byst.re --yes
+# Admin only (no public hosting)
+./local/deploy.sh filebrowser --ssh=vps --domain-type=caddy --domain=files.example.com --yes
 
-# Dodanie public hosting później
-./local/add-static-hosting.sh static.byst.re mikrus
+# Add public hosting later
+./local/add-static-hosting.sh static.example.com vps
 ```
 
 ### Typebot
 
 ```bash
-# Baza danych
+# Database
 DB_HOST=...
 DB_PORT=...
 DB_NAME=...
 DB_USER=...
 DB_PASS=...
 
-# Domena (auto-generuje builder.DOMAIN i DOMAIN)
+# Domain (auto-generates builder.DOMAIN and DOMAIN)
 DOMAIN=typebot.example.com
 ```
 
-### Proste aplikacje (tylko DOMAIN)
+### Simple Applications (DOMAIN only)
 
 **uptime-kuma, ntfy, dockge, stirling-pdf, linkstack, cookie-hub, littlelink**
 
 ```bash
-DOMAIN=...  # Opcjonalna domena
+DOMAIN=...  # Optional domain
 ```
 
 ---
 
-## Przykłady
+## Examples
 
-### Pełna automatyzacja CI/CD
+### Full CI/CD Automation
 
 ```bash
 #!/bin/bash
@@ -404,100 +401,101 @@ DOMAIN=...  # Opcjonalna domena
   --db-user=n8n \
   --db-pass="$N8N_DB_PASSWORD" \
   --domain-type=cloudflare \
-  --domain=n8n.mojafirma.pl \
+  --domain=n8n.company.com \
   --yes
 ```
 
-### Szybki deploy z Cytrus
+### Quick Deploy with Caddy
 
 ```bash
-./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=cytrus --domain=auto --yes
+./local/deploy.sh uptime-kuma --ssh=vps --domain-type=caddy --domain=status.example.com --yes
 ```
 
-### Deploy bez domeny (tunel SSH)
+### Deploy Without a Domain (SSH Tunnel)
 
 ```bash
-./local/deploy.sh dockge --ssh=mikrus --domain-type=local --yes
-# Dostęp: ssh -L 5001:localhost:5001 mikrus
+./local/deploy.sh dockge --ssh=vps --domain-type=local --yes
+# Access: ssh -L 5001:localhost:5001 vps
 ```
 
-### Dry-run przed produkcją
+### Dry Run Before Production
 
 ```bash
 ./local/deploy.sh n8n \
   --ssh=production \
   --db-source=custom \
   --db-host=psql.example.com \
-  --domain=n8n.mojafirma.pl \
+  --domain-type=cloudflare \
+  --domain=n8n.company.com \
   --dry-run
 ```
 
-### Deploy z config file
+### Deploy with Config File
 
 ```bash
 # ~/.config/stackpilot/defaults.sh
-export DEFAULT_SSH="mojserwer"
-export DEFAULT_DOMAIN_TYPE="cytrus"
+export DEFAULT_SSH="vps"
+export DEFAULT_DOMAIN_TYPE="cloudflare"
 
-# Teraz wystarczy:
-./local/deploy.sh uptime-kuma --domain=auto --yes
+# Now just:
+./local/deploy.sh uptime-kuma --domain=status.example.com --yes
 ```
 
 ---
 
-## Kompatybilność platform
+## Platform Compatibility
 
-StackPilot działa na:
+StackPilot works on:
 
-| System | Status | Uwagi |
+| System | Status | Notes |
 |--------|--------|-------|
-| macOS | ✅ | Pełne wsparcie |
-| Linux (Ubuntu, Debian, etc.) | ✅ | Pełne wsparcie |
-| Windows + WSL2 | ✅ | Zalecane dla Windows |
-| Windows + Git Bash | ⚠️ | Zobacz poniżej |
+| macOS | Supported | Full support |
+| Linux (Ubuntu, Debian, etc.) | Supported | Full support |
+| Windows + WSL2 | Supported | Recommended for Windows |
+| Windows + Git Bash | Partial | See below |
 
 ### Windows + Git Bash
 
-Git Bash z domyślnym terminalem MinTTY ma problemy z interaktywnymi sesjami SSH. Skrypt automatycznie wykrywa to środowisko i pokazuje ostrzeżenie.
+Git Bash with the default MinTTY terminal has issues with interactive SSH sessions. The script automatically detects this environment and shows a warning.
 
-**Rozwiązania:**
+**Solutions:**
 
-1. **Windows Terminal (zalecane)** - uruchom Git Bash w Windows Terminal
-2. **winpty** - prefix dla poleceń:
+1. **Windows Terminal (recommended)** - run Git Bash inside Windows Terminal
+2. **winpty** - prefix for commands:
    ```bash
-   winpty ./local/deploy.sh n8n --ssh=mikrus
+   winpty ./local/deploy.sh n8n --ssh=vps
    ```
-3. **Tryb automatyczny** - użyj `--yes` aby pominąć interakcje:
+3. **Automated mode** - use `--yes` to skip interactive prompts:
    ```bash
-   ./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=local --yes
+   ./local/deploy.sh uptime-kuma --ssh=vps --domain-type=local --yes
    ```
-4. **WSL2 (najlepsze)** - zainstaluj Ubuntu z Microsoft Store
+4. **WSL2 (best option)** - install Ubuntu from the Microsoft Store
 
-**Tryb `--yes` działa bez problemów** na Git Bash, ponieważ nie wymaga interaktywnych pytań.
+**The `--yes` mode works without issues** on Git Bash since it requires no interactive prompts.
 
 ---
 
-## Rozwiązywanie problemów
+## Troubleshooting
 
-### "Błąd: --db-source jest wymagane w trybie --yes"
+### "Error: --db-source is required in --yes mode"
 
-W trybie `--yes` wszystkie wymagane wartości muszą być podane. Dodaj brakującą flagę lub usuń `--yes` dla trybu interaktywnego.
+In `--yes` mode, all required values must be provided. Add the missing flag or remove `--yes` for interactive mode.
 
-### Shared DB nie działa z n8n/umami
+### Bundled DB issues
 
-Shared DB nie obsługuje rozszerzenia `pgcrypto`. Użyj `--db-source=custom` z własną bazą PostgreSQL.
+If the bundled PostgreSQL container fails to start, check logs with `docker compose logs db` inside the app's stack directory. Common causes: port conflict, insufficient disk space.
 
-### Domena nie działa od razu
+### Domain not working immediately
 
-Po skonfigurowaniu domeny Cytrus, może minąć do 60 sekund zanim zacznie odpowiadać. Skrypt automatycznie czeka na propagację.
+After configuring a domain, it may take up to 60 seconds before it starts responding. The script automatically waits for propagation.
 
 ### SSH connection refused
 
-Sprawdź czy alias SSH jest poprawnie skonfigurowany w `~/.ssh/config`:
+Check that the SSH alias is correctly configured in `~/.ssh/config`:
 
 ```
-Host mikrus
-    HostName srv00.mikr.us
+Host vps
+    HostName 203.0.113.10
     User root
-    Port 10123
+    Port 22
 ```

@@ -1,211 +1,201 @@
 # FileBrowser - Tiiny.host Killer
 
-Prywatny dysk + publiczny hosting plików. Zamiennik Tiiny.host za ułamek ceny.
+Private drive + public file hosting. A Tiiny.host replacement at a fraction of the cost.
 
-**RAM:** ~160MB (FileBrowser + nginx) | **Dysk:** zależy od plików | **Plan:** Mikrus 2.1+
+**RAM:** ~160MB (FileBrowser + nginx) | **Disk:** depends on files | **Plan:** 1GB+ RAM VPS
 
 ---
 
-## Szybki start (jedna komenda)
+## Quick Start (one command)
 
-### Cytrus - pełny setup
+### Caddy - full setup
 
 ```bash
-DOMAIN_PUBLIC=static.byst.re ./local/deploy.sh filebrowser \
-  --ssh=mikrus \
-  --domain-type=cytrus \
-  --domain=files.byst.re \
+DOMAIN_PUBLIC=static.your-domain.com ./local/deploy.sh filebrowser \
+  --ssh=ALIAS \
+  --domain-type=caddy \
+  --domain=files.your-domain.com \
   --yes
 ```
 
-### Cloudflare - pełny setup
+### Cloudflare - full setup
 
 ```bash
 DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
-  --ssh=mikrus \
+  --ssh=ALIAS \
   --domain-type=cloudflare \
   --domain=files.example.com \
   --yes
 ```
 
-Po instalacji masz:
-- `https://files.byst.re` - panel admin (logowanie)
-- `https://static.byst.re` - publiczne pliki (bez logowania)
+After installation you have:
+- `https://files.your-domain.com` - admin panel (login required)
+- `https://static.your-domain.com` - public files (no login)
 
 ---
 
-## Scenariusze instalacji
+## Installation Scenarios
 
-### 1. Pełny setup (admin + public)
+### 1. Full setup (admin + public)
 
 ```bash
-# Cytrus
-DOMAIN_PUBLIC=static.byst.re ./local/deploy.sh filebrowser \
-  --ssh=mikrus --domain-type=cytrus --domain=files.byst.re --yes
+# Caddy
+DOMAIN_PUBLIC=static.your-domain.com ./local/deploy.sh filebrowser \
+  --ssh=ALIAS --domain-type=caddy --domain=files.your-domain.com --yes
 
 # Cloudflare
 DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
-  --ssh=mikrus --domain-type=cloudflare --domain=files.example.com --yes
+  --ssh=ALIAS --domain-type=cloudflare --domain=files.example.com --yes
 ```
 
-### 2. Tylko admin (bez public hosting)
+### 2. Admin only (no public hosting)
 
 ```bash
-./local/deploy.sh filebrowser --ssh=mikrus
+./local/deploy.sh filebrowser --ssh=ALIAS
 ```
 
-Przydatne gdy:
-- Chcesz tylko prywatny dysk
-- Dodasz public hosting później
-- Testujesz przed produkcją
+Useful when:
+- You only want a private drive
+- You will add public hosting later
+- Testing before production
 
-### 3. Dodanie public hosting później
+### 3. Adding public hosting later
 
-Jeśli zainstalowałeś bez DOMAIN_PUBLIC, możesz dodać go jedną komendą:
+If you installed without DOMAIN_PUBLIC, you can add it with one command:
 
 ```bash
-# Cytrus
-./local/add-static-hosting.sh static.byst.re mikrus
+# Caddy
+./local/add-static-hosting.sh static.your-domain.com ALIAS
 
 # Cloudflare
-./local/add-static-hosting.sh static.example.com mikrus
+./local/add-static-hosting.sh static.example.com ALIAS
 ```
 
-Skrypt automatycznie:
-- Uruchomi nginx dla Cytrus lub skonfiguruje Caddy dla Cloudflare
-- Zarejestruje domenę
-- Skonfiguruje katalog /var/www/public
+The script automatically:
+- Starts nginx for Caddy or configures Caddy for Cloudflare
+- Registers the domain
+- Configures the /var/www/public directory
 
-**Opcje:**
+**Options:**
 ```bash
-./local/add-static-hosting.sh DOMENA [SSH_ALIAS] [KATALOG] [PORT]
+./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY] [PORT]
 
-# Przykłady:
-./local/add-static-hosting.sh static.byst.re                    # domyślne
-./local/add-static-hosting.sh cdn.byst.re mikrus /var/www/cdn   # własny katalog
-./local/add-static-hosting.sh assets.byst.re mikrus /var/www/assets 8097  # własny port
+# Examples:
+./local/add-static-hosting.sh static.your-domain.com                          # defaults
+./local/add-static-hosting.sh cdn.your-domain.com ALIAS /var/www/cdn          # custom directory
+./local/add-static-hosting.sh assets.your-domain.com ALIAS /var/www/assets 8097  # custom port
 ```
 
 ---
 
-## Jak to działa
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  files.example.com (ADMIN)                                  │
-│  → FileBrowser z logowaniem                                 │
-│  → Upload, edycja, kasowanie plików                         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │ pliki w /var/www/public/
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  static.example.com (PUBLIC)                                │
-│  → Bezpośredni dostęp bez logowania                         │
-│  → https://static.example.com/ebook.pdf                     │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|  files.example.com (ADMIN)                                   |
+|  -> FileBrowser with login                                   |
+|  -> Upload, edit, delete files                               |
++-------------------------------------------------------------+
+                              |
+                              | files in /var/www/public/
+                              v
++-------------------------------------------------------------+
+|  static.example.com (PUBLIC)                                 |
+|  -> Direct access without login                              |
+|  -> https://static.example.com/ebook.pdf                     |
++-------------------------------------------------------------+
 ```
 
 ---
 
-## Przypadki użycia
+## Use Cases
 
 ### Lead Magnet
 ```
-1. Wrzuć PDF przez FileBrowser
+1. Upload PDF via FileBrowser
 2. Link: https://static.example.com/ebook.pdf
-3. Użyj w automatyzacji (n8n, Mailchimp)
+3. Use in automation (n8n, Mailchimp)
 ```
 
 ### Landing Page
 ```
-1. Stwórz index.html
-2. Wrzuć przez FileBrowser
-3. Gotowe: https://static.example.com/
+1. Create index.html
+2. Upload via FileBrowser
+3. Done: https://static.example.com/
 ```
 
-### Oferty dla klientów
+### Client Proposals
 ```
-1. Wrzuć: oferta-kowalski.pdf
-2. Wyślij: https://static.example.com/oferta-kowalski.pdf
+1. Upload: proposal-client.pdf
+2. Send: https://static.example.com/proposal-client.pdf
 ```
 
 ---
 
-## Porównanie kosztów
+## Architecture
 
-| Rozwiązanie | Cena/rok | Limity |
-|-------------|----------|--------|
-| Tiiny.host Pro | ~500 zł | 10 stron |
-| Tiiny.host Business | ~1200 zł | 50 stron |
-| **FileBrowser + Mikrus** | **~240 zł** | **bez limitów** |
-
----
-
-## Architektura
-
-### Cytrus
-- FileBrowser → port 8095 → Cytrus API
-- nginx:alpine → port 8096 → Cytrus API
+### Caddy
+- FileBrowser -> port 8095 -> Caddy reverse proxy
+- nginx:alpine -> port 8096 -> Caddy reverse proxy
 
 ### Cloudflare
-- FileBrowser → port 8095 → Caddy reverse_proxy
-- Caddy file_server → /var/www/public (bez dodatkowego portu)
+- FileBrowser -> port 8095 -> Caddy reverse_proxy
+- Caddy file_server -> /var/www/public (no additional port)
 
 ---
 
-## Zarządzanie
+## Management
 
 ```bash
-# Logi
-ssh mikrus "docker logs -f filebrowser-filebrowser-1"
+# Logs
+ssh ALIAS "docker logs -f filebrowser-filebrowser-1"
 
 # Restart
-ssh mikrus "cd /opt/stacks/filebrowser && docker compose restart"
+ssh ALIAS "cd /opt/stacks/filebrowser && docker compose restart"
 
-# Aktualizacja
-ssh mikrus "cd /opt/stacks/filebrowser && docker compose pull && docker compose up -d"
+# Update
+ssh ALIAS "cd /opt/stacks/filebrowser && docker compose pull && docker compose up -d"
 
 # Status
-ssh mikrus "docker ps --filter name=filebrowser"
+ssh ALIAS "docker ps --filter name=filebrowser"
 ```
 
 ---
 
-## Bezpieczeństwo
+## Security
 
-**Zmień hasło po pierwszym logowaniu!**
+**Change the password after first login!**
 ```
-Domyślne: admin / admin
+Default: admin / admin
 ```
 
-### Prywatność plików
-- **Admin** (`files.*`) - wymaga logowania
-- **Public** (`static.*`) - dostępne dla każdego
+### File Privacy
+- **Admin** (`files.*`) - requires login
+- **Public** (`static.*`) - accessible to everyone
 
-Dla "ukrytych" linków używaj losowych nazw: `oferta-x7k9m2.pdf`
+For "hidden" links use random names: `proposal-x7k9m2.pdf`
 
 ---
 
 ## Troubleshooting
 
-### Plik nie widoczny na public
+### File not visible on public
 ```bash
-ssh mikrus "sudo chmod -R o+r /var/www/public/"
+ssh ALIAS "sudo chmod -R o+r /var/www/public/"
 ```
 
 ### 403 Forbidden
 ```bash
-ssh mikrus "sudo chown -R 1000:1000 /var/www/public/"
+ssh ALIAS "sudo chown -R 1000:1000 /var/www/public/"
 ```
 
-### Cytrus placeholder (3-5 min)
-Poczekaj na propagację lub sprawdź:
+### Domain placeholder (3-5 min)
+Wait for propagation or check:
 ```bash
-ssh mikrus "curl -s localhost:8096/plik.txt"
+ssh ALIAS "curl -s localhost:8096/file.txt"
 ```
 
-### nginx nie startuje
+### nginx not starting
 ```bash
-ssh mikrus "docker logs filebrowser-static-1"
+ssh ALIAS "docker logs filebrowser-static-1"
 ```

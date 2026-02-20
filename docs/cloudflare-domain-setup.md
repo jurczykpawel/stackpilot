@@ -1,157 +1,131 @@
-# Konfiguracja domeny z Cloudflare
+# Domain Setup with Cloudflare
 
-Ten poradnik pokazuje jak przenieść domenę (np. z OVH) pod Cloudflare, żeby móc korzystać z automatyzacji DNS w StackPilot.
+This guide shows how to set up your domain with Cloudflare so you can use DNS automation in StackPilot.
 
-## Dlaczego Cloudflare?
+## Why Cloudflare?
 
-1. **Mikrus używa IPv6** - większość polskich ISP nie obsługuje IPv6. Cloudflare działa jako "tłumacz" (proxy) między IPv4 a IPv6.
-2. **Automatyzacja DNS** - nasz skrypt `dns-add.sh` automatycznie dodaje rekordy DNS przez API.
-3. **Darmowy SSL** - Cloudflare zapewnia certyfikaty SSL bez konfiguracji.
-4. **Ochrona DDoS** - darmowa podstawowa ochrona przed atakami.
-5. **CDN** - szybsze ładowanie strony dla użytkowników.
+1. **IPv4/IPv6 translation** - If your VPS only has an IPv6 address, Cloudflare acts as a proxy so IPv4-only clients can still reach it.
+2. **DNS automation** - The `dns-add.sh` script automatically adds DNS records via the Cloudflare API.
+3. **Free SSL** - Cloudflare provides SSL certificates with no configuration needed.
+4. **DDoS protection** - Free basic protection against attacks.
+5. **CDN** - Faster page loading for users worldwide.
 
-## Krok 1: Kup domenę
+## Step 1: Get a Domain
 
-Jeśli nie masz jeszcze domeny, polecamy **OVH** - uczciwe ceny bez haczyków:
+If you do not have a domain yet, purchase one from any domain registrar (Namecheap, Porkbun, Google Domains, GoDaddy, OVH, etc.).
 
-👉 [**Kup domenę w OVH**](https://www.ovhcloud.com/pl/domains/)
+Choose a registrar with fair renewal prices. Many registrars offer cheap first-year pricing but charge significantly more on renewal.
 
-> 💡 **Dlaczego OVH?**
-> - Odnowienie domeny `.pl`: **~59 zł/rok** (netto)
-> - Dla porównania: home.pl i nazwa.pl to **169-200 zł/rok** za odnowienie!
-> - Kuszą promocją "domena za 1 zł" ale potem 3-4x drożej
-> - OVH ma uczciwe ceny od startu - bez pułapek
+## Step 2: Create a Free Cloudflare Account
+
+1. Go to [cloudflare.com](https://www.cloudflare.com/) and click "Sign Up"
+2. Enter your email and password
+3. Choose the **Free** plan
+
+> The free plan is genuinely sufficient:
+> - Unlimited number of domains
+> - Full API for DNS automation
+> - SSL/HTTPS for all domains
+> - CDN and DDoS protection
+> - No traffic limits
 >
-> Źródło: [Ranking rejestratorów 2025](https://nawitrynie.pl/gdzie-sa-najtansze-domeny-ranking-rejestratorow-domen-ceny-rejestracji-i-odnowienia/)
+> Paid plans ($20+/month) are for large businesses with millions of visitors. For a VPS and small business, **Free = everything you need**.
 
-## Krok 2: Załóż darmowe konto Cloudflare
+## Step 3: Add Your Domain to Cloudflare
 
-1. Wejdź na [cloudflare.com](https://www.cloudflare.com/) i kliknij "Sign Up"
-2. Podaj email i hasło
-3. Plan wybierz **Free** (darmowy)
+1. After logging in, click **"Add a Site"**
+2. Enter your domain (e.g. `example.com`) - without `www`!
+3. Choose the **Free** plan
+4. Cloudflare will scan existing DNS records
 
-> 💡 **Darmowy plan naprawdę wystarcza!**
-> - Nielimitowana liczba domen
-> - Pełne API do automatyzacji DNS
-> - SSL/HTTPS dla wszystkich domen
-> - CDN i ochrona DDoS
-> - Brak limitów ruchu
->
-> Płatne plany ($20+/mies) są dla dużych firm z milionami odwiedzin. Dla Mikrusa i małego biznesu **Free = wszystko czego potrzebujesz**.
+## Step 4: Change Nameservers at Your Registrar
 
-## Krok 3: Dodaj domenę do Cloudflare
-
-1. Po zalogowaniu kliknij **"Add a Site"**
-2. Wpisz swoją domenę (np. `mojafirma.pl`) - bez `www`!
-3. Wybierz plan **Free**
-4. Cloudflare przeskanuje istniejące rekordy DNS
-
-## Krok 4: Zmień serwery DNS w OVH
-
-Cloudflare pokaże Ci dwa serwery nazw (nameservers), np.:
+Cloudflare will show you two nameservers, for example:
 ```
 aria.ns.cloudflare.com
 brett.ns.cloudflare.com
 ```
 
-Teraz musisz je ustawić w OVH:
+Now set these at your domain registrar:
 
-### W panelu OVH:
+1. Log in to your registrar's control panel
+2. Navigate to your domain's DNS settings
+3. Change the nameservers to the ones Cloudflare provided
+4. Save changes
 
-1. Zaloguj się do [OVH Manager](https://www.ovh.com/manager/)
-2. Przejdź do **Web Cloud** → **Domeny** → wybierz swoją domenę
-3. Kliknij zakładkę **"Serwery DNS"**
-4. Kliknij **"Zmień serwery DNS"**
-5. Wybierz **"Wpisz własne serwery DNS"**
-6. Wpisz serwery od Cloudflare:
-   - Serwer DNS 1: `aria.ns.cloudflare.com` (Twój będzie inny!)
-   - Serwer DNS 2: `brett.ns.cloudflare.com`
-7. Kliknij **"Zastosuj"**
+> **Note:** Nameserver changes can take up to 24-48 hours to propagate, but usually work within 1-2 hours.
 
-> ⏳ **Uwaga:** Zmiana serwerów DNS może zająć do 24-48 godzin, ale zazwyczaj działa w ciągu 1-2 godzin.
+## Step 5: Confirm in Cloudflare
 
-## Krok 5: Potwierdź w Cloudflare
+1. Go back to Cloudflare
+2. Click **"Check nameservers"**
+3. Once the nameservers propagate, you will see status **"Active"**
 
-1. Wróć do Cloudflare
-2. Kliknij **"Check nameservers"**
-3. Gdy serwery się przepiszą, zobaczysz status **"Active"**
+## Step 6: Configure SSL in Cloudflare
 
-## Krok 6: Skonfiguruj SSL w Cloudflare
+1. In Cloudflare, go to **SSL/TLS** -> **Overview**
+2. Set the mode to **"Full"** (not "Flexible"!)
 
-1. W Cloudflare przejdź do **SSL/TLS** → **Overview**
-2. Ustaw tryb na **"Full"** (nie "Flexible"!)
+> **Important:** The "Flexible" mode can cause redirect loops with Caddy. Use "Full".
 
-> ⚠️ **Ważne:** Tryb "Flexible" może powodować pętle przekierowań z Caddy. Użyj "Full".
+## Step 7: Configure Automation in StackPilot
 
-## Krok 7: Skonfiguruj automatyzację w StackPilot
-
-Teraz możesz skonfigurować automatyczne dodawanie rekordów DNS:
+Now you can set up automatic DNS record management:
 
 ```bash
 cd stackpilot
 ./local/setup-cloudflare.sh
 ```
 
-Skrypt:
-1. Otworzy przeglądarkę na stronie tworzenia API tokenu
-2. Stwórz token z uprawnieniem "Edit zone DNS"
-3. Wklej token w terminalu
-4. Gotowe!
+The script will:
+1. Open your browser to the Cloudflare API token creation page
+2. Create a token with "Edit zone DNS" permission
+3. Paste the token in the terminal
+4. Done!
 
-## Użycie
+## Usage
 
-Teraz dodawanie domeny to jedno polecenie:
-
-```bash
-# Dodaj rekord DNS (IPv6 pobierze się automatycznie!)
-./local/dns-add.sh status.mojafirma.pl mikrus
-
-# Wystaw aplikację przez HTTPS
-ssh mikrus 'sp-expose status.mojafirma.pl 3001'
-```
-
-## Weryfikacja
-
-Sprawdź czy domena działa:
+Adding a domain is now a single command:
 
 ```bash
-# Sprawdź DNS
-ping status.mojafirma.pl
+# Add a DNS record (IPv6 is fetched automatically!)
+./local/dns-add.sh status.example.com vps
 
-# Sprawdź HTTPS
-curl -I https://status.mojafirma.pl
+# Expose an application via HTTPS
+ssh vps 'sp-expose status.example.com 3001'
 ```
 
-## Rozwiązywanie problemów
+## Verification
+
+Check whether the domain works:
+
+```bash
+# Check DNS
+ping status.example.com
+
+# Check HTTPS
+curl -I https://status.example.com
+```
+
+## Troubleshooting
 
 ### "DNS not propagated yet"
-Poczekaj 5-10 minut. Cloudflare jest szybki, ale propagacja może chwilę zająć.
+Wait 5-10 minutes. Cloudflare is fast, but propagation can take a moment.
 
 ### "SSL certificate error"
-1. Sprawdź czy w Cloudflare jest tryb SSL "Full" (nie "Flexible")
-2. Sprawdź czy proxy jest włączony (żółta chmurka przy rekordzie)
+1. Verify that Cloudflare SSL mode is set to "Full" (not "Flexible")
+2. Check that the proxy is enabled (orange cloud icon next to the DNS record)
 
 ### "502 Bad Gateway"
-1. Sprawdź czy aplikacja działa: `ssh mikrus 'docker ps'`
-2. Sprawdź czy port jest poprawny w `sp-expose`
+1. Check that the application is running: `ssh vps 'docker ps'`
+2. Check that the port is correct in `sp-expose`
 
 ### "Connection refused"
-1. Upewnij się że Caddy jest zainstalowany: `ssh mikrus 'which caddy'`
-2. Sprawdź status Caddy: `ssh mikrus 'systemctl status caddy'`
+1. Make sure Caddy is installed: `ssh vps 'which caddy'`
+2. Check Caddy status: `ssh vps 'systemctl status caddy'`
 
 ---
 
-## Inne rejestratory domen
+## Alternative: Cloudflare Registrar
 
-### home.pl
-1. Zaloguj się do [Panel Klienta](https://home.pl/panel/)
-2. Wybierz domenę → **Zarządzanie DNS**
-3. Zmień serwery DNS na te z Cloudflare
-
-### nazwa.pl
-1. Zaloguj się do [Panelu](https://nazwa.pl/panel/)
-2. Domeny → wybierz domenę → **Serwery DNS**
-3. Ustaw własne serwery DNS
-
-### Cloudflare Registrar (opcja zaawansowana)
-Możesz też przenieść całą domenę do Cloudflare Registrar - wtedy masz wszystko w jednym miejscu i często taniej. Opcja dostępna w Cloudflare → Domain Registration → Transfer Domains.
+You can also transfer your entire domain to Cloudflare Registrar - this keeps everything in one place and is often cheaper. The option is available under Cloudflare -> Domain Registration -> Transfer Domains.

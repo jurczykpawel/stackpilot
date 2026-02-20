@@ -1,231 +1,248 @@
 # AGENTS.md
 
-Instrukcje dla agentów AI (Claude Code, Cursor, Copilot, itp.) pracujących z tym repozytorium.
+Instructions for AI agents (Claude Code, Cursor, Copilot, etc.) working with this repository.
 
-## Projekt i rola
+## Project and Role
 
-Skrypty Bash do zarządzania serwerami [Mikrus](https://mikr.us/?r=pavvel) - tani polski VPS.
-Toolbox automatyzuje instalację aplikacji Docker, konfigurację domen, backupy i diagnostykę.
+Bash scripts for managing self-hosted VPS servers.
+The toolbox automates Docker application installation, domain configuration, backups, and diagnostics.
 
-Pomagasz użytkownikom zarządzać ich serwerami Mikrus. Możesz:
-- Instalować aplikacje (`./local/deploy.sh`)
-- Konfigurować backupy i domeny
-- Synchronizować pliki z serwerem (`./local/sync.sh`)
-- Diagnozować problemy (logi, porty, RAM)
-- Tworzyć nowe instalatory (`apps/<app>/install.sh`)
+You help users manage their VPS servers. You can:
+- Install applications (`./local/deploy.sh`)
+- Configure backups and domains
+- Sync files with the server (`./local/sync.sh`)
+- Diagnose problems (logs, ports, RAM)
+- Create new app installers (`apps/<app>/install.sh`)
 
-**Zawsze komunikuj się po polsku.** Zrób za użytkownika co się da, resztę wytłumacz krok po kroku.
+**Always communicate in English.** Do as much as you can for the user, explain the rest step by step.
 
-**WAŻNE:** Nigdy nie konstruuj ręcznie komend curl do API Mikrusa - zawsze używaj skryptów!
+**IMPORTANT:** Never manually construct API calls -- always use the provided scripts.
 
-## Struktura repozytorium
+## Repository Structure
 
 ```
-local/           → Skrypty użytkownika (deploy, backup, setup)
-apps/<app>/      → Instalatory aplikacji (install.sh + README.md)
-lib/             → Biblioteki pomocnicze (cli-parser, db-setup, domain-setup, server-exec, port-utils)
-system/          → Skrypty systemowe (docker, caddy, backup-core)
-docs/            → Dokumentacja (Cloudflare, CLI reference)
+local/           -> User scripts (deploy, backup, setup)
+apps/<app>/      -> App installers (install.sh + README.md)
+lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils)
+system/          -> System scripts (docker, caddy, backup-core)
+docs/            -> Documentation (Cloudflare, CLI reference)
+mcp-server/      -> MCP server for AI assistants (TypeScript)
 ```
 
-## Tryb dual-mode (lokalne + na serwerze)
+## Dual-Mode Operation (local + on-server)
 
-Skrypty działają **zarówno z komputera** (przez SSH) **jak i bezpośrednio na serwerze**.
-Detekcja: plik `/klucz_api` istnieje TYLKO na serwerach Mikrusa.
+Scripts work **both from your computer** (via SSH) **and directly on the server**.
+Detection: the presence of Docker and the server environment is auto-detected.
 
 ```bash
-# Z komputera (jak dotychczas):
-./local/deploy.sh uptime-kuma --ssh=mikrus
+# From your computer (default):
+./local/deploy.sh uptime-kuma --ssh=vps
 
-# Na serwerze (po zainstalowaniu toolboxa):
-ssh mikrus
+# On the server (after installing toolbox):
+ssh vps
 deploy.sh uptime-kuma
 ```
 
-Instalacja toolboxa na serwerze: `./local/install-toolbox.sh [ssh_alias]`
+Install the toolbox on the server: `./local/install-toolbox.sh [ssh_alias]`
 
-Biblioteka `lib/server-exec.sh` zapewnia transparentne wrappery:
-- `server_exec "cmd"` → ssh lub bash -c
-- `server_copy src dst` → scp lub cp
-- `server_hostname` → ssh -G lub hostname
+The `lib/server-exec.sh` library provides transparent wrappers:
+- `server_exec "cmd"` -> ssh or bash -c
+- `server_copy src dst` -> scp or cp
+- `server_hostname` -> ssh -G or hostname
 
-Skrypty local-only (nie działają na serwerze): `setup-ssh.sh`, `sync.sh`
+Local-only scripts (do not run on the server): `setup-ssh.sh`, `sync.sh`
 
-## Pierwsza konfiguracja serwera (skrypt `start`)
+## Initial Server Setup
 
-Na świeżym serwerze Mikrus warto uruchomić wbudowany skrypt konfiguracyjny:
+On a fresh server, install Docker if not already present:
 
 ```bash
-ssh mikrus
-start
+ssh vps
+# Install Docker:
+curl -fsSL https://get.docker.com | sh
 ```
 
-Skrypt interaktywnie pyta o 5 rzeczy — prowadź użytkownika krok po kroku:
+Check whether Docker is installed:
+```bash
+ssh vps 'docker --version'
+```
 
-| Krok | Pytanie | Zalecana odpowiedź | Uwagi |
-|------|---------|---------------------|-------|
-| 1 | Strefa czasowa → polska? | **T** (Tak) | Ustawia Europe/Warsaw |
-| 2 | Wybierz edytor | **1** (nano) | Najprostszy dla początkujących |
-| 3 | Zmienić shell na zsh? | **T** lub N | T = Oh My Zsh, ładniejszy terminal; N = zostaje bash |
-| 4 | Zainstalować Dockera? | **T** (Tak) | **Wymagane** do deployowania aplikacji toolboxem |
-| 5 | Aktualizacja systemu? | **T** (Tak) | Zalecane dla bezpieczeństwa |
+## Domain Configuration
 
-**Ważne:** Docker jest niezbędny. Jeśli `docker --version` na serwerze nie działa → zasugeruj `start`.
+Three domain types are supported:
 
-Alternatywa bez `start`: `curl -fsSL https://get.docker.com | sh`
+### 1. Cloudflare (own domain with CDN and proxy)
 
-## Domeny Cytrus (MCP: `setup_domain`)
+- Requires Cloudflare account and API token (`./local/setup-cloudflare.sh`)
+- DNS record added via API (AAAA for IPv6, A for IPv4)
+- Caddy as reverse proxy with auto-SSL on the server
+- Best for production use
 
-Konfiguracja darmowej subdomeny Mikrusa (*.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev):
+```bash
+./local/dns-add.sh app.example.com vps
+```
 
-- **Po `deploy_app` z `domain_type=cytrus`** — domena konfigurowana automatycznie, nie trzeba nic robić
-- **Po `deploy_custom_app`** — użyj `setup_domain { port: PORT, domain: "auto" }` żeby przypisać domenę
-- **Ręcznie** — `./local/cytrus-domain.sh DOMENA PORT [SSH]`
+### 2. Caddy (direct domain, auto-HTTPS)
+
+- Caddy runs on the server as a reverse proxy
+- Automatic Let's Encrypt SSL certificates
+- Domain DNS must point directly to your server IP
+
+### 3. Local (SSH tunnel, no domain)
+
+- No public domain; access via SSH tunnel only
+- Best for admin panels and sensitive tools
+
+```bash
+ssh -L 5001:localhost:5001 vps
+# Then open http://localhost:5001
+```
+
+**After `deploy_app` with a domain configured** -- domain is set up automatically, no extra steps needed.
+**After `deploy_custom_app`** -- use `setup_domain` to assign a domain.
 
 ## Backup (MCP: `setup_backup`)
 
-Po deploymencie sprawdzany jest status backupu. Jeśli nie ma żadnego — agent dostaje ostrzeżenie i powinien zasugerować konfigurację.
+After deployment, backup status is checked. If no backup is configured, the agent receives a warning and should suggest setting one up.
 
-Typy backupu:
-- `setup_backup(backup_type='db')` — automatyczny codzienny backup baz danych (cron na serwerze)
-- `setup_backup(backup_type='mikrus')` — wbudowany backup Mikrusa (200MB, za darmo, wymaga aktywacji w panelu: https://mikr.us/panel/?a=backup)
-- `setup_backup(backup_type='cloud')` — backup w chmurze (Google Drive, Dropbox, S3) — wymaga lokalnego uruchomienia `./local/setup-backup.sh` (OAuth w przeglądarce)
+Backup types:
+- `setup_backup(backup_type='db')` -- automatic daily database backup (cron on server)
+- `setup_backup(backup_type='cloud')` -- cloud backup (Google Drive, Dropbox, S3) -- requires running `./local/setup-backup.sh` locally (OAuth in browser)
 
-Toolbox jest automatycznie instalowany na serwerze (git clone z GitHub) jeśli jeszcze go tam nie ma.
+The toolbox is automatically installed on the server (git clone from GitHub) if not already present.
 
-## Deploy aplikacji
+## Deploy Applications
 
 ```bash
-./local/deploy.sh APP [opcje]
+./local/deploy.sh APP [options]
 
-# Opcje:
-#   --ssh=ALIAS           SSH alias (domyślnie: mikrus)
-#   --domain-type=TYPE    cytrus | cloudflare | local
-#   --domain=DOMAIN       Domena lub "auto" dla Cytrus
-#   --db-source=SOURCE    bundled | custom (bazy danych)
-#   --yes, -y             Pomiń wszystkie potwierdzenia
+# Options:
+#   --ssh=ALIAS           SSH alias (default: vps)
+#   --domain-type=TYPE    cloudflare | caddy | local
+#   --domain=DOMAIN       Domain for the app
+#   --db-source=SOURCE    bundled | custom (databases)
+#   --yes, -y             Skip all confirmation prompts
 
-# Przykłady:
-./local/deploy.sh n8n --ssh=mikrus --domain-type=cytrus --domain=auto
-./local/deploy.sh uptime-kuma --ssh=mikrus --domain-type=local --yes
-./local/deploy.sh wordpress --ssh=mikrus --domain-type=cytrus --domain=auto
+# Examples:
+./local/deploy.sh n8n --ssh=vps --domain-type=cloudflare --domain=n8n.example.com
+./local/deploy.sh uptime-kuma --ssh=vps --domain-type=local --yes
+./local/deploy.sh wordpress --ssh=vps --domain-type=caddy --domain=blog.example.com
 ```
 
-**WordPress env vars** (przekazywane jako opcje lub env):
-- `WP_DB_MODE=sqlite|mysql` - tryb bazy (domyślnie: mysql)
-- `WP_REDIS=auto|external|bundled` - auto-detekcja Redisa na hoście
+**WordPress env vars** (passed as options or env):
+- `WP_DB_MODE=sqlite|mysql` - database mode (default: mysql)
+- `WP_REDIS=auto|external|bundled` - Redis auto-detection on host
 
-**Post-install WordPress** — `wp-init.sh` uruchamia się automatycznie podczas instalacji.
-Jedyny ręczny krok: otworzyć stronę w przeglądarce → kreator WordPress.
+**Post-install WordPress** -- `wp-init.sh` runs automatically during installation.
+Only manual step: open the site in a browser for the WordPress setup wizard.
 
-### GateFlow (flagowy produkt)
+### GateFlow (flagship product)
 
-Platforma sprzedaży produktów cyfrowych (alternatywa Gumroad/EasyCart). Nie używa Dockera — działa na Bun + PM2 (Next.js standalone).
+Digital products sales platform (Gumroad/EasyCart alternative). Does not use Docker -- runs on Bun + PM2 (Next.js standalone).
 
-**Wymagania:** Supabase (darmowe konto), opcjonalnie Stripe (płatności).
+**Requirements:** Supabase (free account), optionally Stripe (payments).
 
-**MCP deployment** — pełny flow bez wklejania sekretów:
+**MCP deployment** -- full flow without pasting secrets:
 ```
-# Krok 1: Agent wywołuje setup_gateflow_config() → otwiera przeglądarkę do logowania Supabase
-# Krok 2: User podaje jednorazowy kod weryfikacyjny (8 znaków, NIE jest sekretem)
-# Krok 3: Agent wywołuje setup_gateflow_config(verification_code="ABCD1234") → pobiera projekty
-# Krok 4: User wybiera projekt → agent wywołuje setup_gateflow_config(project_ref="xxx")
-#          → klucze pobrane automatycznie i zapisane do ~/.config/gateflow/deploy-config.env
-# Krok 5: Agent wywołuje deploy_app(app_name="gateflow") → config ładowany z pliku
+# Step 1: Agent calls setup_gateflow_config() -> opens browser for Supabase login
+# Step 2: User provides one-time verification code (8 chars, NOT a secret)
+# Step 3: Agent calls setup_gateflow_config(verification_code="ABCD1234") -> fetches projects
+# Step 4: User picks a project -> agent calls setup_gateflow_config(project_ref="xxx")
+#          -> keys fetched automatically and saved to ~/.config/stackpilot/gateflow/deploy-config.env
+# Step 5: Agent calls deploy_app(app_name="gateflow") -> config loaded from file
 ```
 
-**BEZPIECZEŃSTWO:** NIE proś użytkownika o wklejanie kluczy (service_role, Stripe SK) w rozmowie — trafiłyby przez API. Używaj `setup_gateflow_config` — sekrety nigdy nie trafiają do rozmowy.
+**SECURITY:** Do NOT ask the user to paste keys (service_role, Stripe SK) into the conversation -- they would travel through the API. Use `setup_gateflow_config` -- secrets never enter the conversation.
 
 **CLI deployment:**
 ```bash
-# Interaktywny (prowadzi za rączkę)
-./local/deploy.sh gateflow --ssh=mikrus --domain-type=cytrus --domain=auto
+# Interactive (guided setup)
+./local/deploy.sh gateflow --ssh=vps --domain-type=cloudflare --domain=shop.example.com
 
-# Automatyczny (wymaga wcześniejszego setup-gateflow-config.sh)
-./local/deploy.sh gateflow --ssh=mikrus --yes
+# Automated (requires prior setup-gateflow-config.sh)
+./local/deploy.sh gateflow --ssh=vps --yes
 ```
 
-**Po instalacji:**
-- Pierwszy zarejestrowany użytkownik = admin
-- Stripe webhooks: `https://DOMENA/api/webhooks/stripe` (events: checkout.session.completed, payment_intent.succeeded)
-- Turnstile CAPTCHA: opcjonalny, `./local/setup-turnstile.sh DOMENA SSH_ALIAS`
-- Multi-instance: każda domena = osobny katalog (`/opt/stacks/gateflow-{subdomena}/`)
+**After installation:**
+- First registered user = admin
+- Stripe webhooks: `https://DOMAIN/api/webhooks/stripe` (events: checkout.session.completed, payment_intent.succeeded)
+- Turnstile CAPTCHA: optional, `./local/setup-turnstile.sh DOMAIN SSH_ALIAS`
+- Multi-instance: each domain = separate directory (`/opt/stacks/gateflow-{subdomain}/`)
 
-## Synchronizacja plików (sync.sh)
+## File Sync (sync.sh)
 
 ```bash
 ./local/sync.sh up   <local_path> <remote_path> [--ssh=ALIAS]
 ./local/sync.sh down <remote_path> <local_path> [--ssh=ALIAS]
 
-# Opcje:
-#   --ssh=ALIAS    SSH alias (domyślnie: mikrus)
-#   --dry-run      Pokaż co się wykona bez wykonania
+# Options:
+#   --ssh=ALIAS    SSH alias (default: vps)
+#   --dry-run      Show what would happen without executing
 
-# Przykłady:
-./local/sync.sh up ./my-website /var/www/html --ssh=mikrus
-./local/sync.sh down /opt/stacks/n8n/.env ./backup/ --ssh=hanna
+# Examples:
+./local/sync.sh up ./my-website /var/www/html --ssh=vps
+./local/sync.sh down /opt/stacks/n8n/.env ./backup/ --ssh=prod
 ./local/sync.sh up ./dist /var/www/public/app --dry-run
 ```
 
-Prosty wrapper na rsync — do szybkiego przesyłania plików bez pełnego deployu.
+A simple rsync wrapper for quick file transfers without a full deploy.
 
-## Aplikacje (25)
+## Applications (25)
 
-Wszystkie w `apps/<nazwa>/install.sh`. Uruchamiane przez `deploy.sh`, nie ręcznie.
+All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
 n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, typebot, redis, wordpress, convertx, postiz, crawl4ai, cap, gateflow, minio, gotenberg, cookie-hub, mcp-docker, coolify
 
-Szczegóły konkretnej aplikacji (porty, wymagania, DB) → `apps/<app>/README.md` lub `GUIDE.md`
+Details for a specific app (ports, requirements, DB) -> `apps/<app>/README.md` or `GUIDE.md`
 
-### Coolify (specjalny flow)
+### Coolify (special flow)
 
-Coolify to pełny PaaS (prywatny Heroku) - **tylko dla Mikrus 4.1+** (8GB RAM, 80GB dysk).
-Nie korzysta z `DOMAIN_TYPE`, `DB_*`, ani `/opt/stacks/`. Deleguje do oficjalnego instalatora Coolify (`curl | bash`), który sam instaluje Docker, Traefik, PostgreSQL, Redis i tworzy `/data/coolify/`.
-Przejmuje porty 80/443 - **nie mieszać z innymi apkami z toolboxa.**
+Coolify is a full PaaS (private Heroku) -- **only for servers with 8GB+ RAM and 80GB+ disk**.
+Does not use `DOMAIN_TYPE`, `DB_*`, or `/opt/stacks/`. Delegates to the official Coolify installer (`curl | bash`), which installs Docker, Traefik, PostgreSQL, Redis and creates `/data/coolify/`.
+Takes over ports 80/443 -- **do not mix with other toolbox apps.**
 
-## WordPress - architektura
+## WordPress - Architecture
 
-Najbardziej złożona aplikacja. Własny Dockerfile, 3 kontenery, auto-tuning na RAM.
+The most complex application. Custom Dockerfile, 3 containers, auto-tuning based on RAM.
 
 ```
-wordpress (build: .) → wordpress:php8.3-fpm-alpine + pecl redis + WP-CLI
-nginx:alpine          → gzip, FastCGI cache, rate limiting, security headers
-redis:alpine          → object cache (bundled lub external, auto-detekcja)
+wordpress (build: .) -> wordpress:php8.3-fpm-alpine + pecl redis + WP-CLI
+nginx:alpine          -> gzip, FastCGI cache, rate limiting, security headers
+redis:alpine          -> object cache (bundled or external, auto-detection)
 ```
 
-**Pliki na serwerze (`/opt/stacks/wordpress/`):**
+**Server files (`/opt/stacks/wordpress/`):**
 - `Dockerfile` - extends wordpress:fpm-alpine + redis ext + WP-CLI
-- `docker-compose.yaml` - dynamiczny (zależy od DB i Redis mode)
+- `docker-compose.yaml` - dynamic (depends on DB and Redis mode)
 - `config/` - php-opcache.ini, php-performance.ini, www.conf, nginx.conf
 - `wp-init.sh` - post-install: wp-config tuning + Redis Object Cache (WP-CLI)
-- `flush-cache.sh` - czyści FastCGI cache
-- `.redis-host` - `redis` (bundled) lub `host-gateway` (external)
+- `flush-cache.sh` - clears FastCGI cache
+- `.redis-host` - `redis` (bundled) or `host-gateway` (external)
 
-**DB detection:** install.sh zawiera literały `DB_HOST` i `mysql`, więc deploy.sh automatycznie wykrywa potrzebę MySQL. W trybie `WP_DB_MODE=sqlite` zmienne DB są ignorowane.
+**DB detection:** install.sh contains literals `DB_HOST` and `mysql`, so deploy.sh automatically detects MySQL requirement. In `WP_DB_MODE=sqlite` mode, DB variables are ignored.
 
-**wp-init.sh automatycznie:** HTTPS fix, WP-Cron→system cron, rewizje limit, autosave 5min, DISALLOW_FILE_EDIT, Redis config + plugin install/activate via WP-CLI.
+**wp-init.sh automatically:** HTTPS fix, WP-Cron to system cron, revision limit, autosave 5min, DISALLOW_FILE_EDIT, Redis config + plugin install/activate via WP-CLI.
 
-## Code style
+## Code Style
 
-### Konwencje
+### Conventions
 
-- `set -e` w każdym skrypcie
-- Zmienne: `UPPER_CASE`, funkcje: `snake_case()` (bez `function`)
-- Pliki: `kebab-case.sh`, katalogi: `kebab-case`
-- Komunikaty po polsku z emoji (✅ ❌ ⚠️)
-- Zawsze `memory:` limit w docker-compose
-- Porty: `127.0.0.1:$PORT:CONTAINER_PORT` (bezpieczeństwo, Cytrus wymaga `$PORT:CONTAINER_PORT` bez 127.0.0.1 - deploy.sh przekazuje `DOMAIN_TYPE`)
+- `set -e` in every script
+- Variables: `UPPER_CASE`, functions: `snake_case()` (no `function` keyword)
+- Files: `kebab-case.sh`, directories: `kebab-case`
+- Always set `memory:` limit in docker-compose
+- Ports: `127.0.0.1:$PORT:CONTAINER_PORT` (for security; Cloudflare proxy mode may need `$PORT:CONTAINER_PORT` without 127.0.0.1 -- deploy.sh passes `DOMAIN_TYPE`)
 
-### Wzorzec install.sh
+### install.sh Pattern
 
 ```bash
 #!/bin/bash
 
-# StackPilot - Nazwa Aplikacji
-# Opis.
-# Author: Paweł (Lazy Engineer)
+# StackPilot - Application Name
+# Description.
+# Author: Your Name
 #
-# IMAGE_SIZE_MB=200  # Rozmiar obrazu Docker
+# IMAGE_SIZE_MB=200  # Docker image size
 
 set -e
 
@@ -233,8 +250,8 @@ APP_NAME="myapp"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3000}
 
-# Walidacja (jeśli DB)
-if [ -z "$DB_HOST" ]; then echo "❌ Brak danych DB!"; exit 1; fi
+# Validation (if DB required)
+if [ -z "$DB_HOST" ]; then echo "Error: Missing DB credentials!"; exit 1; fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
@@ -255,26 +272,26 @@ EOF
 sudo docker compose up -d
 ```
 
-### Kluczowe zasady
+### Key Rules
 
-- Nie pytaj o domenę w install.sh - robi to deploy.sh
-- Pliki w `/opt/stacks/<app>/`
-- `|| { echo "❌ Error"; exit 1; }` dla obsługi błędów
-- `|| true` dla opcjonalnych komend
-- Nigdy nie loguj sekretów
-- Sekrety w env vars, konfiguracje w `~/.config/stackpilot/`
+- Do not ask about domains in install.sh -- deploy.sh handles that
+- Files go in `/opt/stacks/<app>/`
+- `|| { echo "Error: ..."; exit 1; }` for error handling
+- `|| true` for optional commands
+- Never log secrets
+- Secrets in env vars, configuration in `~/.config/stackpilot/`
 
-## Więcej informacji
+## More Information
 
-Szczegółowa dokumentacja → **`GUIDE.md`** (referencja operacyjna):
-- SSH, klucz API, konfiguracja połączenia
-- Pełna tabela aplikacji z portami
-- Szczegółowy flow deploy.sh (krok po kroku)
-- Backup i restore (konfiguracja, ręczne uruchomienie, weryfikacja)
-- Diagnostyka i troubleshooting (logi, porty, typowe problemy)
-- Architektura (domeny Cytrus/Cloudflare, bazy danych)
-- Limity i ograniczenia (RAM, dysk, porty)
+Detailed documentation -> **`GUIDE.md`** (operational reference):
+- SSH and connection setup
+- Full app table with ports
+- Detailed deploy.sh flow (step by step)
+- Backup and restore (configuration, manual run, verification)
+- Diagnostics and troubleshooting (logs, ports, common issues)
+- Architecture (Cloudflare/Caddy domains, databases)
+- Limits and constraints (RAM, disk, ports)
 
-Inne źródła:
-- `apps/<app>/README.md` - szczegóły per aplikacja
-- `docs/CLI-REFERENCE.md` - pełna referencja parametrów CLI
+Other sources:
+- `apps/<app>/README.md` - per-application details
+- `docs/CLI-REFERENCE.md` - full CLI parameter reference

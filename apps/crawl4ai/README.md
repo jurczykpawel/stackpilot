@@ -1,98 +1,98 @@
-# Crawl4AI - AI Web Crawler i Scraper
+# Crawl4AI - AI Web Crawler and Scraper
 
-REST API do crawlowania stron z headless Chromium. Ekstrakcja danych przez AI, output w Markdown/JSON.
+REST API for crawling pages with headless Chromium. Data extraction via AI, output in Markdown/JSON.
 
-## Instalacja
+## Installation
 
 ```bash
-./local/deploy.sh crawl4ai --ssh=mikrus --domain-type=cytrus --domain=auto
+./local/deploy.sh crawl4ai --ssh=ALIAS --domain-type=caddy --domain=crawl4ai.your-domain.com
 ```
 
-## Wymagania
+## Requirements
 
-- **RAM:** minimum 2GB (Mikrus 3.0+), ~1-1.5GB zużycia w runtime
-- **Dysk:** ~3.5GB (obraz Docker z Chromium + Python + ML deps)
-- **Baza danych:** Nie wymaga (bezstanowy)
+- **RAM:** minimum 2GB VPS, ~1-1.5GB usage at runtime
+- **Disk:** ~3.5GB (Docker image with Chromium + Python + ML deps)
+- **Database:** Not required (stateless)
 
-**Crawl4AI NIE zadziała na Mikrus 2.1 (1GB RAM)!** Headless Chromium potrzebuje ~1-1.5GB RAM. Install.sh blokuje instalację przy <1800MB RAM.
+**Crawl4AI will NOT work on a 1GB RAM VPS!** Headless Chromium needs ~1-1.5GB RAM. install.sh blocks installation when <1800MB RAM is available.
 
-## Po instalacji
+## After Installation
 
-API, Playground i Monitor dostępne od razu:
-- **API:** `https://domena/crawl`
-- **Playground:** `https://domena/playground` - interaktywne testowanie
-- **Monitor:** `https://domena/monitor` - dashboard z metrykami (RAM, browser pool, requesty)
+API, Playground and Monitor are available immediately:
+- **API:** `https://domain/crawl`
+- **Playground:** `https://domain/playground` - interactive testing
+- **Monitor:** `https://domain/monitor` - dashboard with metrics (RAM, browser pool, requests)
 
-## Zmienne środowiskowe
+## Environment Variables
 
-| Zmienna | Domyślna | Opis |
-|---------|----------|------|
-| `CRAWL4AI_API_TOKEN` | (generowany) | Token API - install.sh generuje automatycznie |
-| `CRAWL4AI_MODE` | api | Tryb pracy (api dla Docker) |
-| `PLAYWRIGHT_MAX_CONCURRENCY` | 2 | Max równoległych przeglądarek (więcej = więcej RAM) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CRAWL4AI_API_TOKEN` | (generated) | API token - install.sh generates automatically |
+| `CRAWL4AI_MODE` | api | Working mode (api for Docker) |
+| `PLAYWRIGHT_MAX_CONCURRENCY` | 2 | Max parallel browsers (more = more RAM) |
 
-Opcjonalne (LLM extraction - dodaj ręcznie do docker-compose):
+Optional (LLM extraction - add manually to docker-compose):
 
-| Zmienna | Opis |
-|---------|------|
-| `OPENAI_API_KEY` | Klucz OpenAI dla ekstrakcji LLM |
-| `ANTHROPIC_API_KEY` | Klucz Anthropic |
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | OpenAI key for LLM extraction |
+| `ANTHROPIC_API_KEY` | Anthropic key |
 
 ## API Endpoints
 
-| Endpoint | Metoda | Opis |
-|----------|--------|------|
+| Endpoint | Method | Description |
+|----------|--------|-------------|
 | `/health` | GET | Health check |
-| `/crawl` | POST | Crawlowanie synchroniczne |
-| `/crawl/stream` | POST | Crawlowanie ze streamingiem |
-| `/crawl/job` | POST | Crawlowanie asynchroniczne (zwraca task_id) |
-| `/job/{task_id}` | GET | Status jobu async |
-| `/md` | POST | Konwersja strony do Markdown |
-| `/screenshot` | POST | Screenshot strony (PNG) |
-| `/pdf` | POST | Generowanie PDF |
-| `/playground` | GET | Interaktywny playground |
-| `/monitor` | GET | Dashboard monitoringu |
+| `/crawl` | POST | Synchronous crawling |
+| `/crawl/stream` | POST | Crawling with streaming |
+| `/crawl/job` | POST | Async crawling (returns task_id) |
+| `/job/{task_id}` | GET | Async job status |
+| `/md` | POST | Convert page to Markdown |
+| `/screenshot` | POST | Page screenshot (PNG) |
+| `/pdf` | POST | Generate PDF |
+| `/playground` | GET | Interactive playground |
+| `/monitor` | GET | Monitoring dashboard |
 
-## Użycie
+## Usage
 
 ```bash
-# Crawluj stronę
-curl -X POST https://twoja-domena/crawl \
+# Crawl a page
+curl -X POST https://your-domain.com/crawl \
   -H "Authorization: Bearer $(cat /opt/stacks/crawl4ai/.api_token)" \
   -H "Content-Type: application/json" \
   -d '{"urls": ["https://example.com"]}'
 ```
 
-### Z n8n
+### With n8n
 
-Crawl4AI integruje się z n8n do automatycznego scrapingu:
-1. HTTP Request node → POST do Crawl4AI API
-2. Parsuj odpowiedź (Markdown/JSON)
-3. Zapisz dane lub wyślij powiadomienie
+Crawl4AI integrates with n8n for automated scraping:
+1. HTTP Request node -> POST to Crawl4AI API
+2. Parse response (Markdown/JSON)
+3. Save data or send notification
 
 ## API Token
 
-Token jest generowany automatycznie podczas instalacji i zapisany w:
+The token is generated automatically during installation and saved in:
 ```
 /opt/stacks/crawl4ai/.api_token
 ```
 
-## Wersja
+## Version
 
-Kontener uruchomiony jako non-root (UID 1000).
+Container runs as non-root (UID 1000).
 
-## Ograniczenia
+## Limitations
 
-- **Memory leak** - Przy intensywnym użyciu pamięć rośnie (Chrome procesy się kumulują). `PLAYWRIGHT_MAX_CONCURRENCY=2` ogranicza problem. Przy dużym ruchu dodaj codzienny restart:
+- **Memory leak** - Under intensive use, memory grows (Chrome processes accumulate). `PLAYWRIGHT_MAX_CONCURRENCY=2` mitigates the problem. For heavy traffic, add a daily restart:
   ```bash
-  # crontab -e na serwerze
+  # crontab -e on the server
   0 4 * * * cd /opt/stacks/crawl4ai && docker compose restart
   ```
-- **Wolny start** - Chromium startuje ~60-90s
-- **Duży obraz** - ~3.5GB na dysku
-- **JWT auth broken** - Wbudowany JWT nie wymaga credentials (znany bug). Używaj `CRAWL4AI_API_TOKEN` lub reverse proxy z auth.
-- **RAM na Mikrus** - Na 2GB VPS limit kontenera to 1536MB, wystarczy na 1-2 równoległe crawle
+- **Slow start** - Chromium starts in ~60-90s
+- **Large image** - ~3.5GB on disk
+- **JWT auth broken** - Built-in JWT does not require credentials (known bug). Use `CRAWL4AI_API_TOKEN` or reverse proxy with auth.
+- **RAM on small VPS** - On a 2GB VPS the container limit is 1536MB, sufficient for 1-2 concurrent crawls
 
 ## Backup
 
-Crawl4AI jest bezstanowy - nie przechowuje danych. Wystarczy backup `docker-compose.yaml` i `.api_token`.
+Crawl4AI is stateless - it does not store data. Just back up `docker-compose.yaml` and `.api_token`.

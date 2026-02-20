@@ -1,583 +1,582 @@
-# GateFlow - Twój Własny System Sprzedaży Produktów Cyfrowych
+# GateFlow - Your Own Digital Products Sales System
 
-**Open source alternatywa dla Gumroad, EasyCart, Teachable.**
-Sprzedawaj e-booki, kursy, szablony i licencje bez miesięcznych opłat i prowizji platformy.
+**Open source alternative to Gumroad, EasyCart, Teachable.**
+Sell e-books, courses, templates and licenses without monthly fees or platform commissions.
 
-**RAM:** ~300MB | **Dysk:** ~500MB | **Plan:** Mikrus 2.1+ (1GB RAM)
+**RAM:** ~300MB | **Disk:** ~500MB | **Plan:** 1GB+ RAM VPS
 
-> **Uwaga:** W przykładach używamy `--ssh=mikrus` jako domyślnego aliasu SSH.
-> Jeśli masz inny alias w `~/.ssh/config`, zamień `mikrus` na swój (np. `srv1`, `mojserwer`).
-
----
-
-## Dwa tryby instalacji
-
-GateFlow obsługuje **dwa tryby** instalacji:
-
-| Tryb | Dla kogo | Opis |
-|------|----------|------|
-| **Interaktywny** | Pierwsza instalacja | Skrypt zadaje pytania krok po kroku |
-| **Automatyczny** | CI/CD, MCP, powtarzalne deploye | Wszystkie klucze z CLI lub zapisanej konfiguracji |
+> **Note:** In examples we use `--ssh=ALIAS` as the default SSH alias.
+> If you have a different alias in `~/.ssh/config`, replace `ALIAS` with yours (e.g. `srv1`, `myserver`).
 
 ---
 
-## Szybki Start
+## Two Installation Modes
 
-### Tryb interaktywny (najprostszy)
+GateFlow supports **two** installation modes:
 
-```bash
-./local/deploy.sh gateflow --ssh=mikrus
-```
-
-Skrypt przeprowadzi Cię przez:
-1. Logowanie do Supabase (otworzy przeglądarkę)
-2. Wybór projektu Supabase
-3. Klucze Stripe (opcjonalne - możesz później)
-4. Konfigurację domeny
-5. Turnstile CAPTCHA (opcjonalne)
-
-### Tryb automatyczny (dla zaawansowanych)
-
-```bash
-# KROK 1: Jednorazowa konfiguracja (zbiera i zapisuje wszystkie klucze)
-./local/setup-gateflow-config.sh
-
-# KROK 2: Deployment (w pełni automatyczny, bez pytań)
-./local/deploy.sh gateflow --ssh=mikrus --yes
-```
+| Mode | For whom | Description |
+|------|----------|-------------|
+| **Interactive** | First installation | Script asks questions step by step |
+| **Automatic** | CI/CD, MCP, repeatable deploys | All keys from CLI or saved configuration |
 
 ---
 
-## Wymagania
+## Quick Start
 
-| Usługa | Koszt | Do czego | Obowiązkowe |
-|--------|-------|----------|-------------|
-| **Mikrus 2.1+** | 75 zł/rok | Hosting aplikacji | Tak |
-| **Supabase** | Darmowe | Baza danych + Auth | Tak |
-| **Stripe** | 2.9% + 1.20 zł/transakcja | Płatności | Nie* |
-| **Cloudflare** | Darmowe | Turnstile CAPTCHA | Nie |
-
-*Stripe możesz skonfigurować później w panelu GateFlow.
-
-### Przed instalacją załóż konta:
-
-1. **Supabase** - https://supabase.com (utwórz projekt)
-2. **Stripe** - https://dashboard.stripe.com/apikeys (opcjonalne)
-3. **Cloudflare** - https://dash.cloudflare.com (opcjonalne, dla Turnstile)
-
----
-
-## Tryb Interaktywny (szczegóły)
-
-### Podstawowa komenda
+### Interactive mode (simplest)
 
 ```bash
 ./local/deploy.sh gateflow --ssh=ALIAS
 ```
 
-### Parametry opcjonalne
+The script will guide you through:
+1. Logging into Supabase (opens browser)
+2. Selecting a Supabase project
+3. Stripe keys (optional - can be added later)
+4. Domain configuration
+5. Turnstile CAPTCHA (optional)
+
+### Automatic mode (for advanced users)
 
 ```bash
-# Z domeną Cytrus (automatyczna subdomena *.byst.re)
-./local/deploy.sh gateflow --ssh=mikrus --domain=auto --domain-type=cytrus
+# STEP 1: One-time configuration (collects and saves all keys)
+./local/setup-gateflow-config.sh
 
-# Z własną domeną (Cloudflare DNS)
-./local/deploy.sh gateflow --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
-
-# Z konkretnym projektem Supabase (pomija wybór z listy)
-./local/deploy.sh gateflow --ssh=mikrus --supabase-project=abcdefghijk
-```
-
-### Co się dzieje podczas instalacji
-
-```
-1. Logowanie do Supabase
-   ├─ Automatyczne (otwiera przeglądarkę) lub
-   └─ Ręczne (wklejasz Personal Access Token)
-
-2. Wybór projektu Supabase
-   └─ Lista Twoich projektów → wybierasz numer
-
-3. Konfiguracja Stripe (opcjonalne)
-   ├─ Podajesz klucze pk_... i sk_... lub
-   └─ Pomijasz → skonfigurujesz w panelu później
-
-4. Wybór domeny
-   ├─ Automatyczna Cytrus (np. xyz123.byst.re)
-   ├─ Własna subdomena Cytrus
-   └─ Własna domena Cloudflare
-
-5. Turnstile CAPTCHA (opcjonalne)
-   └─ Automatycznie przez API lub ręcznie
-
-6. Instalacja i uruchomienie
-   └─ Build → Start → Migracje bazy
+# STEP 2: Deployment (fully automatic, no questions)
+./local/deploy.sh gateflow --ssh=ALIAS --yes
 ```
 
 ---
 
-## Tryb Automatyczny (szczegóły)
+## Requirements
 
-Tryb automatyczny wymaga **wcześniejszego zebrania kluczy** za pomocą skryptu konfiguracyjnego.
+| Service | Cost | Purpose | Required |
+|---------|------|---------|----------|
+| **VPS (1GB+ RAM)** | varies | Application hosting | Yes |
+| **Supabase** | Free | Database + Auth | Yes |
+| **Stripe** | 2.9% + fee/transaction | Payments | No* |
+| **Cloudflare** | Free | Turnstile CAPTCHA | No |
 
-### Krok 1: Zbieranie kluczy
+*Stripe can be configured later in the GateFlow panel.
+
+### Before installation, create accounts:
+
+1. **Supabase** - https://supabase.com (create a project)
+2. **Stripe** - https://dashboard.stripe.com/apikeys (optional)
+3. **Cloudflare** - https://dash.cloudflare.com (optional, for Turnstile)
+
+---
+
+## Interactive Mode (details)
+
+### Basic command
+
+```bash
+./local/deploy.sh gateflow --ssh=ALIAS
+```
+
+### Optional parameters
+
+```bash
+# With Caddy domain (automatic subdomain)
+./local/deploy.sh gateflow --ssh=ALIAS --domain=auto --domain-type=caddy
+
+# With your own domain (Cloudflare DNS)
+./local/deploy.sh gateflow --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
+
+# With a specific Supabase project (skips selection from list)
+./local/deploy.sh gateflow --ssh=ALIAS --supabase-project=abcdefghijk
+```
+
+### What happens during installation
+
+```
+1. Logging into Supabase
+   +-- Automatic (opens browser) or
+   +-- Manual (paste Personal Access Token)
+
+2. Selecting Supabase project
+   +-- List of your projects -> pick a number
+
+3. Stripe configuration (optional)
+   +-- Enter pk_... and sk_... keys or
+   +-- Skip -> configure in the panel later
+
+4. Domain selection
+   +-- Automatic Caddy subdomain
+   +-- Custom Caddy subdomain
+   +-- Custom Cloudflare domain
+
+5. Turnstile CAPTCHA (optional)
+   +-- Automatically via API or manually
+
+6. Installation and startup
+   +-- Build -> Start -> Database migrations
+```
+
+---
+
+## Automatic Mode (details)
+
+Automatic mode requires **pre-collected keys** using the configuration script.
+
+### Step 1: Collecting keys
 
 ```bash
 ./local/setup-gateflow-config.sh
 ```
 
-Skrypt zbiera i zapisuje do `~/.config/gateflow/deploy-config.env`:
-- Token Supabase + klucze projektu
-- Klucze Stripe (opcjonalne)
-- Klucze Turnstile (opcjonalne)
+The script collects and saves to `~/.config/gateflow/deploy-config.env`:
+- Supabase token + project keys
+- Stripe keys (optional)
+- Turnstile keys (optional)
 - SSH alias
-- Domenę
+- Domain
 
-### Krok 2: Automatyczny deployment
+### Step 2: Automatic deployment
 
 ```bash
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh gateflow --ssh=ALIAS --yes
 ```
 
-Flaga `--yes` oznacza:
-- Brak pytań interaktywnych
-- Użycie zapisanej konfiguracji
-- Automatyczna konfiguracja Turnstile (jeśli masz token Cloudflare)
+The `--yes` flag means:
+- No interactive questions
+- Uses saved configuration
+- Automatic Turnstile configuration (if you have a Cloudflare token)
 
-### Parametry setup-gateflow-config.sh
+### setup-gateflow-config.sh Parameters
 
-| Parametr | Opis | Przykład |
-|----------|------|----------|
-| `--ssh=ALIAS` | SSH alias serwera | `--ssh=mikrus` |
-| `--domain=DOMAIN` | Domena lub `auto` | `--domain=auto` |
-| `--domain-type=TYPE` | `cytrus` lub `cloudflare` | `--domain-type=cytrus` |
-| `--supabase-project=REF` | Project ref (pomija wybór) | `--supabase-project=abc123` |
-| `--no-supabase` | Bez konfiguracji Supabase | |
-| `--no-stripe` | Bez konfiguracji Stripe | |
-| `--no-turnstile` | Bez konfiguracji Turnstile | |
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `--ssh=ALIAS` | SSH alias for the server | `--ssh=ALIAS` |
+| `--domain=DOMAIN` | Domain or `auto` | `--domain=auto` |
+| `--domain-type=TYPE` | `caddy` or `cloudflare` | `--domain-type=caddy` |
+| `--supabase-project=REF` | Project ref (skips selection) | `--supabase-project=abc123` |
+| `--no-supabase` | Without Supabase configuration | |
+| `--no-stripe` | Without Stripe configuration | |
+| `--no-turnstile` | Without Turnstile configuration | |
 
-### Przykłady konfiguracji
+### Configuration examples
 
 ```bash
-# Pełna interaktywna konfiguracja
+# Full interactive configuration
 ./local/setup-gateflow-config.sh
 
-# Szybka konfiguracja z automatyczną domeną Cytrus
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto
+# Quick configuration with automatic Caddy domain
+./local/setup-gateflow-config.sh --ssh=ALIAS --domain=auto
 
-# Bez Stripe i Turnstile (tylko Supabase)
-./local/setup-gateflow-config.sh --ssh=mikrus --no-stripe --no-turnstile
+# Without Stripe and Turnstile (Supabase only)
+./local/setup-gateflow-config.sh --ssh=ALIAS --no-stripe --no-turnstile
 
-# Z konkretnym projektem Supabase
-./local/setup-gateflow-config.sh --ssh=mikrus --supabase-project=grinnleqqyygznnbpjzc --domain=auto
+# With a specific Supabase project
+./local/setup-gateflow-config.sh --ssh=ALIAS --supabase-project=grinnleqqyygznnbpjzc --domain=auto
 
-# Z własną domeną Cloudflare
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
+# With custom Cloudflare domain
+./local/setup-gateflow-config.sh --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
 ```
 
 ---
 
-## Parametry deploy.sh (dla GateFlow)
+## deploy.sh Parameters (for GateFlow)
 
-### Obowiązkowe
+### Required
 
-| Parametr | Opis |
-|----------|------|
-| `--ssh=ALIAS` | SSH alias serwera z ~/.ssh/config |
+| Parameter | Description |
+|-----------|-------------|
+| `--ssh=ALIAS` | SSH alias from ~/.ssh/config |
 
-### Opcjonalne - Supabase
+### Optional - Supabase
 
-| Parametr | Opis |
-|----------|------|
-| `--supabase-project=REF` | Project ref - pomija interaktywny wybór |
+| Parameter | Description |
+|-----------|-------------|
+| `--supabase-project=REF` | Project ref - skips interactive selection |
 
-### Opcjonalne - Domena
+### Optional - Domain
 
-| Parametr | Opis |
-|----------|------|
-| `--domain=DOMAIN` | Domena aplikacji lub `auto` dla automatycznej Cytrus |
-| `--domain-type=TYPE` | `cytrus` (subdomena *.byst.re) lub `cloudflare` (własna domena) |
+| Parameter | Description |
+|-----------|-------------|
+| `--domain=DOMAIN` | Application domain or `auto` for automatic Caddy domain |
+| `--domain-type=TYPE` | `caddy` (auto subdomain) or `cloudflare` (own domain) |
 
-### Opcjonalne - Tryby
+### Optional - Modes
 
-| Parametr | Opis |
-|----------|------|
-| `--yes` | Tryb automatyczny - bez pytań |
-| `--update` | Aktualizacja istniejącej instalacji |
-| `--build-file=PATH` | Użyj lokalnego pliku .tar.gz (dla prywatnych repo) |
-| `--dry-run` | Pokaż co się wykona bez wykonania |
+| Parameter | Description |
+|-----------|-------------|
+| `--yes` | Automatic mode - no questions |
+| `--update` | Update existing installation |
+| `--build-file=PATH` | Use local .tar.gz file (for private repos) |
+| `--dry-run` | Show what would be done without executing |
 
-### Przykłady
+### Examples
 
 ```bash
-# Interaktywny z automatyczną domeną
-./local/deploy.sh gateflow --ssh=mikrus --domain=auto --domain-type=cytrus
+# Interactive with automatic domain
+./local/deploy.sh gateflow --ssh=ALIAS --domain=auto --domain-type=caddy
 
-# Automatyczny (wymaga wcześniejszej konfiguracji)
-./local/deploy.sh gateflow --ssh=mikrus --yes
+# Automatic (requires prior configuration)
+./local/deploy.sh gateflow --ssh=ALIAS --yes
 
-# Automatyczny z konkretnym projektem Supabase
-./local/deploy.sh gateflow --ssh=mikrus --supabase-project=abc123 --yes
+# Automatic with specific Supabase project
+./local/deploy.sh gateflow --ssh=ALIAS --supabase-project=abc123 --yes
 
-# Z własną domeną Cloudflare
-./local/deploy.sh gateflow --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare --yes
+# With custom Cloudflare domain
+./local/deploy.sh gateflow --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare --yes
 
-# Aktualizacja
-./local/deploy.sh gateflow --ssh=mikrus --update
+# Update
+./local/deploy.sh gateflow --ssh=ALIAS --update
 
-# Z lokalnym buildem (prywatne repo)
-./local/deploy.sh gateflow --ssh=mikrus --build-file=~/Downloads/gateflow-build.tar.gz --yes
+# With local build (private repo)
+./local/deploy.sh gateflow --ssh=ALIAS --build-file=~/Downloads/gateflow-build.tar.gz --yes
 ```
 
 ---
 
 ## Case Studies
 
-### Case 1: Pierwsza instalacja (początkujący)
+### Case 1: First Installation (beginner)
 
-**Sytuacja:** Pierwszy raz instalujesz GateFlow, chcesz żeby skrypt prowadził za rączkę.
+**Situation:** First time installing GateFlow, you want the script to guide you step by step.
 
 ```bash
-# Po prostu uruchom
-./local/deploy.sh gateflow --ssh=mikrus
+# Just run
+./local/deploy.sh gateflow --ssh=ALIAS
 
-# Skrypt:
-# 1. Otworzy przeglądarkę do logowania Supabase
-# 2. Pokaże listę projektów do wyboru
-# 3. Zapyta o klucze Stripe (możesz pominąć)
-# 4. Zapyta o domenę (wybierz automatyczną)
-# 5. Zainstaluje i uruchomi
+# The script:
+# 1. Opens browser for Supabase login
+# 2. Shows list of projects to choose from
+# 3. Asks for Stripe keys (you can skip)
+# 4. Asks about domain (choose automatic)
+# 5. Installs and starts
 ```
 
-### Case 2: Deployment na CI/CD
+### Case 2: CI/CD Deployment
 
-**Sytuacja:** Chcesz automatyzować deployment w pipeline CI/CD.
+**Situation:** You want to automate deployment in a CI/CD pipeline.
 
 ```bash
-# JEDNORAZOWO (na lokalnej maszynie):
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto
+# ONE-TIME (on local machine):
+./local/setup-gateflow-config.sh --ssh=ALIAS --domain=auto
 
-# W CI/CD:
-./local/deploy.sh gateflow --ssh=mikrus --yes
+# In CI/CD:
+./local/deploy.sh gateflow --ssh=ALIAS --yes
 ```
 
-### Case 3: Wiele serwerów Mikrus
+### Case 3: Multiple Servers
 
-**Sytuacja:** Masz kilka serwerów i chcesz szybko deployować na różne.
+**Situation:** You have several servers and want to deploy quickly to different ones.
 
 ```bash
-# Konfiguracja dla każdego serwera
-./local/setup-gateflow-config.sh --ssh=mikrus --domain=auto
-./local/setup-gateflow-config.sh --ssh=gracz --domain=auto
+# Configuration for each server
+./local/setup-gateflow-config.sh --ssh=server1 --domain=auto
+./local/setup-gateflow-config.sh --ssh=server2 --domain=auto
 
-# Deploy (użyje zapisanej konfiguracji)
-./local/deploy.sh gateflow --ssh=mikrus --yes
-./local/deploy.sh gateflow --ssh=gracz --yes
+# Deploy (uses saved configuration)
+./local/deploy.sh gateflow --ssh=server1 --yes
+./local/deploy.sh gateflow --ssh=server2 --yes
 ```
 
-### Case 4: Własna domena z Cloudflare
+### Case 4: Custom Domain with Cloudflare
 
-**Sytuacja:** Masz domenę `shop.mojastrona.pl` z DNS w Cloudflare.
+**Situation:** You have a domain `shop.mysite.com` with DNS in Cloudflare.
 
 ```bash
-# 1. W Cloudflare: dodaj rekord A wskazujący na IP serwera Mikrus
-#    shop.mojastrona.pl → 1.2.3.4 (IP z panelu Mikrus)
+# 1. In Cloudflare: add A record pointing to your server IP
+#    shop.mysite.com -> 1.2.3.4
 
-# 2. Konfiguracja
+# 2. Configuration
 ./local/setup-gateflow-config.sh \
-  --ssh=mikrus \
-  --domain=shop.mojastrona.pl \
+  --ssh=ALIAS \
+  --domain=shop.mysite.com \
   --domain-type=cloudflare
 
 # 3. Deploy
-./local/deploy.sh gateflow --ssh=mikrus --yes
+./local/deploy.sh gateflow --ssh=ALIAS --yes
 ```
 
-### Case 5: Wiele projektów Supabase na jednym koncie
+### Case 5: Multiple Supabase Projects on One Account
 
-**Sytuacja:** Masz dwa projekty Supabase: produkcyjny i testowy.
+**Situation:** You have two Supabase projects: production and test.
 
 ```bash
-# Project ref znajdziesz w URL:
-# https://supabase.com/dashboard/project/TUTAJ_REF
+# Find project ref in URL:
+# https://supabase.com/dashboard/project/REF_HERE
 
-# Deploy na projekt testowy
-./local/deploy.sh gateflow --ssh=mikrus-staging --supabase-project=abc123test --yes
+# Deploy to test project
+./local/deploy.sh gateflow --ssh=staging-server --supabase-project=abc123test --yes
 
-# Deploy na projekt produkcyjny
-./local/deploy.sh gateflow --ssh=mikrus-prod --supabase-project=xyz789prod --yes
+# Deploy to production project
+./local/deploy.sh gateflow --ssh=prod-server --supabase-project=xyz789prod --yes
 ```
 
-### Case 6: Reinstalacja po wyczyszczeniu serwera
+### Case 6: Reinstallation After Server Wipe
 
-**Sytuacja:** Wyczyściłeś serwer, ale masz zapisaną konfigurację.
+**Situation:** You wiped the server but have saved configuration.
 
 ```bash
-# Konfiguracja jest w ~/.config/gateflow/deploy-config.env
-# Po prostu uruchom:
-./local/deploy.sh gateflow --ssh=mikrus --yes
+# Configuration is in ~/.config/gateflow/deploy-config.env
+# Just run:
+./local/deploy.sh gateflow --ssh=ALIAS --yes
 
-# Skrypt użyje zapisanych kluczy Supabase, domeny, etc.
+# The script uses saved Supabase keys, domain, etc.
 ```
 
-### Case 7: Aktualizacja GateFlow
+### Case 7: Updating GateFlow
 
-**Sytuacja:** Wyszła nowa wersja, chcesz zaktualizować.
+**Situation:** A new version is out and you want to update.
 
 ```bash
-# Prosta aktualizacja (auto-wykrywa instancję)
-./local/deploy.sh gateflow --ssh=mikrus --update
+# Simple update (auto-detects instance)
+./local/deploy.sh gateflow --ssh=ALIAS --update
 
-# Aktualizacja konkretnej instancji
-./local/deploy.sh gateflow --ssh=mikrus --update --domain=shop.example.com
+# Update specific instance
+./local/deploy.sh gateflow --ssh=ALIAS --update --domain=shop.example.com
 
-# Aktualizacja z lokalnym buildem (prywatne repo)
-./local/deploy.sh gateflow --ssh=mikrus --update --build-file=~/Downloads/gateflow-build.tar.gz
+# Update with local build (private repo)
+./local/deploy.sh gateflow --ssh=ALIAS --update --build-file=~/Downloads/gateflow-build.tar.gz
 ```
 
-### Case 8: Wiele instancji na jednym serwerze (ta sama baza)
+### Case 8: Multiple Instances on One Server (same database)
 
-**Sytuacja:** Chcesz uruchomić kilka sklepów na jednym Mikrusie, używając tego samego projektu Supabase.
+**Situation:** You want to run several shops on one VPS, using the same Supabase project.
 
 ```bash
-# Pierwsza instancja - sklep główny
-./local/deploy.sh gateflow --ssh=mikrus --domain=shop.example.com --domain-type=cloudflare
+# First instance - main shop
+./local/deploy.sh gateflow --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
 
-# Druga instancja - kursy online
-./local/deploy.sh gateflow --ssh=mikrus --domain=courses.example.com --domain-type=cloudflare
+# Second instance - online courses
+./local/deploy.sh gateflow --ssh=ALIAS --domain=courses.example.com --domain-type=cloudflare
 
-# Trzecia instancja - inna domena
-./local/deploy.sh gateflow --ssh=mikrus --domain=digital.innadomena.pl --domain-type=cloudflare
+# Third instance - different domain
+./local/deploy.sh gateflow --ssh=ALIAS --domain=digital.otherdomain.com --domain-type=cloudflare
 ```
 
-**Wynik na serwerze:**
+**Result on the server:**
 ```
 /opt/stacks/gateflow-shop/      # PM2: gateflow-shop,    port: 3333
 /opt/stacks/gateflow-courses/   # PM2: gateflow-courses, port: 3334
 /opt/stacks/gateflow-digital/   # PM2: gateflow-digital, port: 3335
 ```
 
-Każda instancja:
-- Ma własny katalog i proces PM2
-- Może mieć własną konfigurację Stripe
-- Port jest auto-inkrementowany (3333, 3334, 3335...)
+Each instance:
+- Has its own directory and PM2 process
+- Can have its own Stripe configuration
+- Port is auto-incremented (3333, 3334, 3335...)
 
-**Aktualizacja konkretnej instancji:**
+**Updating a specific instance:**
 ```bash
-./local/deploy.sh gateflow --ssh=mikrus --update --domain=courses.example.com
+./local/deploy.sh gateflow --ssh=ALIAS --update --domain=courses.example.com
 ```
 
-### Case 9: Wiele instancji z różnymi bazami danych
+### Case 9: Multiple Instances with Different Databases
 
-**Sytuacja:** Chcesz mieć całkowicie niezależne sklepy - każdy z własną bazą Supabase.
+**Situation:** You want completely independent shops - each with its own Supabase database.
 
 ```bash
-# Sprawdź swoje projekty Supabase
+# Check your Supabase projects
 # https://supabase.com/dashboard/projects
 
-# Instancja 1: Produkcja (projekt: gateflow-prod)
-./local/deploy.sh gateflow --ssh=mikrus \
+# Instance 1: Production (project: gateflow-prod)
+./local/deploy.sh gateflow --ssh=ALIAS \
   --supabase-project=abc123prod \
   --domain=shop.example.com \
   --domain-type=cloudflare \
   --yes
 
-# Instancja 2: Testy (projekt: gateflow-test)
-./local/deploy.sh gateflow --ssh=mikrus \
+# Instance 2: Tests (project: gateflow-test)
+./local/deploy.sh gateflow --ssh=ALIAS \
   --supabase-project=xyz789test \
   --domain=test.example.com \
   --domain-type=cloudflare \
   --yes
 
-# Instancja 3: Demo dla klienta (projekt: gateflow-demo)
-./local/deploy.sh gateflow --ssh=mikrus \
+# Instance 3: Client demo (project: gateflow-demo)
+./local/deploy.sh gateflow --ssh=ALIAS \
   --supabase-project=demo456client \
   --domain=demo.example.com \
   --domain-type=cloudflare \
   --yes
 ```
 
-**Wynik na serwerze:**
+**Result on the server:**
 ```
 /opt/stacks/gateflow-shop/   # Supabase: abc123prod,  port: 3333
 /opt/stacks/gateflow-test/   # Supabase: xyz789test,  port: 3334
 /opt/stacks/gateflow-demo/   # Supabase: demo456client, port: 3335
 ```
 
-**Kluczowy parametr:** `--supabase-project=REF` pozwala wybrać inny projekt Supabase dla każdej instancji.
+**Key parameter:** `--supabase-project=REF` lets you choose a different Supabase project for each instance.
 
-**Weryfikacja konfiguracji:**
+**Verify configuration:**
 ```bash
-# Sprawdź który projekt używa która instancja
-ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
+# Check which project each instance uses
+ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 ```
 
 ---
 
-## Gdzie są zapisywane klucze
+## Where Keys Are Stored
 
-### Na lokalnej maszynie
+### On the local machine
 
 ```
 ~/.config/gateflow/
-├── deploy-config.env    # Główna konfiguracja (setup-gateflow-config.sh)
-└── supabase.env         # Backup kluczy Supabase
++-- deploy-config.env    # Main configuration (setup-gateflow-config.sh)
++-- supabase.env         # Backup of Supabase keys
 
 ~/.config/supabase/
-└── access_token         # Personal Access Token Supabase
++-- access_token         # Personal Access Token Supabase
 
 ~/.config/cloudflare/
-├── turnstile_token      # API token Cloudflare
-├── turnstile_account_id # Account ID
-└── turnstile_keys_DOMENA # Klucze Turnstile per domena
++-- turnstile_token      # Cloudflare API token
++-- turnstile_account_id # Account ID
++-- turnstile_keys_DOMAIN # Turnstile keys per domain
 ```
 
-### Na serwerze
+### On the server
 
 ```
-# Pojedyncza instancja (auto-domena lub pierwsza instalacja)
+# Single instance (auto-domain or first installation)
 ~/gateflow/
-├── admin-panel/
-│   ├── .env.local           # Konfiguracja aplikacji
-│   └── .next/standalone/    # Zbudowana aplikacja
-└── .env.local.backup        # Backup (przy update)
++-- admin-panel/
+|   +-- .env.local           # Application configuration
+|   +-- .next/standalone/    # Built application
++-- .env.local.backup        # Backup (on update)
 
-# Multi-instance (każda domena = osobny katalog)
-~/gateflow-shop/             # domena: shop.example.com
-~/gateflow-courses/          # domena: courses.example.com
-~/gateflow-demo/             # domena: demo.example.com
+# Multi-instance (each domain = separate directory)
+~/gateflow-shop/             # domain: shop.example.com
+~/gateflow-courses/          # domain: courses.example.com
+~/gateflow-demo/             # domain: demo.example.com
 ```
 
 ---
 
-## Zarządzanie
+## Management
 
 ```bash
-# Status wszystkich instancji
-ssh mikrus "pm2 status"
+# Status of all instances
+ssh ALIAS "pm2 status"
 
-# Logi pojedynczej instancji
-ssh mikrus "pm2 logs gateflow-admin"           # auto-domena
-ssh mikrus "pm2 logs gateflow-shop"            # shop.example.com
+# Logs for a single instance
+ssh ALIAS "pm2 logs gateflow-admin"           # auto-domain
+ssh ALIAS "pm2 logs gateflow-shop"            # shop.example.com
 
 # Restart
-ssh mikrus "pm2 restart gateflow-admin"
+ssh ALIAS "pm2 restart gateflow-admin"
 
-# Restart wszystkich instancji GateFlow
-ssh mikrus "pm2 restart all"
+# Restart all GateFlow instances
+ssh ALIAS "pm2 restart all"
 
-# Logi na żywo
-ssh mikrus "pm2 logs gateflow-shop --lines 50"
+# Live logs
+ssh ALIAS "pm2 logs gateflow-shop --lines 50"
 
-# Sprawdź konfigurację Supabase wszystkich instancji
-ssh mikrus "grep SUPABASE_URL /opt/stacks/gateflow*/admin-panel/.env.local"
+# Check Supabase configuration for all instances
+ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow*/admin-panel/.env.local"
 ```
 
-> **Uwaga:** Jeśli `pm2: command not found`, dodaj PATH ręcznie:
+> **Note:** If `pm2: command not found`, add PATH manually:
 > ```bash
-> ssh mikrus "echo 'export PATH=\"\$HOME/.bun/bin:\$PATH\"' >> ~/.bashrc"
+> ssh ALIAS "echo 'export PATH=\"\$HOME/.bun/bin:\$PATH\"' >> ~/.bashrc"
 > ```
-> Nowe instalacje GateFlow dodają to automatycznie.
+> New GateFlow installations add this automatically.
 
 ---
 
-## Dodatkowe skrypty
+## Additional Scripts
 
 ### setup-turnstile.sh - CAPTCHA
 
 ```bash
-# Automatycznie tworzy widget Turnstile dla domeny
-./local/setup-turnstile.sh shop.example.com mikrus
+# Automatically creates a Turnstile widget for the domain
+./local/setup-turnstile.sh shop.example.com ALIAS
 ```
 
 ### setup-supabase-email.sh - SMTP
 
 ```bash
-# Konfiguruje własny SMTP dla wysyłki emaili
+# Configures custom SMTP for sending emails
 ./local/setup-supabase-email.sh
 ```
 
-### setup-supabase-migrations.sh - Migracje bazy
+### setup-supabase-migrations.sh - Database Migrations
 
 ```bash
-# Ręczne uruchomienie migracji (normalnie automatyczne)
-SSH_ALIAS=mikrus ./local/setup-supabase-migrations.sh
+# Manual migration run (normally automatic)
+SSH_ALIAS=ALIAS ./local/setup-supabase-migrations.sh
 ```
 
 ---
 
-## Stripe Webhooks (po instalacji)
+## Stripe Webhooks (after installation)
 
-1. Otwórz: https://dashboard.stripe.com/webhooks
-2. Add endpoint: `https://TWOJA-DOMENA/api/webhooks/stripe`
+1. Open: https://dashboard.stripe.com/webhooks
+2. Add endpoint: `https://YOUR-DOMAIN/api/webhooks/stripe`
 3. Events:
    - `checkout.session.completed`
    - `payment_intent.succeeded`
    - `payment_intent.payment_failed`
-4. Skopiuj Signing Secret (`whsec_...`)
-5. Dodaj do konfiguracji:
+4. Copy Signing Secret (`whsec_...`)
+5. Add to configuration:
    ```bash
-   ssh mikrus "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/gateflow/admin-panel/.env.local"
-   ssh mikrus "pm2 restart gateflow-admin"
+   ssh ALIAS "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/gateflow/admin-panel/.env.local"
+   ssh ALIAS "pm2 restart gateflow-admin"
    ```
 
 ---
 
 ## FAQ
 
-**Q: Jaka jest różnica między trybem interaktywnym a automatycznym?**
+**Q: What is the difference between interactive and automatic mode?**
 
-A: Interaktywny zadaje pytania krok po kroku - idealny na początek. Automatyczny używa zapisanych kluczy i flagi `--yes` - idealny do CI/CD i powtarzalnych deployów.
+A: Interactive asks questions step by step - ideal for beginners. Automatic uses saved keys and the `--yes` flag - ideal for CI/CD and repeatable deploys.
 
-**Q: Czy muszę uruchamiać setup-gateflow-config.sh przed każdym deployem?**
+**Q: Do I need to run setup-gateflow-config.sh before every deploy?**
 
-A: Nie! Wystarczy raz. Konfiguracja jest zapisywana i używana automatycznie przy kolejnych deployach z `--yes`.
+A: No! Once is enough. The configuration is saved and used automatically on subsequent deploys with `--yes`.
 
-**Q: Co jeśli chcę zmienić projekt Supabase?**
+**Q: What if I want to change the Supabase project?**
 
-A: Uruchom ponownie `./local/setup-gateflow-config.sh` i wybierz inny projekt, lub użyj `--supabase-project=NOWY_REF`.
+A: Run `./local/setup-gateflow-config.sh` again and select a different project, or use `--supabase-project=NEW_REF`.
 
-**Q: Czy pierwszy user to admin?**
+**Q: Is the first user the admin?**
 
-A: Tak! Pierwsza osoba która się zarejestruje automatycznie dostaje uprawnienia admina.
+A: Yes! The first person to register automatically gets admin privileges.
 
-**Q: Testowa karta do Stripe?**
+**Q: Test card for Stripe?**
 
-A: `4242 4242 4242 4242` (dowolna data, dowolne CVC)
+A: `4242 4242 4242 4242` (any date, any CVC)
 
-**Q: Gdzie znajdę project ref Supabase?**
+**Q: Where do I find the Supabase project ref?**
 
-A: W URL projektu: `https://supabase.com/dashboard/project/TUTAJ_REF`
+A: In the project URL: `https://supabase.com/dashboard/project/REF_HERE`
 
-**Q: Czy Turnstile jest obowiązkowy?**
+**Q: Is Turnstile required?**
 
-A: Nie. To opcjonalna ochrona CAPTCHA. Możesz skonfigurować później lub pominąć.
+A: No. It is optional CAPTCHA protection. You can configure it later or skip it.
 
-**Q: Czy mogę mieć kilka instancji GateFlow na jednym serwerze?**
+**Q: Can I have multiple GateFlow instances on one server?**
 
-A: Tak! Każda instancja musi mieć inną domenę. System automatycznie:
-- Tworzy oddzielny katalog (`/opt/stacks/gateflow-{subdomena}/`)
-- Przydziela kolejny port (3333, 3334, 3335...)
-- Tworzy oddzielny proces PM2
+A: Yes! Each instance must have a different domain. The system automatically:
+- Creates a separate directory (`/opt/stacks/gateflow-{subdomain}/`)
+- Assigns the next port (3333, 3334, 3335...)
+- Creates a separate PM2 process
 
-Możesz też użyć różnych projektów Supabase dla każdej instancji za pomocą `--supabase-project=REF`.
+You can also use different Supabase projects for each instance via `--supabase-project=REF`.
 
-**Q: Jak sprawdzić status wielu instancji?**
+**Q: How to check the status of multiple instances?**
 
-A: `ssh mikrus "pm2 list"` - pokaże wszystkie procesy GateFlow z ich statusem.
+A: `ssh ALIAS "pm2 list"` - shows all GateFlow processes with their status.
 
 ---
 
-## Porównanie kosztów
+## Cost Comparison
 
 | | EasyCart | Gumroad | **GateFlow** |
 |---|---|---|---|
-| Opłata miesięczna | 100 zł/mies | 10$/mies | **0 zł** |
-| Prowizja od sprzedaży | 1-3% | 10% | **0%** |
-| Własność danych | - | - | **Tak** |
-| Przy 300k zł/rok | ~16-19k zł | ~30k zł | **~8.7k zł** |
+| Monthly fee | ~$25/mo | $10/mo | **$0** |
+| Sales commission | 1-3% | 10% | **0%** |
+| Data ownership | - | - | **Yes** |
 
-**Oszczędzasz 7,000-20,000 zł rocznie** hostując GateFlow na Mikrusie.
+**Save thousands per year** by self-hosting GateFlow on your VPS.
 
 ---
 

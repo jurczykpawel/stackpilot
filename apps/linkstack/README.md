@@ -1,111 +1,112 @@
-# 🔗 LinkStack - Wizytówka (Wersja Admin)
+# LinkStack - Link in Bio (Admin Version)
 
-Twoja własna strona "Link in Bio" (jak Linktree), ale na Twoim serwerze.
+Your own "Link in Bio" page (like Linktree), but on your server.
 
-**RAM:** ~200MB | **Dysk:** ~600MB | **Plan:** Mikrus 2.1+
+**RAM:** ~200MB | **Disk:** ~600MB | **Plan:** 1GB+ RAM VPS
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
-# Cytrus (domena *.byst.re)
-./local/deploy.sh linkstack --ssh=mikrus --domain-type=cytrus --domain=links.byst.re --yes
+# Caddy (auto domain)
+./local/deploy.sh linkstack --ssh=ALIAS --domain-type=caddy --domain=links.your-domain.com --yes
 
-# Cloudflare (własna domena)
-./local/deploy.sh linkstack --ssh=mikrus --domain-type=cloudflare --domain=links.mojafirma.pl --yes
+# Cloudflare (own domain)
+./local/deploy.sh linkstack --ssh=ALIAS --domain-type=cloudflare --domain=links.example.com --yes
 
-# Bez domeny (dostęp przez tunel SSH)
-./local/deploy.sh linkstack --ssh=mikrus --domain-type=local --yes
+# No domain (access via SSH tunnel)
+./local/deploy.sh linkstack --ssh=ALIAS --domain-type=local --yes
 ```
 
-## ⚙️ Konfiguracja (Setup Wizard)
+## Configuration (Setup Wizard)
 
-Po instalacji otwórz URL i przejdź przez wizard. **Ważny wybór:**
+After installation, open the URL and go through the wizard. **Important choice:**
 
-### Baza danych
+### Database
 
-**🎯 Jesteś soloprenerem / robisz stronę dla siebie?**
+**Are you a solopreneur / building a page for yourself?**
 
-Wybierz **SQLite** i nie myśl więcej. Zero konfiguracji, działa od razu.
+Choose **SQLite** and do not think twice. Zero configuration, works out of the box.
 
-**🏢 Robisz to dla firmy gdzie wiele osób będzie edytować profile?**
+**Building this for a company where multiple people will edit profiles?**
 
-Wybierz **MySQL** - lepiej radzi sobie gdy kilka osób edytuje jednocześnie.
+Choose **MySQL** - handles concurrent edits better.
 
 <details>
-<summary>Szczegóły techniczne</summary>
+<summary>Technical details</summary>
 
-| Scenariusz | Rekomendacja |
-|------------|--------------|
-| Jeden profil (personal branding) | SQLite ✅ |
-| Kilka profili, sporadyczne edycje | SQLite ✅ |
-| 500+ użytkowników z własnymi profilami | MySQL |
-| Częste jednoczesne edycje | MySQL |
+| Scenario | Recommendation |
+|----------|----------------|
+| One profile (personal branding) | SQLite |
+| A few profiles, occasional edits | SQLite |
+| 500+ users with their own profiles | MySQL |
+| Frequent simultaneous edits | MySQL |
 
-SQLite obsługuje do 100K wizyt/dzień. Oficjalny hosting LinkStack używa MySQL dopiero dla instancji 500+ użytkowników.
+SQLite handles up to 100K visits/day. The official LinkStack hosting only uses MySQL for 500+ user instances.
 
-> ℹ️ Przy MySQL musisz sam backupować bazę (przy SQLite backup przed aktualizacją zawiera bazę automatycznie).
+> When using MySQL you must back up the database yourself (with SQLite, backups before updates include the database automatically).
 
 </details>
 
 <details>
-<summary>Konfiguracja MySQL</summary>
+<summary>MySQL configuration</summary>
 
-1. Aktywuj w panelu: https://mikr.us/panel/?a=mysql
-2. Pobierz dane:
-   ```bash
-   ssh mikrus 'curl -s -d "srv=$(hostname)&key=$(cat /klucz_api)" https://api.mikr.us/db.bash'
-   ```
-3. W wizardzie wybierz MySQL i wpisz dane z sekcji `mysql=`
+If using an external MySQL database, you will need:
+- **Host** - database server address
+- **Database** - database name
+- **User** - username
+- **Password** - password
+
+In the wizard, select MySQL and enter your database credentials.
 
 </details>
 
-### Pozostałe ustawienia
+### Other settings
 
-- **Admin credentials** - zapisz bezpiecznie, będziesz ich potrzebować do logowania
-- **App Name** - nazwa wyświetlana na stronie
-- **App URL** - pełny URL z https:// (np. `https://links.byst.re`)
+- **Admin credentials** - save securely, you will need them to log in
+- **App Name** - name displayed on the page
+- **App URL** - full URL with https:// (e.g. `https://links.your-domain.com`)
 
-## 🆚 LinkStack vs LittleLink
+## LinkStack vs LittleLink
 
-| Cecha | LinkStack | LittleLink |
-|-------|-----------|------------|
-| Panel admina | ✅ Tak | ❌ Nie |
-| Edycja z telefonu | ✅ Tak | ❌ Nie |
-| Statystyki kliknięć | ✅ Tak | ❌ Nie |
-| Zużycie RAM | ~200MB | ~30MB |
-| Konfiguracja | Wizard | Edycja HTML |
+| Feature | LinkStack | LittleLink |
+|---------|-----------|------------|
+| Admin panel | Yes | No |
+| Edit from phone | Yes | No |
+| Click stats | Yes | No |
+| RAM usage | ~200MB | ~30MB |
+| Configuration | Wizard | HTML editing |
 
-**Wybierz LinkStack** jeśli chcesz wygodny panel i statystyki.
-**Wybierz LittleLink** jeśli wolisz super-lekką stronę statyczną.
+**Choose LinkStack** if you want a convenient panel and stats.
+**Choose LittleLink** if you prefer a super-lightweight static page.
 
-## 📁 Lokalizacja danych
+## Data Location
 
 ```
 /opt/stacks/linkstack/
-├── data/              # Wszystkie dane aplikacji (backupuj ten folder!)
-│   ├── database/      # SQLite baza danych
-│   ├── .env           # Konfiguracja
-│   └── ...            # Pliki aplikacji
-└── docker-compose.yaml
++-- data/              # All app data (back up this folder!)
+|   +-- database/      # SQLite database
+|   +-- .env           # Configuration
+|   +-- ...            # App files
++-- docker-compose.yaml
 ```
 
-## 🔧 Zarządzanie
+## Management
 
 ```bash
-# Logi
-ssh mikrus "docker logs -f linkstack-linkstack-1"
+# Logs
+ssh ALIAS "docker logs -f linkstack-linkstack-1"
 
 # Restart
-ssh mikrus "cd /opt/stacks/linkstack && docker compose restart"
+ssh ALIAS "cd /opt/stacks/linkstack && docker compose restart"
 
-# Aktualizacja
-ssh mikrus "cd /opt/stacks/linkstack && docker compose pull && docker compose up -d"
+# Update
+ssh ALIAS "cd /opt/stacks/linkstack && docker compose pull && docker compose up -d"
 
 # Backup
-ssh mikrus "tar -czf linkstack-backup.tar.gz -C /opt/stacks/linkstack data"
+ssh ALIAS "tar -czf linkstack-backup.tar.gz -C /opt/stacks/linkstack data"
 ```
 
-## 🔗 Przydatne linki
+## Useful Links
 
 - [LinkStack Docker](https://linkstack.org/docker/)
 - [LinkStack Docs](https://docs.linkstack.org/)

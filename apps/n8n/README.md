@@ -1,128 +1,119 @@
-# 🤖 n8n - Twój silnik automatyzacji
+# n8n - Your Automation Engine
 
-**Alternatywa dla Make.com / Zapier bez limitów operacji.**
-Łącz aplikacje, automatyzuj procesy, buduj workflowy wizualnie.
+**Alternative to Make.com / Zapier without operation limits.**
+Connect apps, automate processes, build workflows visually.
 
-> 🔗 **Oficjalna strona:** https://n8n.io
+> **Official site:** https://n8n.io
 
 ---
 
-## 💸 Dlaczego n8n?
+## Why n8n?
 
 | | Zapier | Make | **n8n** |
 |---|---|---|---|
-| 100 tasków/mies | 0 zł | 0 zł | **0 zł** |
-| 2000 tasków/mies | ~100 zł/mies | ~50 zł/mies | **0 zł** |
-| Bez limitów | ~400 zł/mies | ~150 zł/mies | **0 zł** |
+| 100 tasks/mo | $0 | $0 | **$0** |
+| 2,000 tasks/mo | ~$25/mo | ~$12/mo | **$0** |
+| Unlimited | ~$100/mo | ~$35/mo | **$0** |
 
-Płacisz tylko za hosting (~16 zł/mies).
-
----
-
-## 📋 Wymagania
-
-- **RAM:** Min. 600MB (zalecane 1GB na Mikrus 3.0)
-- **PostgreSQL:** Obowiązkowy (zewnętrzna baza!)
-
-> ⚠️ **WAŻNE:** Nie instaluj PostgreSQL lokalnie na Mikrusie 3.0 - zabraknie RAM-u na samo n8n!
-
-### PostgreSQL - opcje na Mikrusie
-
-> ⚠️ **Współdzielona baza Mikrusa NIE działa!** n8n wymaga rozszerzenia `pgcrypto` (`gen_random_uuid()`), które nie jest dostępne na shared PostgreSQL 12. Potrzebujesz dedykowanej bazy.
-
-#### Dedykowana baza PostgreSQL (wymagana)
-
-| RAM | Dysk | Połączenia | Cena/rok |
-|---|---|---|---|
-| 512 MB | 10 GB | 100 | **29 zł** |
-| 1024 MB | 50 GB | 100 | 119 zł |
-
-👉 [Kup bazę w Panel Mikrus → Cloud](https://mikr.us/panel/?a=cloud)
-
-> 💡 **Rekomendacja:** Baza 10GB za 29 zł/rok to inwestycja na lata. Wystarczy na n8n + Listmonk + Umami.
+You only pay for hosting.
 
 ---
 
-## 🚀 Instalacja
+## Requirements
 
-### Krok 1: Przygotuj dane do bazy
+- **RAM:** Min. 600MB (recommended 1GB on a 2GB VPS)
+- **PostgreSQL:** Required (external database!)
 
-Z panelu Mikrusa potrzebujesz:
-- **Host** - np. `srv34.mikr.us` lub adres z chmury
-- **Database** - nazwa bazy
-- **User** - nazwa użytkownika
-- **Password** - hasło
+> **IMPORTANT:** Do not install PostgreSQL locally on a small VPS - you will run out of RAM for n8n itself!
 
-### Krok 2: Uruchom instalator
+### PostgreSQL Options
+
+> **The bundled shared database does NOT work!** n8n requires the `pgcrypto` extension (`gen_random_uuid()`), which is not available on shared PostgreSQL 12. You need a dedicated database.
+
+#### Dedicated PostgreSQL Database (required)
+
+Use a managed PostgreSQL service or provision a dedicated database instance. A small 512MB/10GB instance is sufficient and can be shared between n8n, Listmonk and Umami.
+
+---
+
+## Installation
+
+### Step 1: Prepare database credentials
+
+From your database provider you need:
+- **Host** - e.g. `db.example.com` or your DB server address
+- **Database** - database name
+- **User** - username
+- **Password** - password
+
+### Step 2: Run the installer
 
 ```bash
 ./local/deploy.sh n8n
 ```
 
-Skrypt zapyta o:
-- Dane bazy PostgreSQL
-- Domenę (np. `n8n.mojafirma.pl`)
+The script will ask for:
+- PostgreSQL database credentials
+- Domain (e.g. `n8n.example.com`)
 
-### Krok 3: Skonfiguruj domenę
+### Step 3: Configure the domain
 
 **Caddy:**
 ```bash
-sp-expose n8n.mojafirma.pl 5678
+sp-expose n8n.example.com 5678
 ```
-
-**Cytrus:** Panel Mikrus → Domeny → przekieruj na port 5678
 
 ---
 
-## 📦 Backup
+## Backup
 
-n8n przechowuje workflowy w bazie danych, a klucze szyfrowania (credentials) w pliku.
+n8n stores workflows in the database and encryption keys (credentials) in a file.
 
-Pełny backup:
+Full backup:
 ```bash
 ./local/deploy.sh apps/n8n/backup.sh
 ```
 
-Tworzy `.tar.gz` w `/opt/stacks/n8n/backups` na serwerze.
+Creates a `.tar.gz` in `/opt/stacks/n8n/backups` on the server.
 
 ---
 
-## 🔧 Power Tools
+## Power Tools
 
-n8n w kontenerze nie ma dostępu do narzędzi systemowych (yt-dlp, ffmpeg).
+n8n in a container does not have access to system tools (yt-dlp, ffmpeg).
 
-Aby ich użyć, w węźle **"Execute Command"** wpisz:
+To use them, in the **"Execute Command"** node enter:
 ```bash
 ssh user@172.17.0.1 "yt-dlp https://youtube.com/..."
 ```
 
-To łączy się z kontenera do hosta, gdzie są zainstalowane narzędzia.
+This connects from the container to the host, where tools are installed.
 
 ---
 
-## 🔗 Integracja z ekosystemem
+## Ecosystem Integration
 
-n8n to "mózg" Twojej automatyzacji:
+n8n is the "brain" of your automation:
 
 ```
-[GateFlow - sprzedaż] ──webhook──→ [n8n]
-[Typebot - chatbot]  ──webhook──→   │
-[Uptime Kuma - alert] ─webhook──→   │
-                                    ↓
-              ┌─────────────────────┼─────────────────────┐
-              ↓                     ↓                     ↓
-      [NocoDB - CRM]        [Listmonk - mail]    [ntfy - push]
+[GateFlow - sales] --webhook--> [n8n]
+[Typebot - chatbot]  --webhook-->  |
+[Uptime Kuma - alert] -webhook-->  |
+                                   v
+              +--------------------+---------------------+
+              v                    v                     v
+      [NocoDB - CRM]       [Listmonk - mail]    [ntfy - push]
 ```
 
 ---
 
-## ❓ FAQ
+## FAQ
 
-**Q: Ile RAM-u zużywa n8n?**
-A: 400-600MB w spoczynku, więcej przy skomplikowanych workflow.
+**Q: How much RAM does n8n use?**
+A: 400-600MB at rest, more with complex workflows.
 
-**Q: Mogę używać SQLite zamiast PostgreSQL?**
-A: Możesz, ale nie zalecamy. SQLite blokuje się przy wielu równoczesnych operacjach.
+**Q: Can I use SQLite instead of PostgreSQL?**
+A: You can, but it is not recommended. SQLite locks up under many concurrent operations.
 
-**Q: Jak przenieść workflow z Make/Zapier?**
-A: Ręcznie - n8n ma inne konektory. Ale większość popularnych integracji (Slack, Google Sheets, Stripe) działa podobnie.
+**Q: How to migrate workflows from Make/Zapier?**
+A: Manually - n8n has different connectors. But most popular integrations (Slack, Google Sheets, Stripe) work similarly.

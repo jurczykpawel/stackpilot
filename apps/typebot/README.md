@@ -1,26 +1,26 @@
-# 🤖 Typebot - Chatboty i Formularze
+# Typebot - Chatbots and Forms
 
-Typebot to wizualny kreator chatbotów, który zastępuje drogie narzędzia typu Typeform.
+Typebot is a visual chatbot builder that replaces expensive tools like Typeform.
 
-## 🚀 Instalacja
+## Installation
 
 ```bash
 ./local/deploy.sh typebot
 ```
 
-## 🔗 Integracja "Lazy Engineer"
-Typebot to "wejście" do Twojego systemu. 
-1. Klient wypełnia bota.
-2. Bot wysyła dane do **n8n** przez webhooka.
-3. n8n zapisuje dane w **NocoDB** i wysyła ofertę przez **Listmonka**.
+## "Lazy Engineer" Integration
+Typebot is the "entry point" to your system.
+1. Client fills out the bot.
+2. Bot sends data to **n8n** via webhook.
+3. n8n saves data in **NocoDB** and sends a proposal via **Listmonk**.
 
-## 📋 Wymagania
+## Requirements
 
 - **RAM:** ~600MB (Builder + Viewer)
-- **Dysk:** ~3GB (2x obraz Next.js)
-- **Baza danych:** PostgreSQL (dedykowana — shared Mikrus nie działa, PG 12 nie ma `gen_random_uuid()`)
+- **Disk:** ~3GB (2x Next.js image)
+- **Database:** PostgreSQL (dedicated -- bundled shared DB does not work, PG 12 lacks `gen_random_uuid()`)
 
-> ⚠️ **Współdzielona baza Mikrusa NIE działa!** Typebot używa Prisma, które wymaga `gen_random_uuid()` — niedostępne na shared PostgreSQL 12. Potrzebujesz dedykowanej bazy (29 zł/rok): [Panel Mikrus → Cloud](https://mikr.us/panel/?a=cloud)
+> **The bundled shared database does NOT work!** Typebot uses Prisma, which requires `gen_random_uuid()` -- not available on shared PostgreSQL 12. You need a dedicated PostgreSQL database.
 
-## ⚠️ Uwaga o zasobach
-Typebot składa się z dwóch części: Buildera (do tworzenia) i Viewera (to co widzi klient). Oba potrzebują łącznie ok. 600MB RAM, więc miej to na uwadze przy planowaniu usług na jednym Mikrusie.
+## Resource Note
+Typebot consists of two parts: Builder (for creating) and Viewer (what the client sees). Both need ~600MB RAM combined, so keep this in mind when planning services on a single VPS.
