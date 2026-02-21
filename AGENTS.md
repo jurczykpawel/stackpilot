@@ -210,7 +210,7 @@ Deploys Caddy + PHP-FPM on the host. Auto-installs both if missing.
 
 MCP: `deploy_site` with a PHP project (detects `index.php` or `.php` files).
 
-## Applications (26)
+## Applications (28)
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 

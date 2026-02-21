@@ -1,9 +1,9 @@
 # StackPilot
 
-**The AI-native self-hosting toolkit. Deploy 26+ production-optimized Docker apps to any VPS with a single command.**
+**The AI-native self-hosting toolkit. Deploy 28+ production-optimized Docker apps to any VPS with a single command.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Apps: 26+](https://img.shields.io/badge/Apps-26%2B-blue)
+![Apps: 26+](https://img.shields.io/badge/Apps-28%2B-blue)
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
 [![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
@@ -27,7 +27,7 @@ cd stackpilot
 - **One command, production-ready**: Each app is deployed with a single `deploy.sh` call. Memory limits, log rotation, health checks, security headers, and database provisioning are handled automatically.
 - **Zero platform overhead**: No web dashboard to maintain, no background services eating RAM. Just Bash scripts, SSH, and Docker. Your server resources go to your apps, not the platform.
 - **Database flexibility**: Bundled containers (auto-provisioned, zero config) or external databases. WordPress also supports SQLite. Your choice, per app.
-- **26+ curated apps**: Not a marketplace of untested community templates. Every app config is tuned and tested for small VPS environments (512MB--2GB RAM).
+- **28+ curated apps**: Not a marketplace of untested community templates. Every app config is tuned and tested for small VPS environments (512MB--2GB RAM).
 
 ---
 
@@ -358,7 +358,7 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | **GitHub stars** | New | ~50k | ~32k | ~14k |
 | **Min. RAM** | 512MB | 2GB+ | 1GB+ | 512MB |
 | **AI integration** | Native MCP server | No | No | No |
-| **Pre-built apps** | 26 production-optimized | 280+ (community) | Via plugins | None (bring your own) |
+| **Pre-built apps** | 28 production-optimized | 280+ (community) | Via plugins | None (bring your own) |
 | **Complexity** | Single deploy command | Web dashboard | CLI + buildpacks | YAML config files |
 | **Dependencies** | Bash, SSH, Docker | Docker, Traefik, PostgreSQL, Redis | Docker, Nginx, buildpacks | Docker, Ruby |
 | **Domain/SSL** | Caddy auto-HTTPS or Cloudflare | Traefik + Let's Encrypt | Nginx + Let's Encrypt | Traefik or manual |
@@ -418,7 +418,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 
 ### Completed
 
-- [x] 26+ production-optimized app deployments
+- [x] 28+ production-optimized app deployments
 - [x] CLI deploy with interactive prompts
 - [x] MCP server for AI-driven deployment
 - [x] Caddy auto-HTTPS and Cloudflare DNS integration
@@ -518,4 +518,4 @@ MIT -- see [LICENSE](LICENSE) for details.
 
 ---
 
-*Self-hosted infrastructure toolkit. Deploy 26+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+*Self-hosted infrastructure toolkit. Deploy 28+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
