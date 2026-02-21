@@ -106,6 +106,7 @@ cd stackpilot
 
 | App | Replaces | Description |
 | :--- | :--- | :--- |
+| [PicoClaw](apps/picoclaw/) | OpenClaw | Ultra-lightweight AI assistant (Telegram/Discord/Slack). ~10MB image, 64MB RAM. Security-hardened. |
 | [Crawl4AI](apps/crawl4ai/) | ScrapingBee | AI web scraper with REST API. Markdown output, JS rendering. |
 | [Coolify](apps/coolify/) | Heroku / Vercel | Full PaaS with 280+ one-click apps. Requires 8GB+ RAM. |
 
