@@ -99,6 +99,7 @@ services:
       - ADMIN_EMAIL=$ADMIN_EMAIL
     depends_on:
       - typebot-viewer
+$([ -n "$BUNDLED_DB_TYPE" ] && echo "      - db")
     deploy:
       resources:
         limits:
@@ -114,6 +115,7 @@ services:
       - NEXTAUTH_URL=$NEXTAUTH_URL
       - NEXT_PUBLIC_VIEWER_URL=$VIEWER_URL
       - ENCRYPTION_SECRET=$ENCRYPTION_SECRET
+$([ -n "$BUNDLED_DB_TYPE" ] && printf '    depends_on:\n      - db\n')
     deploy:
       resources:
         limits:
@@ -122,9 +124,6 @@ EOF
 
 # Append bundled database service if using bundled DB
 if [ -n "$BUNDLED_DB_TYPE" ]; then
-    # Add depends_on to first service only (typebot-builder already has depends_on for viewer)
-    sudo sed -i '0,/restart: always/s/restart: always/restart: always\n    depends_on:\n      - db/' docker-compose.yaml
-
     if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
         cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
   db:
