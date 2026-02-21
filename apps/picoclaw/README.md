@@ -69,19 +69,32 @@ Open Telegram and send a message to your bot. It should respond within a few sec
 
 Configuration is stored at `/opt/stacks/picoclaw/config/config.json`.
 
+PicoClaw v0.1.2 config has three sections:
+- **agents** -- default model and parameters
+- **providers** -- LLM providers with API keys
+- **channels** -- chat channels (Telegram, Discord, Slack)
+
 ### Telegram Example
 
 ```json
 {
-  "llm": {
-    "provider": "openrouter",
-    "api_key": "sk-or-...",
-    "model": "anthropic/claude-3.5-sonnet"
+  "agents": {
+    "defaults": {
+      "model": "openrouter/anthropic/claude-sonnet-4-20250514"
+    }
   },
-  "channel": {
-    "type": "telegram",
-    "token": "123456789:ABCdefGHI-jklMNO_pqr",
-    "allowed_users": [123456789]
+  "providers": {
+    "openrouter": {
+      "api_key": "sk-or-v1-...",
+      "api_base": "https://openrouter.ai/api/v1"
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "123456789:ABCdefGHI-jklMNO_pqr",
+      "allowed_users": [123456789]
+    }
   }
 }
 ```
@@ -90,31 +103,52 @@ Configuration is stored at `/opt/stacks/picoclaw/config/config.json`.
 
 ```json
 {
-  "llm": {
-    "provider": "anthropic",
-    "api_key": "sk-ant-...",
-    "model": "claude-3-5-sonnet-20241022"
+  "agents": {
+    "defaults": {
+      "model": "anthropic/claude-sonnet-4-20250514"
+    }
   },
-  "channel": {
-    "type": "discord",
-    "token": "MTIzNDU2Nzg5..."
+  "providers": {
+    "anthropic": {
+      "api_key": "sk-ant-..."
+    }
+  },
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": "MTIzNDU2Nzg5..."
+    }
   }
 }
 ```
+
+**Inviting the bot to your Discord server:**
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Select your app -> OAuth2 -> URL Generator
+3. Check scopes: `bot`, `applications.commands`
+4. Check permissions: `Send Messages`, `Read Message History`
+5. Copy the URL and open in browser -- select your server
 
 ### Slack Example
 
 ```json
 {
-  "llm": {
-    "provider": "openai",
-    "api_key": "sk-...",
-    "model": "gpt-4o"
+  "agents": {
+    "defaults": {
+      "model": "openai/gpt-4o"
+    }
   },
-  "channel": {
-    "type": "slack",
-    "bot_token": "xoxb-...",
-    "app_token": "xapp-..."
+  "providers": {
+    "openai": {
+      "api_key": "sk-..."
+    }
+  },
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "bot_token": "xoxb-...",
+      "app_token": "xapp-..."
+    }
   }
 }
 ```
@@ -143,26 +177,30 @@ Even if an attacker tricks the LLM into running malicious commands, these restri
 
 ## Automatic Mode (--yes)
 
-For automated deployments (CI/CD, MCP), create the config file before running the installer:
+In `--yes` mode (or without a terminal), the installer creates a **template** `config.json` with placeholders and exits. Fill in the placeholders and run deploy again:
 
 ```bash
-# Create config on the server
+# First run -- creates template config
+./local/deploy.sh picoclaw --ssh=vps --domain-type=local --yes
+
+# Edit the template on the server (replace REPLACE_WITH_* placeholders)
+ssh vps 'sudo nano /opt/stacks/picoclaw/config/config.json'
+
+# Second run -- deploys with your config
+./local/deploy.sh picoclaw --ssh=vps --domain-type=local --yes
+```
+
+Or create the config upfront:
+
+```bash
 ssh vps 'sudo mkdir -p /opt/stacks/picoclaw/config && sudo tee /opt/stacks/picoclaw/config/config.json > /dev/null' <<'EOF'
 {
-  "llm": {
-    "provider": "openrouter",
-    "api_key": "sk-or-YOUR-KEY",
-    "model": "anthropic/claude-3.5-sonnet"
-  },
-  "channel": {
-    "type": "telegram",
-    "token": "YOUR-BOT-TOKEN",
-    "allowed_users": [YOUR_USER_ID]
-  }
+  "agents": { "defaults": { "model": "openrouter/anthropic/claude-sonnet-4-20250514" } },
+  "providers": { "openrouter": { "api_key": "sk-or-YOUR-KEY", "api_base": "https://openrouter.ai/api/v1" } },
+  "channels": { "telegram": { "enabled": true, "token": "YOUR-BOT-TOKEN", "allowed_users": [YOUR_USER_ID] } }
 }
 EOF
 
-# Deploy
 ./local/deploy.sh picoclaw --ssh=vps --domain-type=local --yes
 ```
 

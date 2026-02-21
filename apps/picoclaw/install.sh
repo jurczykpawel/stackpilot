@@ -48,28 +48,55 @@ cd "$STACK_DIR"
 if [ -f "$STACK_DIR/config/config.json" ]; then
     echo "✅ Configuration already exists at $STACK_DIR/config/config.json"
 else
-    # In --yes mode, config.json MUST already exist
-    if [ "$YES_MODE" = true ]; then
+    if [ "$YES_MODE" = true ] || [ ! -t 0 ]; then
+        # Create template config with placeholders for the user to fill in
+        cat <<'TEMPLATEEOF' | sudo tee "$STACK_DIR/config/config.json" > /dev/null
+{
+  "agents": {
+    "defaults": {
+      "model": "openrouter/anthropic/claude-sonnet-4-20250514"
+    }
+  },
+  "providers": {
+    "openrouter": {
+      "api_key": "REPLACE_WITH_API_KEY",
+      "api_base": "https://openrouter.ai/api/v1"
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "REPLACE_WITH_BOT_TOKEN",
+      "allowed_users": [0]
+    }
+  }
+}
+TEMPLATEEOF
+        sudo chmod 600 "$STACK_DIR/config/config.json"
         echo ""
         echo "╔════════════════════════════════════════════════════════════════╗"
-        echo "║  ❌ ERROR: config.json not found!                            ║"
+        echo "║  📝 Config template created                                  ║"
         echo "╠════════════════════════════════════════════════════════════════╣"
-        echo "║  In --yes mode, PicoClaw requires a pre-created config.      ║"
+        echo "║  File: $STACK_DIR/config/config.json"
         echo "║                                                              ║"
-        echo "║  Create the config manually:                                 ║"
-        echo "║    $STACK_DIR/config/config.json                             ║"
+        echo "║  Fill in the following fields:                               ║"
+        echo "║    1. api_key  — your LLM provider API key                   ║"
+        echo "║    2. token    — bot token (Telegram/Discord/Slack)          ║"
+        echo "║    3. allowed_users — your user ID (Telegram only)           ║"
         echo "║                                                              ║"
-        echo "║  Or run without --yes for the interactive wizard:            ║"
-        echo "║    ./local/deploy.sh picoclaw                                ║"
+        echo "║  LLM providers (providers section):                          ║"
+        echo "║    openrouter  — https://openrouter.ai/keys                  ║"
+        echo "║    anthropic   — https://console.anthropic.com/settings/keys ║"
+        echo "║    openai      — https://platform.openai.com/api-keys        ║"
+        echo "║                                                              ║"
+        echo "║  Chat channels (channels section):                           ║"
+        echo "║    telegram    — token + allowed_users                       ║"
+        echo "║    discord     — token                                       ║"
+        echo "║    slack       — bot_token + app_token                       ║"
+        echo "║                                                              ║"
+        echo "║  After editing, run deploy again.                            ║"
         echo "╚════════════════════════════════════════════════════════════════╝"
         echo ""
-        exit 1
-    fi
-
-    # Check if we have a terminal for interactive input
-    if [ ! -t 0 ]; then
-        echo "❌ No terminal available for interactive setup."
-        echo "   Create config.json manually at: $STACK_DIR/config/config.json"
         exit 1
     fi
 
@@ -91,19 +118,22 @@ else
     case "$LLM_CHOICE" in
         1)
             LLM_PROVIDER="openrouter"
-            LLM_MODEL="anthropic/claude-3.5-sonnet"
+            LLM_API_BASE="https://openrouter.ai/api/v1"
+            LLM_MODEL="openrouter/anthropic/claude-sonnet-4-20250514"
             echo ""
             echo "  Get your API key at: https://openrouter.ai/keys"
             ;;
         2)
             LLM_PROVIDER="anthropic"
-            LLM_MODEL="claude-3-5-sonnet-20241022"
+            LLM_API_BASE=""
+            LLM_MODEL="anthropic/claude-sonnet-4-20250514"
             echo ""
             echo "  Get your API key at: https://console.anthropic.com/settings/keys"
             ;;
         3)
             LLM_PROVIDER="openai"
-            LLM_MODEL="gpt-4o"
+            LLM_API_BASE=""
+            LLM_MODEL="openai/gpt-4o"
             echo ""
             echo "  Get your API key at: https://platform.openai.com/api-keys"
             ;;
@@ -219,60 +249,59 @@ else
         exit 0
     fi
 
-    # --- Generate config.json ---
+    # --- Generate config.json (PicoClaw v0.1.2: providers + channels format) ---
     echo ""
     echo "📝 Generating config.json..."
 
-    # Build config based on channel
+    # Build provider JSON
+    PROVIDER_JSON="\"$LLM_PROVIDER\": {
+      \"api_key\": \"$LLM_API_KEY\""
+    if [ -n "$LLM_API_BASE" ]; then
+        PROVIDER_JSON="$PROVIDER_JSON,
+      \"api_base\": \"$LLM_API_BASE\""
+    fi
+    PROVIDER_JSON="$PROVIDER_JSON
+    }"
+
+    # Build channel JSON
     case "$CHAT_CHANNEL" in
         telegram)
-            cat <<CFGEOF | sudo tee "$STACK_DIR/config/config.json" > /dev/null
-{
-  "llm": {
-    "provider": "$LLM_PROVIDER",
-    "api_key": "$LLM_API_KEY",
-    "model": "$LLM_MODEL"
-  },
-  "channel": {
-    "type": "telegram",
-    "token": "$CHAT_TOKEN",
-    "allowed_users": [$CHAT_USER_ID]
-  }
-}
-CFGEOF
+            CHANNEL_JSON="\"telegram\": {
+      \"enabled\": true,
+      \"token\": \"$CHAT_TOKEN\",
+      \"allowed_users\": [$CHAT_USER_ID]
+    }"
             ;;
         discord)
-            cat <<CFGEOF | sudo tee "$STACK_DIR/config/config.json" > /dev/null
-{
-  "llm": {
-    "provider": "$LLM_PROVIDER",
-    "api_key": "$LLM_API_KEY",
-    "model": "$LLM_MODEL"
-  },
-  "channel": {
-    "type": "discord",
-    "token": "$CHAT_TOKEN"
-  }
-}
-CFGEOF
+            CHANNEL_JSON="\"discord\": {
+      \"enabled\": true,
+      \"token\": \"$CHAT_TOKEN\"
+    }"
             ;;
         slack)
-            cat <<CFGEOF | sudo tee "$STACK_DIR/config/config.json" > /dev/null
+            CHANNEL_JSON="\"slack\": {
+      \"enabled\": true,
+      \"bot_token\": \"$CHAT_TOKEN\",
+      \"app_token\": \"$SLACK_APP_TOKEN\"
+    }"
+            ;;
+    esac
+
+    cat <<CFGEOF | sudo tee "$STACK_DIR/config/config.json" > /dev/null
 {
-  "llm": {
-    "provider": "$LLM_PROVIDER",
-    "api_key": "$LLM_API_KEY",
-    "model": "$LLM_MODEL"
+  "agents": {
+    "defaults": {
+      "model": "$LLM_MODEL"
+    }
   },
-  "channel": {
-    "type": "slack",
-    "bot_token": "$CHAT_TOKEN",
-    "app_token": "$SLACK_APP_TOKEN"
+  "providers": {
+    $PROVIDER_JSON
+  },
+  "channels": {
+    $CHANNEL_JSON
   }
 }
 CFGEOF
-            ;;
-    esac
 
     sudo chmod 600 "$STACK_DIR/config/config.json"
     echo "✅ Configuration saved to $STACK_DIR/config/config.json"
@@ -306,6 +335,8 @@ services:
 
     # --- SECURITY: non-root user ---
     user: "1000:1000"
+    environment:
+      - HOME=/home/picoclaw
 
     # --- SECURITY: read-only filesystem ---
     read_only: true
