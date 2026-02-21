@@ -10,6 +10,7 @@ The toolbox automates Docker application installation, domain configuration, bac
 You help users manage their VPS servers. You can:
 - Install applications (`./local/deploy.sh`)
 - Configure backups and domains
+- Host static sites (`./local/add-static-hosting.sh`) and PHP sites (`./local/add-php-hosting.sh`)
 - Sync files with the server (`./local/sync.sh`)
 - Diagnose problems (logs, ports, RAM)
 - Create new app installers (`apps/<app>/install.sh`)
@@ -186,6 +187,28 @@ Digital products sales platform (Gumroad/EasyCart alternative). Does not use Doc
 ```
 
 A simple rsync wrapper for quick file transfers without a full deploy.
+
+## Hosting (Static and PHP)
+
+### Static Hosting
+
+```bash
+./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY]
+```
+
+### PHP Hosting
+
+```bash
+./local/add-php-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY]
+
+# Examples:
+./local/add-php-hosting.sh app.example.com
+./local/add-php-hosting.sh app.example.com vps /var/www/app
+```
+
+Deploys Caddy + PHP-FPM on the host. Auto-installs both if missing.
+
+MCP: `deploy_site` with a PHP project (detects `index.php` or `.php` files).
 
 ## Applications (25)
 

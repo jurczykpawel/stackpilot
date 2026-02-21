@@ -28,6 +28,7 @@ cat <<'EOF' | sudo tee /usr/local/bin/sp-expose > /dev/null
 # Modes:
 #   proxy (default) - reverse_proxy localhost:PORT
 #   static          - file_server from PATH
+#   php             - php_fastcgi + file_server from PATH
 #
 # Flags:
 #   --cloudflare    - HTTP-only (SSL terminates at Cloudflare, prevents redirect loop)
@@ -35,6 +36,7 @@ cat <<'EOF' | sudo tee /usr/local/bin/sp-expose > /dev/null
 # Examples:
 #   sp-expose n8n.example.pl 5678                         # proxy mode
 #   sp-expose static.example.pl /var/www/app static       # static mode
+#   sp-expose app.example.pl /var/www/app php             # PHP + static files
 #   sp-expose app.example.pl 5678 proxy --cloudflare      # behind Cloudflare
 
 DOMAIN=$1
@@ -102,7 +104,22 @@ if grep -q "$DOMAIN" "$CADDYFILE"; then
     exit 1
 fi
 
-if [ "$MODE" = "static" ]; then
+if [ "$MODE" = "php" ]; then
+    PHP_SOCK=$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1)
+    if [ -z "$PHP_SOCK" ]; then
+        echo "❌ PHP-FPM socket not found. Install php-fpm first."
+        exit 1
+    fi
+    echo "🚀 Exposing $DOMAIN -> $PORT_OR_PATH (PHP + static files)"
+    cat <<CONFIG | sudo tee -a "$CADDYFILE"
+
+$SITE_ADDR {
+    root * $PORT_OR_PATH
+    php_fastcgi unix/$PHP_SOCK
+    file_server
+}
+CONFIG
+elif [ "$MODE" = "static" ]; then
     echo "🚀 Exposing $DOMAIN -> $PORT_OR_PATH (static files)"
     cat <<CONFIG | sudo tee -a "$CADDYFILE"
 

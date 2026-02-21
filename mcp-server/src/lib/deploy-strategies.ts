@@ -63,6 +63,10 @@ export async function deploy(
   if (analysis.type === "python" && !analysis.files.includes("Dockerfile")) {
     return deployPythonAsDocker(config);
   }
+  // PHP projects → Caddy + PHP-FPM
+  if (analysis.type === "php") {
+    return deployPhp(config);
+  }
   switch (config.strategy) {
     case "static":
       return deployStatic(config);
@@ -182,6 +186,135 @@ async function setupStaticViaScript(
   lines.push(`URL: https://${siteDomain}`);
   lines.push(`Files: ${webRoot}`);
   return { ok: true, lines, url: `https://${siteDomain}`, error: null };
+}
+
+// ---------------------------------------------------------------------------
+// PHP deployment — Caddy + PHP-FPM via sp-expose php mode
+// ---------------------------------------------------------------------------
+
+async function deployPhp(config: DeployConfig): Promise<DeployResult> {
+  const { projectPath, name, alias, domainType, domain } = config;
+  const lines: string[] = [];
+  const webRoot = `/var/www/${name}`;
+
+  // 1. Ensure PHP-FPM is installed
+  await ensurePhpFpm(alias, lines);
+
+  // 2. Ensure Caddy is installed
+  await ensureCaddy(alias, lines);
+
+  // 3. Upload files
+  await sshExec(
+    alias,
+    `sudo mkdir -p ${webRoot} && sudo chown -R $(whoami) ${webRoot}`,
+    10_000
+  );
+  lines.push(`Syncing files to ${webRoot}...`);
+  const rsyncResult = await rsyncToServer(alias, projectPath, webRoot);
+  if (rsyncResult.exitCode !== 0) {
+    return err(lines, `rsync failed: ${rsyncResult.stderr}`);
+  }
+  await sshExec(alias, `sudo chmod -R o+rX ${webRoot}`, 10_000);
+  lines.push("Files synced.");
+
+  // 4. Check if already served
+  const servingCheck = await sshExec(
+    alias,
+    `grep -c '${webRoot}' /etc/caddy/Caddyfile 2>/dev/null || echo 0`,
+    10_000
+  );
+  const isAlreadyServed = parseInt(servingCheck.stdout.trim(), 10) > 0;
+
+  if (isAlreadyServed) {
+    lines.push("");
+    lines.push(`PHP site '${name}' updated (hosting already configured).`);
+    lines.push(`Files: ${webRoot}`);
+    return { ok: true, lines, url: null, error: null };
+  }
+
+  // 5. Domain required
+  if (domainType === "local") {
+    return err(
+      lines,
+      "PHP sites require a domain (domain_type: 'caddy' or 'cloudflare'). "
+    );
+  }
+
+  if (!domain) {
+    return err(
+      lines,
+      "domain parameter is required for PHP sites (e.g. 'app.example.com')."
+    );
+  }
+
+  // 6. Configure Caddy with php_fastcgi via sp-expose php mode
+  lines.push(`Setting up PHP hosting for ${domain}...`);
+  const exposeResult = await sshExec(
+    alias,
+    `sp-expose '${domain}' '${webRoot}' php`,
+    30_000
+  );
+  if (exposeResult.exitCode !== 0) {
+    return err(
+      lines,
+      `sp-expose failed: ${exposeResult.stderr || exposeResult.stdout}`
+    );
+  }
+
+  // 7. Cloudflare DNS if needed
+  if (domainType === "cloudflare") {
+    const cfResult = await setupCloudflareProxy(alias, domain, 443);
+    if (!cfResult.ok) {
+      lines.push(`DNS warning: ${cfResult.error}`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`PHP site '${name}' deployed successfully.`);
+  lines.push(`URL: https://${domain}`);
+  lines.push(`Files: ${webRoot}`);
+  return { ok: true, lines, url: `https://${domain}`, error: null };
+}
+
+/**
+ * Ensure PHP-FPM is installed on the server.
+ * Auto-detects installed PHP version and installs php-fpm package.
+ */
+async function ensurePhpFpm(
+  alias: string,
+  lines: string[]
+): Promise<void> {
+  // Use bash -s to avoid zsh glob issues with php*-fpm patterns
+  const checkScript = `ls /run/php/php*-fpm.sock 2>/dev/null | head -1`;
+  const check = await sshExecWithStdin(alias, "bash -s", checkScript, 10_000);
+  if (check.stdout.trim()) return;
+
+  lines.push("PHP-FPM not found. Installing...");
+  const installScript = `set -e
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;' 2>/dev/null || echo "")
+if [ -z "$PHP_VER" ]; then
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq php-fpm 2>&1
+else
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq "php\${PHP_VER}-fpm" 2>&1
+fi
+PHP_SVC=$(systemctl list-unit-files | grep 'php.*fpm' | awk '{print $1}' | head -1)
+if [ -n "$PHP_SVC" ]; then
+  sudo systemctl enable "$PHP_SVC"
+  sudo systemctl start "$PHP_SVC"
+fi`;
+  const install = await sshExecWithStdin(
+    alias,
+    "bash -s",
+    installScript,
+    180_000
+  );
+  if (install.exitCode === 0) {
+    lines.push("PHP-FPM installed.");
+  } else {
+    lines.push(`PHP-FPM install warning: ${install.stderr}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -381,19 +514,8 @@ async function deployDocker(config: DeployConfig): Promise<DeployResult> {
   }
   lines.push("Containers started.");
 
-  // 5. Health check
-  await sshExec(alias, "sleep 3", 10_000);
-  const health = await sshExec(
-    alias,
-    `curl -sf -o /dev/null -w '%{http_code}' http://localhost:${port}/ 2>/dev/null || echo UNREACHABLE`,
-    15_000
-  );
-  const status = health.stdout.trim();
-  lines.push(
-    status === "UNREACHABLE" || !status
-      ? `Health check: port ${port} not responding yet (app may still be starting).`
-      : `Health check: HTTP ${status} on port ${port}.`
-  );
+  // 5. Health check with retry
+  await waitForPort(alias, port, lines);
 
   // 6. Domain setup using toolbox scripts
   const domainResult = await setupServiceDomain(
@@ -489,7 +611,10 @@ CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${po
   }
   lines.push("Containers started.");
 
-  // 5. Domain setup using toolbox scripts
+  // 5. Health check with retry
+  await waitForPort(alias, port, lines);
+
+  // 6. Domain setup using toolbox scripts
   const domainResult = await setupServiceDomain(
     alias,
     config.domainType,
@@ -607,6 +732,33 @@ async function findFreePort(
   let port = basePort;
   while (usedPorts.has(port)) port++;
   return port;
+}
+
+/**
+ * Wait for a port to respond on the server (retry with backoff).
+ */
+async function waitForPort(
+  alias: string,
+  port: number,
+  lines: string[],
+  maxRetries = 5
+): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    const delay = i === 0 ? 3 : 5;
+    await sshExec(alias, `sleep ${delay}`, delay * 1000 + 5000);
+    const health = await sshExec(
+      alias,
+      `curl -sf -o /dev/null -w '%{http_code}' http://localhost:${port}/ 2>/dev/null || echo UNREACHABLE`,
+      15_000
+    );
+    const status = health.stdout.trim();
+    if (status && status !== "UNREACHABLE") {
+      lines.push(`Health check: HTTP ${status} on port ${port}.`);
+      return true;
+    }
+  }
+  lines.push(`Health check: port ${port} not responding after ${maxRetries} retries.`);
+  return false;
 }
 
 function err(lines: string[], error: string): DeployResult {

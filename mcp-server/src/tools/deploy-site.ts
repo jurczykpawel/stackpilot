@@ -25,6 +25,7 @@ export const deploySiteTool = {
     "- nextjs: package.json + next.config.* → Docker (may need build first)\n" +
     "- node: package.json with start script → PM2 process manager\n" +
     "- python: requirements.txt or pyproject.toml → auto-generated Docker\n" +
+    "- php: index.php or .php files → deploy via Caddy + PHP-FPM\n" +
     "- static: index.html or HTML/CSS/JS files → instant deploy via Caddy/nginx\n\n" +
     "Static sites use the 'Tiiny.host Killer' fast path: if static hosting already exists " +
     "(FileBrowser or add-static-hosting.sh), files are synced to /var/www/public/ and are live instantly.\n\n" +

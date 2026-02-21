@@ -123,6 +123,7 @@ Applications are located in `apps/<name>/install.sh`:
 | `deploy.sh` | Install applications | `./local/deploy.sh APP [options]` |
 | `dns-add.sh` | Add Cloudflare DNS record | `./local/dns-add.sh DOMAIN [SSH]` |
 | `add-static-hosting.sh` | Static file hosting | `./local/add-static-hosting.sh DOMAIN [SSH] [DIR] [PORT]` |
+| `add-php-hosting.sh` | PHP site hosting | `./local/add-php-hosting.sh DOMAIN [SSH] [DIR]` |
 | `setup-backup.sh` | Configure backups | `./local/setup-backup.sh [SSH]` |
 | `restore.sh` | Restore from backup | `./local/restore.sh [SSH]` |
 | `setup-cloudflare.sh` | Configure Cloudflare API | `./local/setup-cloudflare.sh` |
@@ -206,6 +207,20 @@ A simple rsync wrapper for quick file transfers. Ideal for:
 ./local/add-static-hosting.sh static.example.com
 ./local/add-static-hosting.sh cdn.example.com vps /var/www/assets 8097
 ```
+
+---
+
+### add-php-hosting.sh - PHP Hosting
+
+```bash
+./local/add-php-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY]
+
+# Examples:
+./local/add-php-hosting.sh app.example.com
+./local/add-php-hosting.sh app.example.com vps /var/www/app
+```
+
+Deploys Caddy + PHP-FPM on the host. Auto-installs both if missing.
 
 ---
 

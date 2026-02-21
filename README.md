@@ -5,6 +5,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Apps: 25+](https://img.shields.io/badge/Apps-25%2B-blue)
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
+[![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
 [Docs](docs/) | [Issues](https://github.com/jurczykpawel/stackpilot/issues) | [MCP Docs](https://modelcontextprotocol.io/)
 
@@ -30,8 +31,21 @@ cd stackpilot
 
 ---
 
+## Who Is This For?
+
+**Solopreneurs, freelancers, and small teams** who:
+
+- Pay for Zapier, Mailchimp, Airtable, Typeform and watch bills grow with every contact
+- Want data on **their own server** — not in someone else's cloud
+- Prefer a one-time setup investment over endless monthly subscriptions
+- Need **leverage** — automation that runs 24/7 without per-execution fees
+
+---
+
 ## Table of Contents
 
+- [Why StackPilot?](#why-stackpilot)
+- [Who Is This For?](#who-is-this-for)
 - [Apps](#apps)
 - [How It Works Together](#how-it-works-together)
 - [Quick Start](#quick-start)
@@ -46,6 +60,9 @@ cd stackpilot
 - [Contributing](#contributing)
 - [Support](#support)
 - [Repository Structure](#repository-structure)
+- [Tech Stack](#tech-stack)
+- [Star History](#star-history)
+- [Acknowledgments](#acknowledgments)
 - [Author](#author)
 - [License](#license)
 
@@ -371,7 +388,7 @@ ssh vps 'docker stats --no-stream'
 ## FAQ
 
 **What VPS providers are supported?**
-Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH.
+Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH. If you use [Mikrus](https://mikr.us) (a cheap Polish VPS), check out [Mikrus Toolbox](https://github.com/jurczykpawel/mikrus-toolbox) -- the Polish-language sibling project with built-in Mikrus integration (free subdomains, shared databases, one-click API setup).
 
 **How much RAM do I need?**
 512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 8GB+.
@@ -398,6 +415,8 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 
 ## Roadmap
 
+### Completed
+
 - [x] 25+ production-optimized app deployments
 - [x] CLI deploy with interactive prompts
 - [x] MCP server for AI-driven deployment
@@ -406,6 +425,14 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 - [x] Encrypted backups to Google Drive / Dropbox / S3
 - [x] WordPress multi-instance support with shared Redis
 - [x] Windows support (PowerShell SSH setup)
+
+### In Progress
+
+- [ ] Static and PHP hosting support (`add-static-hosting.sh`, `add-php-hosting.sh`)
+- [ ] Feature parity with [Mikrus Toolbox](https://github.com/jurczykpawel/mikrus-toolbox)
+
+### Planned
+
 - [ ] Web dashboard for server overview
 - [ ] One-click app updates with rollback
 - [ ] Multi-server management
@@ -428,6 +455,7 @@ If you run into issues or have questions:
 
 - **Bug reports and feature requests**: [GitHub Issues](https://github.com/jurczykpawel/stackpilot/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jurczykpawel/stackpilot/discussions)
+- **Security**: Found a vulnerability? Do not open a public issue. Use [GitHub Security Advisories](https://github.com/jurczykpawel/stackpilot/security/advisories/new).
 
 ---
 
@@ -442,6 +470,35 @@ docs/            -> Documentation (Cloudflare, backups, SSH tunnels, CLI referen
 ```
 
 Configuration is stored in `~/.config/stackpilot/`.
+
+---
+
+## Tech Stack
+
+| Technology | Role |
+| :--- | :--- |
+| **Bash** | Install scripts, deploy, backup, diagnostics |
+| **Docker / Docker Compose** | Application containerization |
+| **Caddy** | Reverse proxy with automatic HTTPS (Let's Encrypt) |
+| **TypeScript** | MCP server (Model Context Protocol) |
+| **SSH / rsync** | Remote server management and file sync |
+| **Cloudflare API** | Automatic DNS configuration |
+| **rclone** | Encrypted cloud backups (Google Drive, Dropbox, S3) |
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=jurczykpawel/stackpilot&type=Date)](https://star-history.com/#jurczykpawel/stackpilot&Date)
+
+---
+
+## Acknowledgments
+
+- [Caddy](https://caddyserver.com/) — Reverse proxy with automatic HTTPS
+- [Docker](https://www.docker.com/) — Containerization that makes it all possible
+- [Model Context Protocol](https://modelcontextprotocol.io/) — The standard for AI tool integration
+- All the open-source app creators whose software this toolkit deploys
 
 ---
 

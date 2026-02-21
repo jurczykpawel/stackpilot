@@ -44,7 +44,16 @@ echo ""
 echo "Mode: Caddy file_server"
 
 # Create directory
-server_exec "sudo mkdir -p '$WEB_ROOT' && sudo chown -R 1000:1000 '$WEB_ROOT' && sudo chmod -R o+rX '$WEB_ROOT'"
+server_exec "sudo mkdir -p '$WEB_ROOT' && sudo chown -R \$(whoami) '$WEB_ROOT' && sudo chmod -R o+rX '$WEB_ROOT'"
+
+# Install Caddy if missing
+if ! server_exec "command -v sp-expose >/dev/null 2>&1"; then
+    echo "Installing Caddy + sp-expose..."
+    server_exec "bash -s" < "$SCRIPT_DIR/../system/caddy-install.sh" || { echo "Caddy install failed"; exit 1; }
+    echo "Caddy installed"
+else
+    echo "Caddy already installed"
+fi
 
 # Configure DNS via Cloudflare if available
 if [ -f "$SCRIPT_DIR/dns-add.sh" ]; then

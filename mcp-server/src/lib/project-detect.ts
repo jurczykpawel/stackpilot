@@ -7,6 +7,7 @@ export type ProjectType =
   | "nextjs"
   | "node"
   | "python"
+  | "php"
   | "static"
   | "unknown";
 
@@ -236,7 +237,49 @@ export function detectProject(projectPath: string): ProjectAnalysis {
     };
   }
 
-  // 5. Static HTML
+  // 5. PHP
+  if (hasFile(projectPath, "index.php")) {
+    files.push("index.php");
+    return {
+      type: "php",
+      strategy: "static",
+      files,
+      totalFiles: count,
+      totalSizeKB: sizeKB,
+      port: null,
+      startCommand: null,
+      buildRequired: false,
+      buildHint: null,
+      warnings,
+      summary: `PHP site (${count} files, ${sizeKB}KB). Deploy via Caddy + PHP-FPM.`,
+    };
+  }
+
+  // 5b. Check for any .php files in root directory
+  try {
+    const entries = readdirSync(projectPath);
+    const phpFiles = entries.filter((f) => f.endsWith(".php"));
+    if (phpFiles.length > 0) {
+      files.push(...phpFiles.slice(0, 3));
+      return {
+        type: "php",
+        strategy: "static",
+        files,
+        totalFiles: count,
+        totalSizeKB: sizeKB,
+        port: null,
+        startCommand: null,
+        buildRequired: false,
+        buildHint: null,
+        warnings,
+        summary: `PHP site with ${phpFiles.length} PHP file(s) (${sizeKB}KB). Deploy via Caddy + PHP-FPM.`,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 6. Static HTML
   if (hasFile(projectPath, "index.html")) {
     files.push("index.html");
     return {
@@ -254,7 +297,7 @@ export function detectProject(projectPath: string): ProjectAnalysis {
     };
   }
 
-  // 5b. Check if directory has any HTML files
+  // 6b. Check if directory has any HTML files
   try {
     const entries = readdirSync(projectPath);
     const htmlFiles = entries.filter((f) => f.endsWith(".html"));
