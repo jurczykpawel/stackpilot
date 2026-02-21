@@ -22,7 +22,7 @@
 #   - no-new-privileges
 #   - Resource limits (128MB RAM, 1 CPU)
 #   - Non-root user
-#   - Custom seccomp profile
+#   - Docker default seccomp profile
 #   - No Docker socket mount
 
 set -e
@@ -281,93 +281,10 @@ fi
 echo ""
 
 # =============================================================================
-# 2. CREATE SECCOMP PROFILE
-# =============================================================================
-
-echo "🔒 Creating seccomp profile..."
-
-cat <<'SECCOMPEOF' | sudo tee "$STACK_DIR/seccomp-profile.json" > /dev/null
-{
-  "defaultAction": "SCMP_ACT_ERRNO",
-  "archMap": [
-    {
-      "architecture": "SCMP_ARCH_X86_64",
-      "subArchitectures": [
-        "SCMP_ARCH_X86",
-        "SCMP_ARCH_X32"
-      ]
-    },
-    {
-      "architecture": "SCMP_ARCH_AARCH64",
-      "subArchitectures": [
-        "SCMP_ARCH_ARM"
-      ]
-    }
-  ],
-  "syscalls": [
-    {
-      "names": [
-        "accept",
-        "accept4",
-        "bind",
-        "brk",
-        "clock_gettime",
-        "clock_nanosleep",
-        "clone",
-        "close",
-        "connect",
-        "epoll_create1",
-        "epoll_ctl",
-        "epoll_pwait",
-        "epoll_wait",
-        "exit",
-        "exit_group",
-        "fcntl",
-        "fstat",
-        "futex",
-        "getdents64",
-        "getpeername",
-        "getpid",
-        "getrandom",
-        "getsockname",
-        "getsockopt",
-        "gettid",
-        "listen",
-        "lseek",
-        "madvise",
-        "mmap",
-        "mprotect",
-        "munmap",
-        "nanosleep",
-        "newfstatat",
-        "openat",
-        "pipe2",
-        "pread64",
-        "read",
-        "recvfrom",
-        "recvmsg",
-        "rt_sigaction",
-        "rt_sigprocmask",
-        "rt_sigreturn",
-        "sched_getaffinity",
-        "sched_yield",
-        "sendmsg",
-        "sendto",
-        "set_robust_list",
-        "setsockopt",
-        "sigaltstack",
-        "socket",
-        "tgkill",
-        "write",
-        "writev"
-      ],
-      "action": "SCMP_ACT_ALLOW"
-    }
-  ]
-}
-SECCOMPEOF
-
-echo "✅ Seccomp profile created"
+# NOTE: We use Docker's default seccomp profile (blocks ~44 dangerous syscalls:
+# reboot, mount, swapon, ptrace, etc.). A custom profile requires maintaining
+# per-kernel syscall lists and breaks compatibility with newer kernels.
+# Combined with cap_drop ALL + no-new-privileges, isolation is robust.
 
 # =============================================================================
 # 3. CREATE DOCKER COMPOSE
@@ -409,7 +326,6 @@ services:
     # --- SECURITY: prevent privilege escalation ---
     security_opt:
       - no-new-privileges:true
-      - seccomp=./seccomp-profile.json
 
     # --- SECURITY: resource limits ---
     deploy:
@@ -522,7 +438,7 @@ echo "🔒 Security hardening applied:"
 echo "   • Read-only filesystem"
 echo "   • All Linux capabilities dropped"
 echo "   • no-new-privileges enabled"
-echo "   • Custom seccomp profile (minimal syscalls)"
+echo "   • Docker default seccomp profile (blocks ~44 dangerous syscalls)"
 echo "   • Resource limits: 128MB RAM, 1 CPU"
 echo "   • Non-root user (UID 1000)"
 echo "   • Process limit: 64"
