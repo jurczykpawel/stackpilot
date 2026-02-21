@@ -106,6 +106,7 @@ Applications are located in `apps/<name>/install.sh`:
 | **gotenberg** | Document conversion API (PDF) | - | 3000 |
 | **cookie-hub** | Consent management (GDPR) | - | 8091 |
 | **littlelink** | Link page (simpler alternative) | - | 8090 |
+| **social-media-generator** | Social media graphics from templates | PostgreSQL | 8000 |
 | **mcp-docker** | MCP server for Docker management | - | - |
 
 *PostgreSQL with an asterisk requires `gen_random_uuid()` (PG 13+). Applies to: n8n, umami, listmonk, typebot, postiz. Use `bundled` or a dedicated database (PG 13+).
