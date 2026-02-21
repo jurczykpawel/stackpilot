@@ -6,6 +6,7 @@
 # Author: Paweł (Lazy Engineer)
 #
 # IMAGE_SIZE_MB=400  # nocodb/nocodb:latest (Node.js app ~400MB)
+# DB_OPTIONAL=true
 #
 # Required environment variables (passed by deploy.sh):
 #   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS (optional - without them uses SQLite)

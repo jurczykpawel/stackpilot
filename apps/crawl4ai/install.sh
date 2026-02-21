@@ -71,7 +71,6 @@ services:
   crawl4ai:
     image: unclecode/crawl4ai:latest
     restart: always
-    user: "1000:1000"
     ports:
       - "${BIND_ADDR}$PORT:11235"
     environment:
