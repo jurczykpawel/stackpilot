@@ -129,7 +129,7 @@ services:
     image: redis:alpine
     restart: always
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     command: redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru --save 60 1 --loglevel warning
     volumes:
       - ./data:/data
@@ -283,7 +283,34 @@ if [ "$WP_DB_MODE" = "sqlite" ]; then
                 "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration" 2>/dev/null || true
         sudo cp "$STACK_DIR/wp-content/mu-plugins/sqlite-database-integration/db.copy" \
                 "$STACK_DIR/wp-content/db.php"
+        # Fix: db.copy has fallback to plugins/ but plugin is in mu-plugins/
+        sudo sed -i 's|/plugins/sqlite-database-integration|/mu-plugins/sqlite-database-integration|g' "$STACK_DIR/wp-content/db.php"
         echo "✅ SQLite plugin installed"
+
+        # Pre-generate wp-config.php (WordPress requires it BEFORE start for SQLite)
+        echo "⚙️  Generating wp-config.php for SQLite..."
+        {
+            echo '<?php'
+            echo "define('DB_NAME', 'wordpress');"
+            echo "define('DB_USER', '');"
+            echo "define('DB_PASSWORD', '');"
+            echo "define('DB_HOST', '');"
+            echo "define('DB_CHARSET', 'utf8mb4');"
+            echo "define('DB_COLLATE', '');"
+            echo ""
+            for KEY in AUTH_KEY SECURE_AUTH_KEY LOGGED_IN_KEY NONCE_KEY AUTH_SALT SECURE_AUTH_SALT LOGGED_IN_SALT NONCE_SALT; do
+                SALT=$(openssl rand -base64 48 | tr -d '\n')
+                echo "define('$KEY', '$SALT');"
+            done
+            echo ""
+            echo '$table_prefix = '"'"'wp_'"'"';'
+            echo "define('WP_DEBUG', false);"
+            echo ""
+            echo "if (!defined('ABSPATH')) { define('ABSPATH', __DIR__ . '/'); }"
+            echo "require_once ABSPATH . 'wp-settings.php';"
+        } | sudo tee "$STACK_DIR/wp-config.php" > /dev/null
+        sudo chown 82:82 "$STACK_DIR/wp-config.php"
+        echo "✅ wp-config.php generated"
     else
         echo "❌ Failed to download SQLite plugin"
         rm -f "$TEMP_ZIP"
@@ -603,6 +630,12 @@ else
       - \"host-gateway:host-gateway\""
 fi
 
+# SQLite: mount pre-generated wp-config.php (must exist before WP starts)
+WP_CONFIG_VOLUME=""
+if [ "$WP_DB_MODE" = "sqlite" ]; then
+    WP_CONFIG_VOLUME="      - ./wp-config.php:/var/www/html/wp-config.php"
+fi
+
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   wordpress:
@@ -616,6 +649,7 @@ $WP_ENV_BLOCK
       - ./config/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
       - ./nginx-cache:/var/cache/nginx
       - ${APP_NAME}-html:/var/www/html
+$WP_CONFIG_VOLUME
     tmpfs:
       - /tmp:size=128M,mode=1777
 $WP_DEPENDS
@@ -793,7 +827,8 @@ log "   ✅ Generated wp-config-performance.php"
 
 # Add require_once to wp-config.php (one-time)
 if ! docker exec "$CONTAINER" grep -q "wp-config-performance.php" "$WP_CONFIG"; then
-    docker exec "$CONTAINER" sed -i '/^<?php/a\require_once __DIR__ . "/wp-config-performance.php";' "$WP_CONFIG"
+    # sed -i doesn't work on bind-mounted files (Resource busy) — use sed + tee
+    docker exec "$CONTAINER" sh -c "sed '/^<?php/a\require_once __DIR__ . \"/wp-config-performance.php\";' \"$WP_CONFIG\" > /tmp/wp-config-tmp.php && cat /tmp/wp-config-tmp.php > \"$WP_CONFIG\" && rm /tmp/wp-config-tmp.php"
     log "   ✅ Added require_once to wp-config.php"
 else
     log "   ℹ️  require_once already exists in wp-config.php"
