@@ -190,6 +190,22 @@ get_wordpress_rules() {
       }
     },
     {
+      "expression": "(not http.request.uri.path matches \"^/wp-\" and http.request.method eq \"GET\" and not http.cookie contains \"wordpress_logged_in\" and not http.cookie contains \"woocommerce_cart_hash\")",
+      "description": "Cache WordPress HTML pages on CF edge (24h)",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "override_origin",
+          "default": 86400
+        },
+        "browser_ttl": {
+          "mode": "override_origin",
+          "default": 300
+        }
+      }
+    },
+    {
       "expression": "(http.request.uri.path matches \"^/wp-content/uploads/.*\" or http.request.uri.path matches \"^/wp-includes/.*\")",
       "description": "Cache WordPress media and core static (1 year)",
       "action": "set_cache_settings",
