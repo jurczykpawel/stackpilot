@@ -76,6 +76,17 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-5000}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT:-8080}
 
+# Auto-increment Temporal UI port jeśli zajęty (np. NocoDB na 8080)
+if ss -tlnp 2>/dev/null | grep -q ":${TEMPORAL_UI_PORT} "; then
+    for p in $(seq $((TEMPORAL_UI_PORT + 1)) $((TEMPORAL_UI_PORT + 20))); do
+        if ! ss -tlnp 2>/dev/null | grep -q ":${p} "; then
+            echo "⚠️  Port $TEMPORAL_UI_PORT (Temporal UI) zajęty — używam $p"
+            TEMPORAL_UI_PORT=$p
+            break
+        fi
+    done
+fi
+
 echo "--- 📱 Postiz Setup ---"
 echo "AI-powered social media scheduler (latest + Temporal)."
 echo ""
