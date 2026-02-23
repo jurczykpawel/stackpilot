@@ -165,11 +165,31 @@ PicoClaw v0.1.2 config has three sections:
 }
 ```
 
-## Choosing a Model -- What Works and What Doesn't
+## Choosing a Model
 
-PicoClaw is an **agent with tools** (tool use / function calling). Most free models do NOT support tool use, so not every model will work.
+PicoClaw is an **agent with tools** (tool use / function calling). The model must support tool use -- not all of them do.
 
-### Recommended: OpenRouter auto-router (free, zero config)
+### Paid models (recommended -- just work)
+
+Paid models have full tool use support, no rate limits, and best quality. Via OpenRouter (one API, one account) you get access to all of them:
+
+| Model | Cost ~100 messages | Best for |
+|-------|-------------------|----------|
+| `anthropic/claude-sonnet-4-20250514` | ~$0.30 | Best quality, great multilingual |
+| `openai/gpt-4o` | ~$0.25 | Fast, good all-around |
+| `google/gemini-2.0-flash` | ~$0.03 | Ultra cheap, fast, good quality |
+| `qwen/qwen3.5-397b-a17b` | ~$0.10 | Cheap, 262k context, multimodal |
+
+```json
+{
+  "agents": { "defaults": { "model": "google/gemini-2.0-flash" } },
+  "providers": { "openrouter": { "api_key": "sk-or-...", "api_base": "https://openrouter.ai/api/v1" } }
+}
+```
+
+Gemini Flash offers the best quality/price ratio -- ~$0.03 per 100 messages, full tool use, fast.
+
+### Free models -- OpenRouter auto-router
 
 ```json
 {
@@ -178,9 +198,9 @@ PicoClaw is an **agent with tools** (tool use / function calling). Most free mod
 }
 ```
 
-The auto-router picks the best available free model with tool use support. Sign up at [openrouter.ai](https://openrouter.ai) -- no credit card required.
+The auto-router picks the best available free model with tool use support. Sign up at [openrouter.ai](https://openrouter.ai) -- no credit card required. Downside: free models can be rate-limited during peak hours.
 
-### Alternative: Groq (ultra fast, free)
+### Free models -- Groq (ultra fast)
 
 ```json
 {
@@ -189,9 +209,21 @@ The auto-router picks the best available free model with tool use support. Sign 
 }
 ```
 
-Sign up at [console.groq.com](https://console.groq.com) -- no credit card required.
+Sign up at [console.groq.com](https://console.groq.com) -- no credit card required. Ultra fast responses but limited token quotas.
 
-### Models that DO NOT work with PicoClaw
+### Free models -- what works, what doesn't
+
+PicoClaw sends ~3.5k tokens per request (system prompt + 13 tools). Many free models lack tool use support or have token limits too low.
+
+**Working free models:**
+
+| Model | Provider | Notes |
+|-------|----------|-------|
+| `openrouter/auto` | OpenRouter | ✅ Easiest -- auto-picks the best model |
+| `groq/openai/gpt-oss-20b` | Groq | ✅ Fast, good quality |
+| `groq/meta-llama/llama-4-scout-17b-16e-instruct` | Groq | ✅ Fast, lower quality |
+
+**Models that DO NOT work:**
 
 | Model | Problem |
 |-------|---------|
@@ -199,18 +231,7 @@ Sign up at [console.groq.com](https://console.groq.com) -- no credit card requir
 | `nousresearch/hermes-3-llama-3.1-405b:free` | No tool use on free tier |
 | `groq/meta-llama/llama-4-maverick-*` | Too large for Groq free tier (needs 13k+ TPM, limit is 6k) |
 | `groq/moonshotai/kimi-k2-instruct` | Too large for Groq free tier |
-| `groq/llama-3.3-70b-versatile` | Broken tool calling format (generates XML instead of JSON) |
-
-### Groq free tier limitations
-
-Groq free tier has a **6-12k tokens per minute (TPM)** limit. PicoClaw sends ~3.5k tokens per request (system prompt + 13 tools). Only small models fit:
-
-| Model | Status |
-|-------|--------|
-| `groq/openai/gpt-oss-20b` | ✅ Works -- smartest model that fits the limit |
-| `groq/meta-llama/llama-4-scout-17b-16e-instruct` | ✅ Works -- fast but less intelligent |
-| `groq/qwen/qwen3-32b` | ❌ Rate limited (6k TPM) |
-| `groq/meta-llama/llama-4-maverick-*` | ❌ Rate limited (needs 13k+) |
+| `groq/llama-3.3-70b-versatile` | Broken tool calling format (XML instead of JSON) |
 
 ### Multiple configs (quick switching)
 
