@@ -36,6 +36,7 @@ set -e
 APP_NAME="postiz"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-5000}
+TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT:-8080}
 
 echo "--- 📱 Postiz Setup ---"
 echo "AI-powered social media scheduler (latest + Temporal)."
@@ -275,7 +276,7 @@ services:
 $POSTIZ_DEPENDS
 $POSTIZ_EXTRA_HOSTS
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -359,7 +360,7 @@ $POSTIZ_REDIS_SERVICE
     networks:
       - temporal-network
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:$TEMPORAL_UI_PORT:8080"
     depends_on:
       - temporal
     deploy:
