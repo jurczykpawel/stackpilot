@@ -237,6 +237,9 @@ echo ""
 # =============================================================================
 
 sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache,redis-data}
+# Nginx requires these directories for buffering uploads (e.g. plugin install)
+sudo mkdir -p "$STACK_DIR"/nginx-cache/{client_temp,proxy_temp,fastcgi_temp,uwsgi_temp,scgi_temp}
+sudo chown -R 101:101 "$STACK_DIR"/nginx-cache
 cd "$STACK_DIR"
 
 # Save Redis config for wp-init.sh
@@ -913,7 +916,7 @@ else
 fi
 
 if [ -d "$STACK_DIR/nginx-cache" ]; then
-    rm -rf "$STACK_DIR/nginx-cache"/*
+    find "$STACK_DIR/nginx-cache" -mindepth 1 -maxdepth 1 ! -name '*_temp' -exec rm -rf {} +
     log "   ✅ FastCGI cache cleared"
 fi
 
@@ -927,7 +930,7 @@ cat <<'CACHEEOF' | sudo tee "$STACK_DIR/flush-cache.sh" > /dev/null
 #!/bin/bash
 # Clear Nginx FastCGI cache (after content/plugin updates)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-rm -rf "$SCRIPT_DIR/nginx-cache"/*
+find "$SCRIPT_DIR/nginx-cache" -mindepth 1 -maxdepth 1 ! -name '*_temp' -exec rm -rf {} +
 docker compose -f "$SCRIPT_DIR/docker-compose.yaml" exec nginx nginx -s reload 2>/dev/null || true
 echo "✅ FastCGI cache cleared"
 CACHEEOF
