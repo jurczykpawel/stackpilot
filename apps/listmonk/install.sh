@@ -120,6 +120,11 @@ volumes:
   db-data:
 DBEOF
     fi
+
+    # Start DB first so migrations can connect
+    sudo docker compose up -d db
+    echo "Waiting for database to start..."
+    sleep 5
 fi
 
 # 1. Run Install (Migrate DB)
@@ -142,6 +147,17 @@ else
     fi
 fi
 
+# Enable daily database vacuum (prevents DB bloat)
+echo "Enabling daily database vacuum..."
+VACUUM_SQL="UPDATE settings SET value='{\"vacuum\": true, \"vacuum_cron_interval\": \"0 2 * * *\"}' WHERE key='maintenance.db';"
+{
+    if [ -n "$BUNDLED_DB_TYPE" ]; then
+        sudo docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -c "$VACUUM_SQL"
+    else
+        PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "$VACUUM_SQL"
+    fi
+} >/dev/null 2>&1 && echo "✅ Daily vacuum enabled (2:00 AM)" || echo "⚠️  Could not enable vacuum — configure in Settings → Maintenance"
+
 # Caddy/HTTPS - configure reverse proxy if domain is set
 if [ -n "$DOMAIN" ]; then
     if command -v sp-expose &> /dev/null; then
@@ -160,3 +176,6 @@ else
 fi
 echo "Default user: admin / listmonk"
 echo "👉 CONFIGURE YOUR SMTP SERVER IN SETTINGS TO SEND EMAILS."
+echo ""
+echo "📧 After configuring SMTP — set up sending domains (DKIM, DMARC, bounce):"
+echo "   ./local/setup-listmonk-mail.sh yourdomain.com"

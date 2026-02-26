@@ -86,6 +86,61 @@ Listmonk does not send emails by itself - you need an SMTP server:
 
 ---
 
+## Sending Domain Setup (DKIM, DMARC, bounce)
+
+After configuring SMTP, run the domain setup script:
+
+```bash
+# Full setup: DNS + Listmonk API + restart
+./local/setup-listmonk-mail.sh example.com shop.example.com \
+    --listmonk-url=https://newsletter.example.com --ssh=vps
+
+# DNS only (without Listmonk configuration) — works with any mailer
+./local/setup-mail-domain.sh example.com shop.example.com
+
+# Audit only — no changes
+./local/setup-mail-domain.sh example.com --dry-run
+```
+
+**`setup-mail-domain.sh`** — universal DNS script (works with any mailer):
+
+| Element | What it does | Why it matters |
+|---|---|---|
+| **SPF** | Audits existing records | Without SPF emails are rejected |
+| **DKIM** | Adds records from SES/EmailLabs/other to Cloudflare | Without DKIM emails land in spam |
+| **DMARC** | Adds policy + cross-domain auth records | Protects against spoofing |
+| **Bounce guide** | SNS instructions (if --webhook-url provided) | Without this SES may suspend your account |
+
+**`setup-listmonk-mail.sh`** — wrapper: calls the above + adds:
+
+| Element | What it does |
+|---|---|
+| **Bounce handling** | PUT /api/settings — SES webhook ON, count=1, action=blocklist |
+| **Notifications** | PUT /api/settings — notification emails |
+| **Restart** | docker compose restart via --ssh=ALIAS |
+
+Requires prior Cloudflare configuration (`./local/setup-cloudflare.sh`) for automatic DNS record creation.
+
+### Manual configuration
+
+If you prefer not to use the script, add manually in Cloudflare DNS:
+
+**DKIM (for each domain, from SES/EmailLabs panel):**
+- 3 CNAME records from the SES console (Authentication -> DKIM)
+- 1 CNAME/TXT record from the EmailLabs panel
+
+**DMARC (for each domain):**
+```
+_dmarc.yourdomain.com  TXT  "v=DMARC1; p=none; rua=mailto:dmarc-reports@yourdomain.com"
+```
+
+**Bounce handling:**
+1. AWS SNS -> topic `listmonk-bounces` -> subscription HTTPS -> `https://YOUR-LISTMONK/webhooks/service/ses`
+2. AWS SES -> each domain -> Notifications -> Bounce + Complaint -> topic `listmonk-bounces`
+3. Listmonk -> Settings -> Bounces -> Enable SES, count=1, action=blocklist
+
+---
+
 ## Integration with n8n
 
 After a purchase in GateFlow or a conversation in Typebot, you can automatically add people to Listmonk.

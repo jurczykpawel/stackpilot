@@ -519,3 +519,5 @@ MIT -- see [LICENSE](LICENSE) for details.
 ---
 
 *Self-hosted infrastructure toolkit. Deploy 28+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+
+![](https://stats.techskills.academy/pixels/github?url=/readme/stackpilot)
