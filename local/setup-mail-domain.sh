@@ -35,6 +35,7 @@ CF_TOKEN=""
 DKIM_ADDED_NAMES=()
 DMARC_ADDED=false
 DMARC_REPORT_EMAIL=""
+SPF_RAW=()
 
 # ─── Parsowanie argumentów ──────────────────────────────────
 
@@ -49,11 +50,12 @@ for arg in "$@"; do
             echo "Działa z dowolnym mailerem — Listmonk, Mautic, WordPress, własny."
             echo ""
             echo "Co robi:"
-            echo "  1. Audyt DNS — sprawdza SPF, DKIM (via Cloudflare API), DMARC"
+            echo "  0. Audyt DNS — sprawdza SPF, DKIM (via Cloudflare API), DMARC"
+            echo "  1. SPF — proponuje include'y na podstawie dostawcy SMTP"
             echo "  2. DKIM — prowadzi przez dodanie rekordów z SES/EmailLabs/innego"
             echo "  3. DMARC — dodaje politykę ochrony + cross-domain auth records"
-            echo "  4. Weryfikacja DNS — sprawdza propagację"
-            echo "  5. Bounce handling — instrukcje SNS (jeśli --webhook-url)"
+            echo "  4. Bounce handling — instrukcje SNS (jeśli --webhook-url)"
+            echo "  5. Weryfikacja DNS — sprawdza propagację"
             echo ""
             echo "Opcje:"
             echo "  --webhook-url=URL   URL webhooka bounce (np. .../webhooks/service/ses)"
@@ -95,6 +97,25 @@ check_spf() {
     else
         echo "WEAK"
     fi
+}
+
+get_spf_raw() {
+    local domain="$1"
+    dig TXT "$domain" +short 2>/dev/null | tr -d '"' | grep -i 'v=spf1' || true
+}
+
+# Mapa: provider → include do SPF
+spf_include_for_provider() {
+    case "$1" in
+        ses)       echo "include:amazonses.com" ;;
+        emaillabs) echo "include:emaillabs.net.pl" ;;
+        google)    echo "include:_spf.google.com" ;;
+        mailgun)   echo "include:mailgun.org" ;;
+        resend)    echo "include:resend.com" ;;
+        brevo)     echo "include:sendinblue.com" ;;
+        postmark)  echo "include:spf.mtasv.net" ;;
+        *)         echo "" ;;
+    esac
 }
 
 check_dmarc() {
@@ -399,6 +420,7 @@ DKIM_EXISTING=()
 for i in "${!DOMAINS[@]}"; do
     domain="${DOMAINS[$i]}"
     SPF_RESULTS[$i]=$(check_spf "$domain")
+    SPF_RAW[$i]=$(get_spf_raw "$domain")
     DMARC_RESULTS[$i]=$(check_dmarc "$domain")
 
     dkim_found=""
@@ -422,6 +444,7 @@ for i in "${!DOMAINS[@]}"; do
         MISSING)  fail "SPF: brak — maile będą odrzucane!" ;;
         *)        warn "SPF: niestandardowe" ;;
     esac
+    [ -n "${SPF_RAW[$i]}" ] && echo "    ${SPF_RAW[$i]}"
 
     if [ "${DKIM_EXISTING[$i]}" = "yes" ]; then
         ok "DKIM: znalezione rekordy _domainkey w Cloudflare"
@@ -442,9 +465,170 @@ for i in "${!DOMAINS[@]}"; do
     echo ""
 done
 
+# ─── SPF ─────────────────────────────────────────────────────
+
+step "Krok 1: SPF — kto może wysyłać maile z Twojej domeny"
+
+echo "SPF to rekord TXT na domenie. Mówi serwerom pocztowym:"
+echo "\"tylko te serwery mogą wysyłać maile z mojej domeny\"."
+echo ""
+
+for i in "${!DOMAINS[@]}"; do
+    domain="${DOMAINS[$i]}"
+    spf_status="${SPF_RESULTS[$i]}"
+    spf_current="${SPF_RAW[$i]}"
+
+    echo -e "  ${BOLD}$domain${NC}"
+
+    if [ "$spf_status" = "OK" ]; then
+        ok "SPF wygląda dobrze: $spf_current"
+        echo ""
+        continue
+    fi
+
+    # Zbierz include'y do dodania
+    echo ""
+    echo "  Jaki SMTP wysyła maile z $domain? (zaznacz wszystkie)"
+    echo "  1) Amazon SES"
+    echo "  2) EmailLabs"
+    echo "  3) Google Workspace"
+    echo "  4) Mailgun"
+    echo "  5) Resend"
+    echo "  6) Brevo (Sendinblue)"
+    echo "  7) Postmark"
+    echo "  8) Inny (podam ręcznie)"
+    echo "  9) Pomiń"
+    echo ""
+
+    if $DRY_RUN; then
+        if [ "$spf_status" = "MISSING" ]; then
+            warn "Brak SPF — trzeba utworzyć rekord"
+        elif [ "$spf_status" = "SOFTFAIL" ]; then
+            warn "SPF używa ~all — zalecane -all"
+        fi
+        echo "     Uruchom bez --dry-run żeby skonfigurować"
+        echo ""
+        continue
+    fi
+
+    NEW_INCLUDES=()
+    while true; do
+        read -p "  Wybierz (1-9, można wiele np. '1 2'): " -a choices
+        echo ""
+        for choice in "${choices[@]}"; do
+            case "$choice" in
+                1) NEW_INCLUDES+=("include:amazonses.com") ;;
+                2) NEW_INCLUDES+=("include:emaillabs.net.pl") ;;
+                3) NEW_INCLUDES+=("include:_spf.google.com") ;;
+                4) NEW_INCLUDES+=("include:mailgun.org") ;;
+                5) NEW_INCLUDES+=("include:resend.com") ;;
+                6) NEW_INCLUDES+=("include:sendinblue.com") ;;
+                7) NEW_INCLUDES+=("include:spf.mtasv.net") ;;
+                8)
+                    read -p "  Podaj include (np. include:smtp.example.com): " custom_inc
+                    [ -n "$custom_inc" ] && NEW_INCLUDES+=("$custom_inc")
+                    ;;
+                9) ;;
+            esac
+        done
+        break
+    done
+
+    if [ ${#NEW_INCLUDES[@]} -eq 0 ]; then
+        echo ""
+        continue
+    fi
+
+    # Odfiltruj już istniejące include'y
+    FILTERED_INCLUDES=()
+    for inc in "${NEW_INCLUDES[@]}"; do
+        if [ -n "$spf_current" ] && echo "$spf_current" | grep -q "$inc"; then
+            info "$inc — już w rekordzie"
+        else
+            FILTERED_INCLUDES+=("$inc")
+        fi
+    done
+
+    if [ ${#FILTERED_INCLUDES[@]} -eq 0 ]; then
+        ok "Wszystkie include już są w rekordzie SPF"
+        echo ""
+        continue
+    fi
+
+    # Zbuduj nowy rekord
+    if [ -z "$spf_current" ]; then
+        # Brak SPF — stwórz od zera
+        new_spf="v=spf1 ${FILTERED_INCLUDES[*]} -all"
+    else
+        # Istniejący SPF — wstaw include'y przed ~all/-all/?all
+        base=$(echo "$spf_current" | sed 's/[~\?\+\-]all$//')
+        new_spf="${base}${FILTERED_INCLUDES[*]} -all"
+    fi
+
+    # Normalizuj spacje
+    new_spf=$(echo "$new_spf" | tr -s ' ')
+
+    echo ""
+    echo -e "  ${BOLD}Propozycja zmiany SPF:${NC}"
+    echo ""
+    if [ -n "$spf_current" ]; then
+        echo -e "  ${RED}BYŁO:  $spf_current${NC}"
+    else
+        echo -e "  ${RED}BYŁO:  (brak rekordu)${NC}"
+    fi
+    echo -e "  ${GREEN}NOWY:  $new_spf${NC}"
+    echo ""
+
+    # Ostrzeżenie o liczbie DNS lookups (limit 10)
+    lookup_count=$(echo "$new_spf" | grep -o 'include:' | wc -l | tr -d ' ')
+    if [ "$lookup_count" -gt 8 ]; then
+        warn "Uwaga: $lookup_count include'ów — limit SPF to 10 DNS lookups!"
+    fi
+
+    echo -e "  ${YELLOW}⚠️  SPF to krytyczny rekord — błąd może zablokować WSZYSTKIE maile z domeny!${NC}"
+    echo ""
+    read -p "  Zmienić rekord SPF? (t/N) " -n 1 -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
+        info "Pominięto. Zmień ręcznie w DNS:"
+        echo "     $domain  TXT  \"$new_spf\""
+        echo ""
+        continue
+    fi
+
+    # Drugie potwierdzenie
+    echo ""
+    echo -e "  ${BOLD}${RED}Potwierdzenie — nowy rekord SPF dla $domain:${NC}"
+    echo "  $new_spf"
+    echo ""
+    read -p "  Czy na pewno? Wpisuję TAK żeby potwierdzić: " confirm
+    echo ""
+
+    if [ "$confirm" != "TAK" ]; then
+        info "Anulowano. Zmień ręcznie w DNS:"
+        echo "     $domain  TXT  \"$new_spf\""
+        echo ""
+        continue
+    fi
+
+    if $HAS_CLOUDFLARE; then
+        if cf_add_record "$domain" "TXT" "$domain" "$new_spf"; then
+            ok "SPF zaktualizowany dla $domain"
+        else
+            fail "Nie udało się — zmień ręcznie:"
+            echo "     $domain  TXT  \"$new_spf\""
+        fi
+    else
+        echo "  Zmień w DNS:"
+        echo "  Typ: TXT | Nazwa: $domain | Wartość: $new_spf"
+    fi
+    echo ""
+done
+
 # ─── DKIM ────────────────────────────────────────────────────
 
-step "Krok 1: DKIM — podpis cyfrowy maili"
+step "Krok 2: DKIM — podpis cyfrowy maili"
 
 echo "Każdy dostawca SMTP generuje unikalne rekordy DKIM."
 echo "Trzeba je pobrać z panelu dostawcy i dodać w DNS."
@@ -507,7 +691,7 @@ done
 
 # ─── DMARC ──────────────────────────────────────────────────
 
-step "Krok 2: DMARC — polityka ochrony domeny"
+step "Krok 3: DMARC — polityka ochrony domeny"
 
 echo "DMARC mówi serwerom co robić z mailami bez podpisu."
 echo "Zaczynamy od p=none (monitoring) — zbiera raporty, nic nie blokuje."
@@ -636,7 +820,7 @@ fi
 
 # ─── Bounce handling (SES) ───────────────────────────────────
 
-step "Krok 3: Bounce handling — ochrona reputacji"
+step "Krok 4: Bounce handling — ochrona reputacji"
 
 echo "Bounce handling automatycznie blokuje nieistniejące adresy email."
 echo "Bez tego Amazon SES może zawiesić konto po zbyt wielu bounce'ach."
