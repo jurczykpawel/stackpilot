@@ -9,7 +9,6 @@
 #
 # Optional environment variables:
 #   DOMAIN - domain for Vaultwarden
-#   ADMIN_TOKEN - token for admin panel (if not set, generated automatically)
 
 set -e
 
@@ -31,20 +30,42 @@ else
     echo "⚠️  No domain - using localhost"
 fi
 
-# Admin token
-if [ -z "$ADMIN_TOKEN" ]; then
-    ADMIN_TOKEN=$(openssl rand -hex 32)
-    echo "✅ Admin Token generated"
-else
-    echo "✅ Using Admin Token from configuration"
+# Admin panel (interactive, disabled by default)
+ADMIN_TOKEN_LINE=""
+if [ -z "$YES" ] && [ -t 0 ]; then
+    echo ""
+    read -p "🔐 Enable admin panel /admin? (N/y): " ENABLE_ADMIN
+    if [[ "$ENABLE_ADMIN" =~ ^[yY]$ ]]; then
+        PLAIN_TOKEN=$(openssl rand -hex 32)
+
+        if ! command -v argon2 &>/dev/null; then
+            echo "📦 Installing argon2..."
+            sudo apt-get install -y argon2 > /dev/null 2>&1 || true
+        fi
+
+        if command -v argon2 &>/dev/null; then
+            HASHED_TOKEN=$(echo -n "$PLAIN_TOKEN" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4)
+            ADMIN_TOKEN_LINE="      - ADMIN_TOKEN=$HASHED_TOKEN"
+        else
+            ADMIN_TOKEN_LINE="      - ADMIN_TOKEN=$PLAIN_TOKEN"
+        fi
+
+        echo ""
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║  ⚠️  SAVE THIS TOKEN — IT CANNOT BE RECOVERED!              ║"
+        echo "╠══════════════════════════════════════════════════════════════╣"
+        echo "║  $PLAIN_TOKEN  ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "  Use it to log in at /admin. Only the Argon2 hash is stored"
+        echo "  in docker-compose — save the original yourself (e.g. in Vaultwarden)."
+        echo ""
+        read -p "  Press Enter when you have saved the token..." _
+    fi
 fi
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
-
-# Save admin token for reference
-echo "$ADMIN_TOKEN" | sudo tee .admin_token > /dev/null
-sudo chmod 600 .admin_token
 
 # Set domain URL
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
@@ -53,27 +74,43 @@ else
     DOMAIN_URL="http://localhost:$PORT"
 fi
 
-cat <<EOF | sudo tee docker-compose.yaml > /dev/null
-
+cat <<'COMPOSE' | sudo tee docker-compose.yaml > /dev/null
 services:
   vaultwarden:
     image: vaultwarden/server:latest
     restart: always
     ports:
-      - "$PORT:80"
+      - "PORT_PLACEHOLDER:80"
     environment:
-      - DOMAIN=$DOMAIN_URL
+      - DOMAIN=DOMAIN_PLACEHOLDER
       - SIGNUPS_ALLOWED=true
-      - ADMIN_TOKEN=$ADMIN_TOKEN
       - WEBSOCKET_ENABLED=true
+      # --- Admin panel ---
+      # To enable manually:
+      #   1. Generate token:     openssl rand -hex 32
+      #   2. Hash with Argon2:   echo -n "YOUR_TOKEN" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4
+      #   3. Uncomment and paste hash below: (if no argon2: apt install argon2)
+      #   4. Restart:            docker compose up -d
+      #   5. Log in with the original token (not the hash) at /admin
+      #   6. When done, comment out ADMIN_TOKEN and restart
+      #- ADMIN_TOKEN=$argon2id$v=19$m=65540,t=3,p=4$SALT$HASH
+ADMIN_TOKEN_PLACEHOLDER
     volumes:
       - ./data:/data
     deploy:
       resources:
         limits:
           memory: 128M
+COMPOSE
 
-EOF
+sudo sed -i "s|PORT_PLACEHOLDER|$PORT|" docker-compose.yaml
+sudo sed -i "s|DOMAIN_PLACEHOLDER|$DOMAIN_URL|" docker-compose.yaml
+
+if [ -n "$ADMIN_TOKEN_LINE" ]; then
+    sudo sed -i "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN_LINE|" docker-compose.yaml
+else
+    sudo sed -i "/ADMIN_TOKEN_PLACEHOLDER/d" docker-compose.yaml
+fi
 
 sudo docker compose up -d
 
@@ -107,8 +144,12 @@ else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
-echo "   Admin panel: $DOMAIN_URL/admin"
-echo "   Admin token saved in: $STACK_DIR/.admin_token"
+if [ -n "$ADMIN_TOKEN_LINE" ]; then
+    echo "🔐 Admin panel ENABLED at /admin (Argon2 hash in docker-compose)"
+else
+    echo "🔒 Admin panel DISABLED (default)."
+    echo "   To enable: see $STACK_DIR/docker-compose.yaml (instructions in comments)"
+fi
 echo ""
 echo "📝 Next steps:"
 echo "   1. Create your account in the browser"
