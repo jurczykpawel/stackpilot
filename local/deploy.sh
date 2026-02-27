@@ -30,7 +30,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$REPO_ROOT/lib/cli-parser.sh"
 source "$REPO_ROOT/lib/db-setup.sh"
 source "$REPO_ROOT/lib/domain-setup.sh"
-source "$REPO_ROOT/lib/gateflow-setup.sh" 2>/dev/null || true  # Optional for GateFlow
+source "$REPO_ROOT/lib/sellf-setup.sh" 2>/dev/null || true  # Optional for Sellf
 source "$REPO_ROOT/lib/port-utils.sh"
 
 # =============================================================================
@@ -91,13 +91,13 @@ Examples:
   ./local/deploy.sh n8n --ssh=vps --dry-run
 
   # Update existing application
-  ./local/deploy.sh gateflow --ssh=vps --update
+  ./local/deploy.sh sellf --ssh=vps --update
 
   # Update from local file (when repo is private)
-  ./local/deploy.sh gateflow --ssh=vps --update --build-file=~/Downloads/gateflow-build.tar.gz
+  ./local/deploy.sh sellf --ssh=vps --update --build-file=~/Downloads/sellf-build.tar.gz
 
   # Restart without updating (e.g. after .env change)
-  ./local/deploy.sh gateflow --ssh=vps --update --restart
+  ./local/deploy.sh sellf --ssh=vps --update --restart
 
 EOF
 }
@@ -194,11 +194,11 @@ if ! is_on_server; then
 fi
 
 # =============================================================================
-# LOAD SAVED CONFIGURATION (for GateFlow)
+# LOAD SAVED CONFIGURATION (for Sellf)
 # =============================================================================
 
-GATEFLOW_CONFIG="$HOME/.config/gateflow/deploy-config.env"
-if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
+SELLF_CONFIG="$HOME/.config/sellf/deploy-config.env"
+if [ -f "$SELLF_CONFIG" ] && [[ "$SCRIPT_PATH" == "sellf" ]]; then
     # Preserve CLI values (they take priority over config)
     CLI_SSH_ALIAS="$SSH_ALIAS"
     CLI_DOMAIN="$DOMAIN"
@@ -206,7 +206,7 @@ if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
     CLI_SUPABASE_PROJECT="$SUPABASE_PROJECT"
 
     # Load config
-    source "$GATEFLOW_CONFIG"
+    source "$SELLF_CONFIG"
 
     # Restore CLI values if provided (CLI > config)
     [ -n "$CLI_SSH_ALIAS" ] && SSH_ALIAS="$CLI_SSH_ALIAS"
@@ -216,7 +216,7 @@ if [ -f "$GATEFLOW_CONFIG" ] && [[ "$SCRIPT_PATH" == "gateflow" ]]; then
 
     if [ "$YES_MODE" = true ]; then
         # --yes mode: use saved configuration (with CLI overrides)
-        echo "📂 Loading saved GateFlow configuration (--yes mode)..."
+        echo "📂 Loading saved Sellf configuration (--yes mode)..."
 
         # Supabase
         [ -n "$SUPABASE_URL" ] && export SUPABASE_URL
@@ -293,7 +293,7 @@ if [ "$UPDATE_MODE" = true ]; then
         fi
 
         echo "📤 Copying build file to server..."
-        REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
+        REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
         server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
         echo "   ✅ Copied"
     fi
@@ -328,7 +328,7 @@ if [ "$UPDATE_MODE" = true ]; then
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
         echo ""
         if [ "$RESTART_ONLY" = true ]; then
-            echo -e "${GREEN}✅ GateFlow restarted!${NC}"
+            echo -e "${GREEN}✅ Sellf restarted!${NC}"
         else
             echo -e "${GREEN}✅ Files updated${NC}"
         fi
@@ -338,8 +338,8 @@ if [ "$UPDATE_MODE" = true ]; then
         exit 1
     fi
 
-    # For GateFlow - run migrations via API (locally) - only in update mode, not restart
-    if [ "$APP_NAME" = "gateflow" ] && [ "$RESTART_ONLY" = false ]; then
+    # For Sellf - run migrations via API (locally) - only in update mode, not restart
+    if [ "$APP_NAME" = "sellf" ] && [ "$RESTART_ONLY" = false ]; then
         echo ""
         echo "🗄️  Updating database..."
 
@@ -637,16 +637,16 @@ if [[ "$SCRIPT_DISPLAY" == apps/* ]]; then
 fi
 
 # =============================================================================
-# PHASE 1.5: GATEFLOW CONFIGURATION (Supabase questions)
+# PHASE 1.5: SELLF CONFIGURATION (Supabase questions)
 # =============================================================================
 
-# GateFlow variables
-GATEFLOW_TURNSTILE_SECRET=""
+# Sellf variables
+SELLF_TURNSTILE_SECRET=""
 SETUP_TURNSTILE_LATER=false
 TURNSTILE_OFFERED=false
-GATEFLOW_STRIPE_CONFIGURED=false
+SELLF_STRIPE_CONFIGURED=false
 
-if [ "$APP_NAME" = "gateflow" ]; then
+if [ "$APP_NAME" = "sellf" ]; then
     # 1. Collect Supabase configuration (token + project selection)
     # Fetch keys if:
     # - We don't have SUPABASE_URL, OR
@@ -681,7 +681,7 @@ if [ "$APP_NAME" = "gateflow" ]; then
             fi
         else
             # Interactive project selection
-            if ! gateflow_collect_config "$DOMAIN"; then
+            if ! sellf_collect_config "$DOMAIN"; then
                 echo "❌ Supabase configuration failed"
                 exit 1
             fi
@@ -689,13 +689,13 @@ if [ "$APP_NAME" = "gateflow" ]; then
     fi
 
     # 2. Collect Stripe configuration (local prompt)
-    gateflow_collect_stripe_config
+    sellf_collect_stripe_config
 fi
 
-# Turnstile for GateFlow - CAPTCHA configuration prompt
+# Turnstile for Sellf - CAPTCHA configuration prompt
 # Turnstile works on any domain (not just Cloudflare DNS), only requires a Cloudflare account
 # Skip only for: local (dev) or missing domain
-if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ]; then
+if [ "$APP_NAME" = "sellf" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ]; then
     TURNSTILE_OFFERED=true
     echo ""
     echo "🔒 Turnstile Configuration (CAPTCHA)"
@@ -707,11 +707,11 @@ if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAI
         if [ -f "$KEYS_FILE" ]; then
             source "$KEYS_FILE"
             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                 echo "   ✅ Using saved Turnstile keys"
             fi
         fi
-        if [ -z "$GATEFLOW_TURNSTILE_SECRET" ]; then
+        if [ -z "$SELLF_TURNSTILE_SECRET" ]; then
             echo -e "${YELLOW}   ⚠️  No saved Turnstile keys${NC}"
             echo "   Configure after installation: ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
             SETUP_TURNSTILE_LATER=true
@@ -728,7 +728,7 @@ if [ "$APP_NAME" = "gateflow" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAI
                 if [ -f "$KEYS_FILE" ]; then
                     source "$KEYS_FILE"
                     if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
-                        GATEFLOW_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
+                        SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
                         echo -e "${GREEN}✅ Turnstile keys will be passed to the installation${NC}"
                     fi
@@ -818,8 +818,8 @@ EXTRA_ENV=""
 [ -n "$DOMAIN_TYPE" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_TYPE='$DOMAIN_TYPE'"
 [ -n "$WP_DB_MODE" ] && EXTRA_ENV="$EXTRA_ENV WP_DB_MODE='$WP_DB_MODE'"
 
-# For GateFlow - add variables to EXTRA_ENV (collected earlier in PHASE 1.5)
-if [ "$APP_NAME" = "gateflow" ]; then
+# For Sellf - add variables to EXTRA_ENV (collected earlier in PHASE 1.5)
+if [ "$APP_NAME" = "sellf" ]; then
     # Supabase
     if [ -n "$SUPABASE_URL" ]; then
         EXTRA_ENV="$EXTRA_ENV SUPABASE_URL='$SUPABASE_URL' SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY'"
@@ -832,7 +832,7 @@ if [ "$APP_NAME" = "gateflow" ]; then
     fi
 
     # Turnstile (if collected)
-    if [ -n "$GATEFLOW_TURNSTILE_SECRET" ]; then
+    if [ -n "$SELLF_TURNSTILE_SECRET" ]; then
         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
     fi
 fi
@@ -862,7 +862,7 @@ echo "🚀 Starting installation on server..."
 echo ""
 
 # =============================================================================
-# BUILD FILE (for GateFlow from private repo)
+# BUILD FILE (for Sellf from private repo)
 # =============================================================================
 
 REMOTE_BUILD_FILE=""
@@ -876,7 +876,7 @@ if [ -n "$BUILD_FILE" ]; then
     fi
 
     echo "📦 Uploading installation file to server..."
-    REMOTE_BUILD_FILE="/tmp/gateflow-build-$$.tar.gz"
+    REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
     server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
     echo "   ✅ File uploaded"
 
@@ -914,10 +914,10 @@ else
 fi
 
 # =============================================================================
-# GATEFLOW POST-INSTALLATION CONFIGURATION
+# SELLF POST-INSTALLATION CONFIGURATION
 # =============================================================================
 
-if [ "$APP_NAME" = "gateflow" ]; then
+if [ "$APP_NAME" = "sellf" ]; then
     # 1. Database migrations
     echo ""
     echo "🗄️  Preparing database..."
@@ -933,9 +933,9 @@ if [ "$APP_NAME" = "gateflow" ]; then
 
     # 2. Consolidated Supabase configuration (Site URL, CAPTCHA, email templates)
     if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
-        # Use function from lib/gateflow-setup.sh
+        # Use function from lib/sellf-setup.sh
         # Passes: domain, turnstile secret, SSH alias (for fetching email templates)
-        configure_supabase_settings "$DOMAIN" "$GATEFLOW_TURNSTILE_SECRET" "$SSH_ALIAS" || {
+        configure_supabase_settings "$DOMAIN" "$SELLF_TURNSTILE_SECRET" "$SSH_ALIAS" || {
             echo -e "${YELLOW}⚠️  Partial Supabase configuration${NC}"
         }
     fi
@@ -1020,15 +1020,15 @@ if [ "$NEEDS_DB" = true ]; then
     echo ""
 fi
 
-# Post-installation reminders for GateFlow
-if [ "$APP_NAME" = "gateflow" ]; then
+# Post-installation reminders for Sellf
+if [ "$APP_NAME" = "sellf" ]; then
     # Determine if Turnstile is configured
     TURNSTILE_CONFIGURED=false
-    [ -n "$GATEFLOW_TURNSTILE_SECRET" ] && TURNSTILE_CONFIGURED=true
+    [ -n "$SELLF_TURNSTILE_SECRET" ] && TURNSTILE_CONFIGURED=true
 
     echo ""
     echo -e "${YELLOW}📋 Next steps:${NC}"
-    gateflow_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$GATEFLOW_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
+    sellf_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$SELLF_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
 fi
 
 # =============================================================================

@@ -721,7 +721,7 @@ function testToolRegistrationIntegrity() {
     "server_status",
     "setup_domain",
     "setup_backup",
-    "setup_gateflow_config",
+    "setup_sellf_config",
   ];
 
   for (const tool of expectedTools) {

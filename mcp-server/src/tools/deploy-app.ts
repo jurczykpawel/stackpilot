@@ -17,10 +17,10 @@ export const deployAppTool = {
     "  - SQLite (recommended for small sites, blogs, portfolios) — pass extra_env: { WP_DB_MODE: 'sqlite' }, no db_source needed\n" +
     "  - MySQL bundled (auto-provisioned MySQL container) — pass db_source: 'bundled'\n" +
     "  - MySQL custom (own/external DB) — pass db_source: 'custom' with db_host, db_name, db_user, db_pass\n\n" +
-    "GATEFLOW: GateFlow is a self-hosted digital products sales platform (Gumroad alternative). " +
-    "It requires a Supabase project (free tier). Use setup_gateflow_config tool FIRST to configure Supabase keys securely " +
+    "SELLF: Sellf is a self-hosted digital products sales platform (Gumroad alternative). " +
+    "It requires a Supabase project (free tier). Use setup_sellf_config tool FIRST to configure Supabase keys securely " +
     "(opens browser, no secrets in conversation). After config is saved, deploy_app loads it automatically.\n" +
-    "  If GateFlow repo is private, pass build_file with path to local gateflow-build.tar.gz.\n" +
+    "  If Sellf repo is private, pass build_file with path to local sellf-build.tar.gz.\n" +
     "  After deployment, the first registered user becomes admin. Stripe webhooks need manual setup in Stripe Dashboard.\n\n" +
     "NOTE: On Windows without bash, the user can install the toolbox on the server first " +
     "('./local/install-toolbox.sh <alias>'), then SSH in and run 'deploy.sh' directly on the server.",
@@ -80,7 +80,7 @@ export const deployAppTool = {
       build_file: {
         type: "string",
         description:
-          "Absolute path to a local build file (e.g. gateflow-build.tar.gz). Used for GateFlow when the GitHub repo is private.",
+          "Absolute path to a local build file (e.g. sellf-build.tar.gz). Used for Sellf when the GitHub repo is private.",
       },
     },
     required: ["app_name"],
@@ -151,23 +151,23 @@ export async function handleDeployApp(
     };
   }
 
-  // 2b. GateFlow: validate Supabase configuration exists
-  if (appName === "gateflow") {
+  // 2b. Sellf: validate Supabase configuration exists
+  if (appName === "sellf") {
     const hasSupabaseKeys = extraEnv.SUPABASE_URL && extraEnv.SUPABASE_ANON_KEY && extraEnv.SUPABASE_SERVICE_KEY;
-    const configPath = join(homedir(), ".config", "gateflow", "deploy-config.env");
+    const configPath = join(homedir(), ".config", "sellf", "deploy-config.env");
     const hasSavedConfig = existsSync(configPath);
     if (!hasSupabaseKeys && !hasSavedConfig) {
       return {
         isError: true,
         content: [{
           type: "text",
-          text: `GateFlow requires Supabase configuration.\n\n` +
-            `Use the setup_gateflow_config tool first — it handles the entire Supabase login flow securely:\n` +
+          text: `Sellf requires Supabase configuration.\n\n` +
+            `Use the setup_sellf_config tool first — it handles the entire Supabase login flow securely:\n` +
             `1. Opens browser for Supabase login\n` +
             `2. User provides a one-time verification code (not a secret)\n` +
             `3. Tool fetches API keys automatically and saves config to disk\n\n` +
             `No secret keys ever pass through the conversation.\n\n` +
-            `Call: setup_gateflow_config()`,
+            `Call: setup_sellf_config()`,
         }],
       };
     }

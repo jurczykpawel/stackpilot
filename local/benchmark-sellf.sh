@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
 
-# Benchmark GateFlow - load test + resource monitoring
-# Usage: ./local/benchmark-gateflow.sh <url> <ssh_alias> [requests] [concurrency]
+# Benchmark Sellf - load test + resource monitoring
+# Usage: ./local/benchmark-sellf.sh <url> <ssh_alias> [requests] [concurrency]
 #
 # Examples:
-#   ./local/benchmark-gateflow.sh https://shop.example.com vps
-#   ./local/benchmark-gateflow.sh https://shop.example.com vps 200 20
+#   ./local/benchmark-sellf.sh https://shop.example.com vps
+#   ./local/benchmark-sellf.sh https://shop.example.com vps 200 20
 
 URL=${1}
 SSH_ALIAS=${2}
@@ -28,7 +28,7 @@ BENCHMARK_DIR="benchmark-$TIMESTAMP"
 
 mkdir -p "$BENCHMARK_DIR"
 
-echo "🎯 Benchmark GateFlow"
+echo "🎯 Benchmark Sellf"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "URL:          $URL"
 echo "SSH:          $SSH_ALIAS"
@@ -38,13 +38,13 @@ echo "Output:       $BENCHMARK_DIR/"
 echo ""
 
 # Check if scripts exist
-if [ ! -f "$SCRIPT_DIR/monitor-gateflow.sh" ]; then
-  echo "❌ Not found: monitor-gateflow.sh"
+if [ ! -f "$SCRIPT_DIR/monitor-sellf.sh" ]; then
+  echo "❌ Not found: monitor-sellf.sh"
   exit 1
 fi
 
-if [ ! -f "$SCRIPT_DIR/load-test-gateflow.sh" ]; then
-  echo "❌ Not found: load-test-gateflow.sh"
+if [ ! -f "$SCRIPT_DIR/load-test-sellf.sh" ]; then
+  echo "❌ Not found: load-test-sellf.sh"
   exit 1
 fi
 
@@ -58,7 +58,7 @@ echo ""
 echo "🔍 BEFORE test - resource snapshot:"
 
 # Snapshot before test
-server_exec "pm2 list | grep gateflow" || true
+server_exec "pm2 list | grep sellf" || true
 
 # Get metrics via Python (compatible with macOS)
 BEFORE=$(server_exec "pm2 jlist 2>/dev/null | python3 -c \"
@@ -66,7 +66,7 @@ import sys, json
 try:
   data = json.load(sys.stdin)
   for proc in data:
-    if 'gateflow' in proc.get('name', ''):
+    if 'sellf' in proc.get('name', ''):
       print(json.dumps(proc))
       break
 except:
@@ -90,8 +90,8 @@ echo ""
 echo "📊 Starting monitoring (${MONITOR_TIME}s)..."
 (
   cd "$SCRIPT_DIR"
-  ./monitor-gateflow.sh "$SSH_ALIAS" "$MONITOR_TIME" > "../$BENCHMARK_DIR/monitoring.log" 2>&1
-  mv gateflow-metrics-*.csv "../$BENCHMARK_DIR/" 2>/dev/null || true
+  ./monitor-sellf.sh "$SSH_ALIAS" "$MONITOR_TIME" > "../$BENCHMARK_DIR/monitoring.log" 2>&1
+  mv sellf-metrics-*.csv "../$BENCHMARK_DIR/" 2>/dev/null || true
 ) &
 MONITOR_PID=$!
 
@@ -104,7 +104,7 @@ echo ""
 
 (
   cd "$SCRIPT_DIR"
-  ./load-test-gateflow.sh "$URL" "$REQUESTS" "$CONCURRENT" > "../$BENCHMARK_DIR/load-test.log" 2>&1
+  ./load-test-sellf.sh "$URL" "$REQUESTS" "$CONCURRENT" > "../$BENCHMARK_DIR/load-test.log" 2>&1
 ) | tee "$BENCHMARK_DIR/load-test-output.txt"
 
 echo ""
@@ -120,7 +120,7 @@ import sys, json
 try:
   data = json.load(sys.stdin)
   for proc in data:
-    if 'gateflow' in proc.get('name', ''):
+    if 'sellf' in proc.get('name', ''):
       print(json.dumps(proc))
       break
 except:
@@ -145,7 +145,7 @@ REPORT_FILE="$BENCHMARK_DIR/REPORT.txt"
 
 cat > "$REPORT_FILE" << EOF
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  BENCHMARK GATEFLOW - REPORT
+  BENCHMARK SELLF - REPORT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Date:              $(date)
@@ -176,7 +176,7 @@ Change:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. REPORT.txt              - this report
-2. gateflow-metrics-*.csv  - detailed metrics (CSV)
+2. sellf-metrics-*.csv  - detailed metrics (CSV)
 3. load-test.log           - load test logs
 4. monitoring.log          - monitoring logs
 
@@ -209,7 +209,7 @@ echo "📁 Results saved in: $BENCHMARK_DIR/"
 echo ""
 echo "📊 Files:"
 echo "  - REPORT.txt              (summary)"
-echo "  - gateflow-metrics-*.csv  (chart data)"
+echo "  - sellf-metrics-*.csv  (chart data)"
 echo "  - load-test.log           (test details)"
 echo ""
 echo "💡 To view the report:"

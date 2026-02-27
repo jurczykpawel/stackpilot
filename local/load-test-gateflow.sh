@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-# GateFlow Load Test
+# Sellf Load Test
 # Requires: curl, jq (optional)
 #
-# Usage: ./local/load-test-gateflow.sh <url> [num_requests] [concurrency]
+# Usage: ./local/load-test-sellf.sh <url> [num_requests] [concurrency]
 #
 # Examples:
-#   ./local/load-test-gateflow.sh https://shop.example.com
-#   ./local/load-test-gateflow.sh https://shop.example.com 100 10
-#   ./local/load-test-gateflow.sh https://shop.example.com 500 20
+#   ./local/load-test-sellf.sh https://shop.example.com
+#   ./local/load-test-sellf.sh https://shop.example.com 100 10
+#   ./local/load-test-sellf.sh https://shop.example.com 500 20
 
 URL=${1}
 TOTAL_REQUESTS=${2:-50}
@@ -23,7 +23,7 @@ fi
 # Remove trailing slash
 URL=${URL%/}
 
-echo "🚀 GateFlow Load Test"
+echo "🚀 Sellf Load Test"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "URL:          $URL"
 echo "Requests:     $TOTAL_REQUESTS"
@@ -246,6 +246,6 @@ fi
 
 echo ""
 echo "💡 Tips:"
-echo "  - Run ./local/monitor-gateflow.sh during the test to see resource usage"
+echo "  - Run ./local/monitor-sellf.sh during the test to see resource usage"
 echo "  - Increase concurrency (--concurrent) to simulate more users"
-echo "  - Check logs: ssh <alias> 'pm2 logs gateflow-admin --lines 100'"
+echo "  - Check logs: ssh <alias> 'pm2 logs sellf-admin --lines 100'"

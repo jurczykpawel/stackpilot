@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# StackPilot - Stripe Setup for GateFlow
+# StackPilot - Stripe Setup for Sellf
 # Configures Stripe for payment processing
 # Author: Paweł (Lazy Engineer)
 #
 # Usage:
-#   ./local/setup-stripe-gateflow.sh [domain]
+#   ./local/setup-stripe-sellf.sh [domain]
 #
 # Examples:
-#   ./local/setup-stripe-gateflow.sh app.example.com
-#   ./local/setup-stripe-gateflow.sh
+#   ./local/setup-stripe-sellf.sh app.example.com
+#   ./local/setup-stripe-sellf.sh
 
 set -e
 
@@ -23,11 +23,11 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-CONFIG_DIR="$HOME/.config/gateflow"
+CONFIG_DIR="$HOME/.config/sellf"
 CONFIG_FILE="$CONFIG_DIR/stripe.env"
 
 echo ""
-echo -e "${BLUE}💳 Stripe Setup for GateFlow${NC}"
+echo -e "${BLUE}💳 Stripe Setup for Sellf${NC}"
 echo ""
 
 # =============================================================================
@@ -149,7 +149,7 @@ echo "════════════════════════�
 echo "📋 WEBHOOK (optional)"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Webhook allows Stripe to notify GateFlow about payments."
+echo "Webhook allows Stripe to notify Sellf about payments."
 echo "You can configure it now or later in the Stripe dashboard."
 echo ""
 
@@ -210,7 +210,7 @@ echo "💾 Saving configuration..."
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_FILE" <<EOF
-# GateFlow - Stripe Configuration
+# Sellf - Stripe Configuration
 # Generated: $(date)
 # Mode: $([ "$KEY_PREFIX" = "test" ] && echo "TEST" || echo "LIVE")
 
@@ -237,9 +237,9 @@ echo ""
 echo "Configuration saved in: $CONFIG_FILE"
 echo ""
 echo "Usage with deploy.sh:"
-echo "   source ~/.config/gateflow/stripe.env"
+echo "   source ~/.config/sellf/stripe.env"
 echo "   STRIPE_PK=\"\$STRIPE_PUBLISHABLE_KEY\" STRIPE_SK=\"\$STRIPE_SECRET_KEY\" \\"
-echo "   ./local/deploy.sh gateflow --ssh=vps --domain=gf.example.com"
+echo "   ./local/deploy.sh sellf --ssh=vps --domain=gf.example.com"
 echo ""
 
 if [ "$KEY_PREFIX" = "test" ]; then
@@ -252,7 +252,7 @@ fi
 
 if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
     echo -e "${YELLOW}⚠️  Webhook not configured${NC}"
-    echo "   After launching GateFlow, configure the webhook:"
+    echo "   After launching Sellf, configure the webhook:"
     echo "   https://dashboard.stripe.com/webhooks"
     if [ -n "$DOMAIN" ]; then
         echo "   Endpoint: https://$DOMAIN/api/webhooks/stripe"

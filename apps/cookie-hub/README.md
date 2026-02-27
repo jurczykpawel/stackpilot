@@ -11,7 +11,7 @@ A central GDPR/Cookie consent management server. Stop configuring cookie banners
 During installation you will be asked for a domain (e.g. `assets.your-domain.com`) where the scripts will be served.
 
 ## The "Centralization" Idea (Lazy Engineer Style)
-Instead of configuring cookie plugins on every site (WordPress, GateFlow, landing pages) separately:
+Instead of configuring cookie plugins on every site (WordPress, Sellf, landing pages) separately:
 1. Set up **one** Cookie Hub.
 2. Define services (Google Analytics, FB Pixel, Umami) in **one file** on the server.
 3. Paste the same HTML snippet on all your sites.
@@ -25,7 +25,7 @@ Klaro! is a great open-source tool, but it has its limits. Be aware of them:
 1.  **Google AdSense / Programmatic Ads:**
     Klaro **IS NOT** a certified IAB TCF v2.2 partner. If your business model relies on **displaying ads** on your site (earning from AdSense on a blog), Google requires a certified CMP (e.g. Cookiebot, Quantcast). Otherwise ads may be blocked.
     *   **Verdict:** Earning from AdSense? Buy a paid CMP.
-    *   **Verdict:** Selling your own products (GateFlow, e-books)? Cookie Hub is perfect.
+    *   **Verdict:** Selling your own products (Sellf, e-books)? Cookie Hub is perfect.
 
 2.  **Google Consent Mode v2 (Advanced):**
     In our configuration, Klaro works in "hard" mode - it completely blocks Google Ads/GA4 scripts until consent. It does not send "pings" to Google in anonymous mode (Basic Consent Mode). If you need advanced conversion modeling in Google Ads without consent, you must manually configure `gtag('consent', ...)` calls in the `config.js` file (requires JS knowledge).

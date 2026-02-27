@@ -1,4 +1,4 @@
-# GateFlow - Your Own Digital Products Sales System
+# Sellf - Your Own Digital Products Sales System
 
 **Open source alternative to Gumroad, EasyCart, Teachable.**
 Sell e-books, courses, templates and licenses without monthly fees or platform commissions.
@@ -12,7 +12,7 @@ Sell e-books, courses, templates and licenses without monthly fees or platform c
 
 ## Two Installation Modes
 
-GateFlow supports **two** installation modes:
+Sellf supports **two** installation modes:
 
 | Mode | For whom | Description |
 |------|----------|-------------|
@@ -26,7 +26,7 @@ GateFlow supports **two** installation modes:
 ### Interactive mode (simplest)
 
 ```bash
-./local/deploy.sh gateflow --ssh=ALIAS
+./local/deploy.sh sellf --ssh=ALIAS
 ```
 
 The script will guide you through:
@@ -40,10 +40,10 @@ The script will guide you through:
 
 ```bash
 # STEP 1: One-time configuration (collects and saves all keys)
-./local/setup-gateflow-config.sh
+./local/setup-sellf-config.sh
 
 # STEP 2: Deployment (fully automatic, no questions)
-./local/deploy.sh gateflow --ssh=ALIAS --yes
+./local/deploy.sh sellf --ssh=ALIAS --yes
 ```
 
 ---
@@ -57,7 +57,7 @@ The script will guide you through:
 | **Stripe** | 2.9% + fee/transaction | Payments | No* |
 | **Cloudflare** | Free | Turnstile CAPTCHA | No |
 
-*Stripe can be configured later in the GateFlow panel.
+*Stripe can be configured later in the Sellf panel.
 
 ### Before installation, create accounts:
 
@@ -72,20 +72,20 @@ The script will guide you through:
 ### Basic command
 
 ```bash
-./local/deploy.sh gateflow --ssh=ALIAS
+./local/deploy.sh sellf --ssh=ALIAS
 ```
 
 ### Optional parameters
 
 ```bash
 # With Caddy domain (automatic subdomain)
-./local/deploy.sh gateflow --ssh=ALIAS --domain=auto --domain-type=caddy
+./local/deploy.sh sellf --ssh=ALIAS --domain=auto --domain-type=caddy
 
 # With your own domain (Cloudflare DNS)
-./local/deploy.sh gateflow --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
 
 # With a specific Supabase project (skips selection from list)
-./local/deploy.sh gateflow --ssh=ALIAS --supabase-project=abcdefghijk
+./local/deploy.sh sellf --ssh=ALIAS --supabase-project=abcdefghijk
 ```
 
 ### What happens during installation
@@ -123,10 +123,10 @@ Automatic mode requires **pre-collected keys** using the configuration script.
 ### Step 1: Collecting keys
 
 ```bash
-./local/setup-gateflow-config.sh
+./local/setup-sellf-config.sh
 ```
 
-The script collects and saves to `~/.config/gateflow/deploy-config.env`:
+The script collects and saves to `~/.config/sellf/deploy-config.env`:
 - Supabase token + project keys
 - Stripe keys (optional)
 - Turnstile keys (optional)
@@ -136,7 +136,7 @@ The script collects and saves to `~/.config/gateflow/deploy-config.env`:
 ### Step 2: Automatic deployment
 
 ```bash
-./local/deploy.sh gateflow --ssh=ALIAS --yes
+./local/deploy.sh sellf --ssh=ALIAS --yes
 ```
 
 The `--yes` flag means:
@@ -144,7 +144,7 @@ The `--yes` flag means:
 - Uses saved configuration
 - Automatic Turnstile configuration (if you have a Cloudflare token)
 
-### setup-gateflow-config.sh Parameters
+### setup-sellf-config.sh Parameters
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
@@ -160,24 +160,24 @@ The `--yes` flag means:
 
 ```bash
 # Full interactive configuration
-./local/setup-gateflow-config.sh
+./local/setup-sellf-config.sh
 
 # Quick configuration with automatic Caddy domain
-./local/setup-gateflow-config.sh --ssh=ALIAS --domain=auto
+./local/setup-sellf-config.sh --ssh=ALIAS --domain=auto
 
 # Without Stripe and Turnstile (Supabase only)
-./local/setup-gateflow-config.sh --ssh=ALIAS --no-stripe --no-turnstile
+./local/setup-sellf-config.sh --ssh=ALIAS --no-stripe --no-turnstile
 
 # With a specific Supabase project
-./local/setup-gateflow-config.sh --ssh=ALIAS --supabase-project=grinnleqqyygznnbpjzc --domain=auto
+./local/setup-sellf-config.sh --ssh=ALIAS --supabase-project=grinnleqqyygznnbpjzc --domain=auto
 
 # With custom Cloudflare domain
-./local/setup-gateflow-config.sh --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
+./local/setup-sellf-config.sh --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
 ```
 
 ---
 
-## deploy.sh Parameters (for GateFlow)
+## deploy.sh Parameters (for Sellf)
 
 ### Required
 
@@ -211,22 +211,22 @@ The `--yes` flag means:
 
 ```bash
 # Interactive with automatic domain
-./local/deploy.sh gateflow --ssh=ALIAS --domain=auto --domain-type=caddy
+./local/deploy.sh sellf --ssh=ALIAS --domain=auto --domain-type=caddy
 
 # Automatic (requires prior configuration)
-./local/deploy.sh gateflow --ssh=ALIAS --yes
+./local/deploy.sh sellf --ssh=ALIAS --yes
 
 # Automatic with specific Supabase project
-./local/deploy.sh gateflow --ssh=ALIAS --supabase-project=abc123 --yes
+./local/deploy.sh sellf --ssh=ALIAS --supabase-project=abc123 --yes
 
 # With custom Cloudflare domain
-./local/deploy.sh gateflow --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare --yes
+./local/deploy.sh sellf --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare --yes
 
 # Update
-./local/deploy.sh gateflow --ssh=ALIAS --update
+./local/deploy.sh sellf --ssh=ALIAS --update
 
 # With local build (private repo)
-./local/deploy.sh gateflow --ssh=ALIAS --build-file=~/Downloads/gateflow-build.tar.gz --yes
+./local/deploy.sh sellf --ssh=ALIAS --build-file=~/Downloads/sellf-build.tar.gz --yes
 ```
 
 ---
@@ -235,11 +235,11 @@ The `--yes` flag means:
 
 ### Case 1: First Installation (beginner)
 
-**Situation:** First time installing GateFlow, you want the script to guide you step by step.
+**Situation:** First time installing Sellf, you want the script to guide you step by step.
 
 ```bash
 # Just run
-./local/deploy.sh gateflow --ssh=ALIAS
+./local/deploy.sh sellf --ssh=ALIAS
 
 # The script:
 # 1. Opens browser for Supabase login
@@ -255,10 +255,10 @@ The `--yes` flag means:
 
 ```bash
 # ONE-TIME (on local machine):
-./local/setup-gateflow-config.sh --ssh=ALIAS --domain=auto
+./local/setup-sellf-config.sh --ssh=ALIAS --domain=auto
 
 # In CI/CD:
-./local/deploy.sh gateflow --ssh=ALIAS --yes
+./local/deploy.sh sellf --ssh=ALIAS --yes
 ```
 
 ### Case 3: Multiple Servers
@@ -267,12 +267,12 @@ The `--yes` flag means:
 
 ```bash
 # Configuration for each server
-./local/setup-gateflow-config.sh --ssh=server1 --domain=auto
-./local/setup-gateflow-config.sh --ssh=server2 --domain=auto
+./local/setup-sellf-config.sh --ssh=server1 --domain=auto
+./local/setup-sellf-config.sh --ssh=server2 --domain=auto
 
 # Deploy (uses saved configuration)
-./local/deploy.sh gateflow --ssh=server1 --yes
-./local/deploy.sh gateflow --ssh=server2 --yes
+./local/deploy.sh sellf --ssh=server1 --yes
+./local/deploy.sh sellf --ssh=server2 --yes
 ```
 
 ### Case 4: Custom Domain with Cloudflare
@@ -284,13 +284,13 @@ The `--yes` flag means:
 #    shop.mysite.com -> 1.2.3.4
 
 # 2. Configuration
-./local/setup-gateflow-config.sh \
+./local/setup-sellf-config.sh \
   --ssh=ALIAS \
   --domain=shop.mysite.com \
   --domain-type=cloudflare
 
 # 3. Deploy
-./local/deploy.sh gateflow --ssh=ALIAS --yes
+./local/deploy.sh sellf --ssh=ALIAS --yes
 ```
 
 ### Case 5: Multiple Supabase Projects on One Account
@@ -302,10 +302,10 @@ The `--yes` flag means:
 # https://supabase.com/dashboard/project/REF_HERE
 
 # Deploy to test project
-./local/deploy.sh gateflow --ssh=staging-server --supabase-project=abc123test --yes
+./local/deploy.sh sellf --ssh=staging-server --supabase-project=abc123test --yes
 
 # Deploy to production project
-./local/deploy.sh gateflow --ssh=prod-server --supabase-project=xyz789prod --yes
+./local/deploy.sh sellf --ssh=prod-server --supabase-project=xyz789prod --yes
 ```
 
 ### Case 6: Reinstallation After Server Wipe
@@ -313,26 +313,26 @@ The `--yes` flag means:
 **Situation:** You wiped the server but have saved configuration.
 
 ```bash
-# Configuration is in ~/.config/gateflow/deploy-config.env
+# Configuration is in ~/.config/sellf/deploy-config.env
 # Just run:
-./local/deploy.sh gateflow --ssh=ALIAS --yes
+./local/deploy.sh sellf --ssh=ALIAS --yes
 
 # The script uses saved Supabase keys, domain, etc.
 ```
 
-### Case 7: Updating GateFlow
+### Case 7: Updating Sellf
 
 **Situation:** A new version is out and you want to update.
 
 ```bash
 # Simple update (auto-detects instance)
-./local/deploy.sh gateflow --ssh=ALIAS --update
+./local/deploy.sh sellf --ssh=ALIAS --update
 
 # Update specific instance
-./local/deploy.sh gateflow --ssh=ALIAS --update --domain=shop.example.com
+./local/deploy.sh sellf --ssh=ALIAS --update --domain=shop.example.com
 
 # Update with local build (private repo)
-./local/deploy.sh gateflow --ssh=ALIAS --update --build-file=~/Downloads/gateflow-build.tar.gz
+./local/deploy.sh sellf --ssh=ALIAS --update --build-file=~/Downloads/sellf-build.tar.gz
 ```
 
 ### Case 8: Multiple Instances on One Server (same database)
@@ -341,20 +341,20 @@ The `--yes` flag means:
 
 ```bash
 # First instance - main shop
-./local/deploy.sh gateflow --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
 
 # Second instance - online courses
-./local/deploy.sh gateflow --ssh=ALIAS --domain=courses.example.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=ALIAS --domain=courses.example.com --domain-type=cloudflare
 
 # Third instance - different domain
-./local/deploy.sh gateflow --ssh=ALIAS --domain=digital.otherdomain.com --domain-type=cloudflare
+./local/deploy.sh sellf --ssh=ALIAS --domain=digital.otherdomain.com --domain-type=cloudflare
 ```
 
 **Result on the server:**
 ```
-/opt/stacks/gateflow-shop/      # PM2: gateflow-shop,    port: 3333
-/opt/stacks/gateflow-courses/   # PM2: gateflow-courses, port: 3334
-/opt/stacks/gateflow-digital/   # PM2: gateflow-digital, port: 3335
+/opt/stacks/sellf-shop/      # PM2: sellf-shop,    port: 3333
+/opt/stacks/sellf-courses/   # PM2: sellf-courses, port: 3334
+/opt/stacks/sellf-digital/   # PM2: sellf-digital, port: 3335
 ```
 
 Each instance:
@@ -364,7 +364,7 @@ Each instance:
 
 **Updating a specific instance:**
 ```bash
-./local/deploy.sh gateflow --ssh=ALIAS --update --domain=courses.example.com
+./local/deploy.sh sellf --ssh=ALIAS --update --domain=courses.example.com
 ```
 
 ### Case 9: Multiple Instances with Different Databases
@@ -375,22 +375,22 @@ Each instance:
 # Check your Supabase projects
 # https://supabase.com/dashboard/projects
 
-# Instance 1: Production (project: gateflow-prod)
-./local/deploy.sh gateflow --ssh=ALIAS \
+# Instance 1: Production (project: sellf-prod)
+./local/deploy.sh sellf --ssh=ALIAS \
   --supabase-project=abc123prod \
   --domain=shop.example.com \
   --domain-type=cloudflare \
   --yes
 
-# Instance 2: Tests (project: gateflow-test)
-./local/deploy.sh gateflow --ssh=ALIAS \
+# Instance 2: Tests (project: sellf-test)
+./local/deploy.sh sellf --ssh=ALIAS \
   --supabase-project=xyz789test \
   --domain=test.example.com \
   --domain-type=cloudflare \
   --yes
 
-# Instance 3: Client demo (project: gateflow-demo)
-./local/deploy.sh gateflow --ssh=ALIAS \
+# Instance 3: Client demo (project: sellf-demo)
+./local/deploy.sh sellf --ssh=ALIAS \
   --supabase-project=demo456client \
   --domain=demo.example.com \
   --domain-type=cloudflare \
@@ -399,9 +399,9 @@ Each instance:
 
 **Result on the server:**
 ```
-/opt/stacks/gateflow-shop/   # Supabase: abc123prod,  port: 3333
-/opt/stacks/gateflow-test/   # Supabase: xyz789test,  port: 3334
-/opt/stacks/gateflow-demo/   # Supabase: demo456client, port: 3335
+/opt/stacks/sellf-shop/   # Supabase: abc123prod,  port: 3333
+/opt/stacks/sellf-test/   # Supabase: xyz789test,  port: 3334
+/opt/stacks/sellf-demo/   # Supabase: demo456client, port: 3335
 ```
 
 **Key parameter:** `--supabase-project=REF` lets you choose a different Supabase project for each instance.
@@ -409,7 +409,7 @@ Each instance:
 **Verify configuration:**
 ```bash
 # Check which project each instance uses
-ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
+ssh ALIAS "grep SUPABASE_URL /opt/stacks/sellf-*/admin-panel/.env.local"
 ```
 
 ---
@@ -419,8 +419,8 @@ ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 ### On the local machine
 
 ```
-~/.config/gateflow/
-+-- deploy-config.env    # Main configuration (setup-gateflow-config.sh)
+~/.config/sellf/
++-- deploy-config.env    # Main configuration (setup-sellf-config.sh)
 +-- supabase.env         # Backup of Supabase keys
 
 ~/.config/supabase/
@@ -436,16 +436,16 @@ ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 
 ```
 # Single instance (auto-domain or first installation)
-~/gateflow/
+~/sellf/
 +-- admin-panel/
 |   +-- .env.local           # Application configuration
 |   +-- .next/standalone/    # Built application
 +-- .env.local.backup        # Backup (on update)
 
 # Multi-instance (each domain = separate directory)
-~/gateflow-shop/             # domain: shop.example.com
-~/gateflow-courses/          # domain: courses.example.com
-~/gateflow-demo/             # domain: demo.example.com
+~/sellf-shop/             # domain: shop.example.com
+~/sellf-courses/          # domain: courses.example.com
+~/sellf-demo/             # domain: demo.example.com
 ```
 
 ---
@@ -457,27 +457,27 @@ ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow-*/admin-panel/.env.local"
 ssh ALIAS "pm2 status"
 
 # Logs for a single instance
-ssh ALIAS "pm2 logs gateflow-admin"           # auto-domain
-ssh ALIAS "pm2 logs gateflow-shop"            # shop.example.com
+ssh ALIAS "pm2 logs sellf-admin"           # auto-domain
+ssh ALIAS "pm2 logs sellf-shop"            # shop.example.com
 
 # Restart
-ssh ALIAS "pm2 restart gateflow-admin"
+ssh ALIAS "pm2 restart sellf-admin"
 
-# Restart all GateFlow instances
+# Restart all Sellf instances
 ssh ALIAS "pm2 restart all"
 
 # Live logs
-ssh ALIAS "pm2 logs gateflow-shop --lines 50"
+ssh ALIAS "pm2 logs sellf-shop --lines 50"
 
 # Check Supabase configuration for all instances
-ssh ALIAS "grep SUPABASE_URL /opt/stacks/gateflow*/admin-panel/.env.local"
+ssh ALIAS "grep SUPABASE_URL /opt/stacks/sellf*/admin-panel/.env.local"
 ```
 
 > **Note:** If `pm2: command not found`, add PATH manually:
 > ```bash
 > ssh ALIAS "echo 'export PATH=\"\$HOME/.bun/bin:\$PATH\"' >> ~/.bashrc"
 > ```
-> New GateFlow installations add this automatically.
+> New Sellf installations add this automatically.
 
 ---
 
@@ -517,8 +517,8 @@ SSH_ALIAS=ALIAS ./local/setup-supabase-migrations.sh
 4. Copy Signing Secret (`whsec_...`)
 5. Add to configuration:
    ```bash
-   ssh ALIAS "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/gateflow/admin-panel/.env.local"
-   ssh ALIAS "pm2 restart gateflow-admin"
+   ssh ALIAS "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/sellf/admin-panel/.env.local"
+   ssh ALIAS "pm2 restart sellf-admin"
    ```
 
 ---
@@ -529,13 +529,13 @@ SSH_ALIAS=ALIAS ./local/setup-supabase-migrations.sh
 
 A: Interactive asks questions step by step - ideal for beginners. Automatic uses saved keys and the `--yes` flag - ideal for CI/CD and repeatable deploys.
 
-**Q: Do I need to run setup-gateflow-config.sh before every deploy?**
+**Q: Do I need to run setup-sellf-config.sh before every deploy?**
 
 A: No! Once is enough. The configuration is saved and used automatically on subsequent deploys with `--yes`.
 
 **Q: What if I want to change the Supabase project?**
 
-A: Run `./local/setup-gateflow-config.sh` again and select a different project, or use `--supabase-project=NEW_REF`.
+A: Run `./local/setup-sellf-config.sh` again and select a different project, or use `--supabase-project=NEW_REF`.
 
 **Q: Is the first user the admin?**
 
@@ -553,10 +553,10 @@ A: In the project URL: `https://supabase.com/dashboard/project/REF_HERE`
 
 A: No. It is optional CAPTCHA protection. You can configure it later or skip it.
 
-**Q: Can I have multiple GateFlow instances on one server?**
+**Q: Can I have multiple Sellf instances on one server?**
 
 A: Yes! Each instance must have a different domain. The system automatically:
-- Creates a separate directory (`/opt/stacks/gateflow-{subdomain}/`)
+- Creates a separate directory (`/opt/stacks/sellf-{subdomain}/`)
 - Assigns the next port (3333, 3334, 3335...)
 - Creates a separate PM2 process
 
@@ -564,20 +564,20 @@ You can also use different Supabase projects for each instance via `--supabase-p
 
 **Q: How to check the status of multiple instances?**
 
-A: `ssh ALIAS "pm2 list"` - shows all GateFlow processes with their status.
+A: `ssh ALIAS "pm2 list"` - shows all Sellf processes with their status.
 
 ---
 
 ## Cost Comparison
 
-| | EasyCart | Gumroad | **GateFlow** |
+| | EasyCart | Gumroad | **Sellf** |
 |---|---|---|---|
 | Monthly fee | ~$25/mo | $10/mo | **$0** |
 | Sales commission | 1-3% | 10% | **0%** |
 | Data ownership | - | - | **Yes** |
 
-**Save thousands per year** by self-hosting GateFlow on your VPS.
+**Save thousands per year** by self-hosting Sellf on your VPS.
 
 ---
 
-> GateFlow: https://github.com/jurczykpawel/gateflow
+> Sellf: https://github.com/jurczykpawel/sellf

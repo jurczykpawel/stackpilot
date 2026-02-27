@@ -449,28 +449,28 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
         echo "📤 Adding keys to server $SSH_ALIAS..."
 
         # Determine paths based on domain (multi-instance support)
-        # New location: /opt/stacks/gateflow*
+        # New location: /opt/stacks/sellf*
         INSTANCE_NAME="${DOMAIN%%.*}"
-        GATEFLOW_DIR="/opt/stacks/gateflow-${INSTANCE_NAME}"
-        PM2_NAME="gateflow-${INSTANCE_NAME}"
+        SELLF_DIR="/opt/stacks/sellf-${INSTANCE_NAME}"
+        PM2_NAME="sellf-${INSTANCE_NAME}"
 
         # Check if instance directory exists, if not - search further
-        if ! server_exec "test -d $GATEFLOW_DIR" 2>/dev/null; then
-            GATEFLOW_DIR="/opt/stacks/gateflow"
-            PM2_NAME="gateflow"
+        if ! server_exec "test -d $SELLF_DIR" 2>/dev/null; then
+            SELLF_DIR="/opt/stacks/sellf"
+            PM2_NAME="sellf"
         fi
         # Fallback to old location
-        if ! server_exec "test -d $GATEFLOW_DIR" 2>/dev/null; then
-            GATEFLOW_DIR="/root/gateflow-${INSTANCE_NAME}"
-            PM2_NAME="gateflow-${INSTANCE_NAME}"
+        if ! server_exec "test -d $SELLF_DIR" 2>/dev/null; then
+            SELLF_DIR="/root/sellf-${INSTANCE_NAME}"
+            PM2_NAME="sellf-${INSTANCE_NAME}"
         fi
-        if ! server_exec "test -d $GATEFLOW_DIR" 2>/dev/null; then
-            GATEFLOW_DIR="/root/gateflow"
-            PM2_NAME="gateflow"
+        if ! server_exec "test -d $SELLF_DIR" 2>/dev/null; then
+            SELLF_DIR="/root/sellf"
+            PM2_NAME="sellf"
         fi
 
-        ENV_FILE="$GATEFLOW_DIR/admin-panel/.env.local"
-        STANDALONE_ENV="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel/.env.local"
+        ENV_FILE="$SELLF_DIR/admin-panel/.env.local"
+        STANDALONE_ENV="$SELLF_DIR/admin-panel/.next/standalone/admin-panel/.env.local"
 
         # Check if it exists
         if server_exec "test -f $ENV_FILE" 2>/dev/null; then
@@ -483,9 +483,9 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
             echo -e "${GREEN}   ✅ Keys added${NC}"
 
             # Restart PM2 with environment variable reload
-            echo "🔄 Restarting GateFlow..."
+            echo "🔄 Restarting Sellf..."
 
-            STANDALONE_DIR="$GATEFLOW_DIR/admin-panel/.next/standalone/admin-panel"
+            STANDALONE_DIR="$SELLF_DIR/admin-panel/.next/standalone/admin-panel"
             # IMPORTANT: use --interpreter node, NOT 'node server.js' in quotes (bash doesn't inherit env)
             RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete $PM2_NAME 2>/dev/null; cd $STANDALONE_DIR && unset HOSTNAME && set -a && source .env.local && set +a && export PORT=\${PORT:-3333} && export HOSTNAME=\${HOSTNAME:-::} && pm2 start server.js --name $PM2_NAME --interpreter node && pm2 save"
 
@@ -495,7 +495,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
                 echo -e "${YELLOW}   ⚠️  Restart failed - do it manually: pm2 restart $PM2_NAME${NC}"
             fi
         else
-            echo -e "${YELLOW}   ⚠️  .env.local not found - is GateFlow installed?${NC}"
+            echo -e "${YELLOW}   ⚠️  .env.local not found - is Sellf installed?${NC}"
         fi
     fi
 
@@ -505,14 +505,14 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
 
     # Check if we have Supabase configuration
     SUPABASE_TOKEN_FILE="$HOME/.config/supabase/access_token"
-    GATEFLOW_CONFIG="$HOME/.config/gateflow/supabase.env"
+    SELLF_CONFIG="$HOME/.config/sellf/supabase.env"
 
-    if [ -f "$SUPABASE_TOKEN_FILE" ] && [ -f "$GATEFLOW_CONFIG" ]; then
+    if [ -f "$SUPABASE_TOKEN_FILE" ] && [ -f "$SELLF_CONFIG" ]; then
         echo ""
         echo "🔧 Configuring CAPTCHA in Supabase Auth..."
 
         SUPABASE_TOKEN=$(cat "$SUPABASE_TOKEN_FILE")
-        source "$GATEFLOW_CONFIG"  # Loads PROJECT_REF
+        source "$SELLF_CONFIG"  # Loads PROJECT_REF
 
         if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
             CAPTCHA_CONFIG=$(cat <<EOF

@@ -303,19 +303,19 @@ USE_LOCAL_MINIO=true
 DOMAIN=cap.example.com
 ```
 
-### GateFlow
+### Sellf
 
-GateFlow uses **Bun + PM2** (not Docker). Installation is **interactive** - the script guides you through Supabase and Stripe configuration.
+Sellf uses **Bun + PM2** (not Docker). Installation is **interactive** - the script guides you through Supabase and Stripe configuration.
 
 ```bash
 # Interactive setup (recommended)
-./local/deploy.sh gateflow --ssh=vps
+./local/deploy.sh sellf --ssh=vps
 
 # With Cloudflare domain
-./local/deploy.sh gateflow --ssh=vps --domain-type=cloudflare --domain=shop.example.com
+./local/deploy.sh sellf --ssh=vps --domain-type=cloudflare --domain=shop.example.com
 
 # With Caddy domain
-./local/deploy.sh gateflow --ssh=vps --domain-type=caddy --domain=shop.example.com
+./local/deploy.sh sellf --ssh=vps --domain-type=caddy --domain=shop.example.com
 ```
 
 Optional environment variables (to skip interactive prompts):

@@ -4,13 +4,13 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
-# GateFlow resource usage monitoring
-# Usage: ./local/monitor-gateflow.sh <ssh_alias> [duration_in_seconds] [app_name]
+# Sellf resource usage monitoring
+# Usage: ./local/monitor-sellf.sh <ssh_alias> [duration_in_seconds] [app_name]
 #
 # Examples:
-#   ./local/monitor-gateflow.sh vps                     # 60 seconds, gateflow-admin
-#   ./local/monitor-gateflow.sh vps 300                  # 5 minutes
-#   ./local/monitor-gateflow.sh vps 300 gateflow-shop    # specific instance
+#   ./local/monitor-sellf.sh vps                     # 60 seconds, sellf-admin
+#   ./local/monitor-sellf.sh vps 300                  # 5 minutes
+#   ./local/monitor-sellf.sh vps 300 sellf-shop    # specific instance
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ -z "${1:-}" ]; then
   echo "Usage: $0 <ssh_alias> [duration_in_seconds] [app_name]"
@@ -18,7 +18,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ -z "${1:-}" ]; then
   echo "Examples:"
   echo "  $0 vps                     # 60 seconds, auto-detect"
   echo "  $0 vps 300                  # 5 minutes"
-  echo "  $0 vps 300 gateflow-shop    # specific instance"
+  echo "  $0 vps 300 sellf-shop    # specific instance"
   exit 0
 fi
 
@@ -28,11 +28,11 @@ APP_NAME=${3:-""}
 INTERVAL=1
 
 if [ -z "$APP_NAME" ]; then
-  echo "🔍 Detecting GateFlow instances on server..."
-  INSTANCES=$(server_exec "pm2 list | grep gateflow | awk '{print \$2}'")
+  echo "🔍 Detecting Sellf instances on server..."
+  INSTANCES=$(server_exec "pm2 list | grep sellf | awk '{print \$2}'")
 
   if [ -z "$INSTANCES" ]; then
-    echo "❌ No GateFlow instances found"
+    echo "❌ No Sellf instances found"
     exit 1
   fi
 
@@ -50,7 +50,7 @@ if [ -z "$APP_NAME" ]; then
   fi
 fi
 
-OUTPUT_FILE="gateflow-metrics-$(date +%Y%m%d-%H%M%S).csv"
+OUTPUT_FILE="sellf-metrics-$(date +%Y%m%d-%H%M%S).csv"
 
 echo "📊 Monitoring: $APP_NAME"
 echo "⏱️  Duration: ${DURATION}s (refresh every ${INTERVAL}s)"

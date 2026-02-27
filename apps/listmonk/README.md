@@ -143,11 +143,11 @@ _dmarc.yourdomain.com  TXT  "v=DMARC1; p=none; rua=mailto:dmarc-reports@yourdoma
 
 ## Integration with n8n
 
-After a purchase in GateFlow or a conversation in Typebot, you can automatically add people to Listmonk.
+After a purchase in Sellf or a conversation in Typebot, you can automatically add people to Listmonk.
 
 **Example n8n workflow:**
 ```
-[Webhook from GateFlow] -> [HTTP Request to Listmonk API] -> [Add to "Customers" list]
+[Webhook from Sellf] -> [HTTP Request to Listmonk API] -> [Add to "Customers" list]
 ```
 
 Listmonk API: `https://listmonk.app/docs/apis/subscribers/`

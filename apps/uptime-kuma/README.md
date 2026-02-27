@@ -10,7 +10,7 @@ Beautiful and simple monitoring dashboard. Replaces the paid UptimeRobot.
 
 ## Business Use Case
 Your n8n automations must run 24/7. But how do you know if they are running?
-1. Configure Uptime Kuma to check your n8n webhooks or GateFlow page every minute.
+1. Configure Uptime Kuma to check your n8n webhooks or Sellf page every minute.
 2. Connect notifications (e.g. to **ntfy** or Telegram).
 3. Sleep peacefully. If something goes down, your phone will wake you up.
 

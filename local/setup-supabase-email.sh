@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # StackPilot - Supabase SMTP Setup
-# Configures SMTP for sending emails in GateFlow
+# Configures SMTP for sending emails in Sellf
 # Author: Paweł (Lazy Engineer)
 #
 # NOTE: Email templates are configured automatically by deploy.sh
@@ -17,7 +17,7 @@ set -e
 # Load Supabase library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-source "$REPO_ROOT/lib/gateflow-setup.sh"
+source "$REPO_ROOT/lib/sellf-setup.sh"
 
 echo ""
 echo -e "${BLUE}📮 SMTP Configuration for Supabase${NC}"
@@ -83,8 +83,8 @@ read -sp "SMTP Password: " SMTP_PASS
 echo ""
 
 read -p "Sender email address (e.g. noreply@yourdomain.com): " SMTP_SENDER_EMAIL
-read -p "Sender name [GateFlow]: " SMTP_SENDER_NAME
-SMTP_SENDER_NAME="${SMTP_SENDER_NAME:-GateFlow}"
+read -p "Sender name [Sellf]: " SMTP_SENDER_NAME
+SMTP_SENDER_NAME="${SMTP_SENDER_NAME:-Sellf}"
 
 # =============================================================================
 # 4. SAVE CONFIGURATION

@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# StackPilot - GateFlow
+# StackPilot - Sellf
 # Self-hosted digital products sales platform (Gumroad/EasyCart alternative)
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=500  # gateflow (Next.js app ~500MB)
+# IMAGE_SIZE_MB=500  # sellf (Next.js app ~500MB)
 #
 # Requirements:
 #   - 1GB+ VPS (1GB RAM)
@@ -19,8 +19,8 @@
 
 set -e
 
-APP_NAME="gateflow"
-GITHUB_REPO="jurczykpawel/gateflow"
+APP_NAME="sellf"
+GITHUB_REPO="jurczykpawel/sellf"
 
 # =============================================================================
 # MULTI-INSTANCE: instance name from domain
@@ -39,11 +39,11 @@ fi
 # Set paths and names based on instance
 # Install to /opt/stacks so backup works automatically
 if [ -n "$INSTANCE_NAME" ]; then
-    INSTALL_DIR="/opt/stacks/gateflow-${INSTANCE_NAME}"
-    PM2_NAME="gateflow-${INSTANCE_NAME}"
+    INSTALL_DIR="/opt/stacks/sellf-${INSTANCE_NAME}"
+    PM2_NAME="sellf-${INSTANCE_NAME}"
 else
-    INSTALL_DIR="/opt/stacks/gateflow"
-    PM2_NAME="gateflow"
+    INSTALL_DIR="/opt/stacks/sellf"
+    PM2_NAME="sellf"
 
     # Check if directory already exists (prevent overwrite without specific domain)
     if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ]; then
@@ -51,18 +51,18 @@ else
         echo ""
         echo "   Without a domain, only ONE instance is supported."
         echo "   For multiple instances use specific domains:"
-        echo "   ./local/deploy.sh gateflow --domain=shop.example.com"
-        echo "   ./local/deploy.sh gateflow --domain=test.example.com"
+        echo "   ./local/deploy.sh sellf --domain=shop.example.com"
+        echo "   ./local/deploy.sh sellf --domain=test.example.com"
         echo ""
         echo "   Or remove the existing installation:"
-        echo "   pm2 delete gateflow && rm -rf $INSTALL_DIR"
+        echo "   pm2 delete sellf && rm -rf $INSTALL_DIR"
         exit 1
     fi
 fi
 
 PORT=${PORT:-3333}
 
-echo "--- 💰 GateFlow Setup ---"
+echo "--- 💰 Sellf Setup ---"
 echo ""
 if [ -n "$INSTANCE_NAME" ]; then
     echo "📦 Instance: $INSTANCE_NAME"
@@ -154,9 +154,9 @@ cd "$INSTALL_DIR/admin-panel"
 
 # Check if we already have files (update vs fresh install)
 if [ -d ".next/standalone" ]; then
-    echo "✅ GateFlow already downloaded - using existing files"
+    echo "✅ Sellf already downloaded - using existing files"
 else
-    echo "📥 Downloading GateFlow..."
+    echo "📥 Downloading Sellf..."
 
     # Check if we have a local file (passed by deploy.sh)
     if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
@@ -170,33 +170,33 @@ else
     else
         # Download from GitHub
         # Try /latest (requires a tagged "latest release" on GitHub)
-        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
+        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/sellf-build.tar.gz"
 
         if ! curl -fsSL "$RELEASE_URL" 2>/dev/null | tar -xz 2>/dev/null; then
-            # Fallback: find the newest release with gateflow-build.tar.gz artifact
+            # Fallback: find the newest release with sellf-build.tar.gz artifact
             echo "   /latest unavailable, looking for the newest release with build..."
             RELEASE_URL=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases" 2>/dev/null \
-                | grep -m1 "browser_download_url.*gateflow-build" | sed 's/.*: "\(.*\)".*/\1/')
+                | grep -m1 "browser_download_url.*sellf-build" | sed 's/.*: "\(.*\)".*/\1/')
 
             if [ -n "$RELEASE_URL" ]; then
                 LATEST_TAG=$(echo "$RELEASE_URL" | sed 's|.*/download/\([^/]*\)/.*|\1|')
                 echo "   Found: $LATEST_TAG"
                 if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
                     echo ""
-                    echo "❌ Failed to download GateFlow ($LATEST_TAG)"
+                    echo "❌ Failed to download Sellf ($LATEST_TAG)"
                     exit 1
                 fi
             else
                 echo ""
-                echo "❌ Failed to download GateFlow from GitHub"
+                echo "❌ Failed to download Sellf from GitHub"
                 echo ""
                 echo "   Possible causes:"
-                echo "   • No release with gateflow-build.tar.gz artifact"
+                echo "   • No release with sellf-build.tar.gz artifact"
                 echo "   • Repository is private"
                 echo "   • No internet connection"
                 echo ""
                 echo "   Solution: Download the file manually and use the --build-file flag:"
-                echo "   ./local/deploy.sh gateflow --ssh=vps --build-file=~/Downloads/gateflow-build.tar.gz"
+                echo "   ./local/deploy.sh sellf --ssh=vps --build-file=~/Downloads/sellf-build.tar.gz"
                 exit 1
             fi
         fi
@@ -209,7 +209,7 @@ else
         exit 1
     fi
 
-    echo "✅ GateFlow downloaded"
+    echo "✅ Sellf downloaded"
 fi
 echo ""
 
@@ -369,7 +369,7 @@ fi
 # 7. START APPLICATION
 # =============================================================================
 
-echo "🚀 Starting GateFlow..."
+echo "🚀 Starting Sellf..."
 
 # Stop if running
 pm2 delete $PM2_NAME 2>/dev/null || true
@@ -404,7 +404,7 @@ pm2 save
 sleep 3
 
 if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo "✅ GateFlow is running!"
+    echo "✅ Sellf is running!"
 else
     echo "❌ Problem starting. Logs:"
     pm2 logs $PM2_NAME --lines 20
@@ -426,7 +426,7 @@ fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "✅ GateFlow installed!"
+echo "✅ Sellf installed!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 echo "📋 Useful commands:"

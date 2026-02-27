@@ -12,7 +12,7 @@ A server for sending PUSH notifications to phone and desktop. Replaces paid Push
 1. Install the ntfy app on your phone (Android/iOS).
 2. Subscribe to your topic, e.g. `my-secret-topic`.
 3. In n8n, use an HTTP Request node to send a POST to your ntfy server.
-4. **Done!** You get a notification on your phone: "New order in GateFlow: $97".
+4. **Done!** You get a notification on your phone: "New order in Sellf: $97".
 
 ## After Installation - Domain Configuration
 

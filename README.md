@@ -96,7 +96,7 @@ cd stackpilot
 | App | Replaces | Description |
 | :--- | :--- | :--- |
 | [WordPress](apps/wordpress/) | WordPress.com | Performance Edition: Nginx + PHP-FPM + Redis Object Cache. |
-| [GateFlow](apps/gateflow/) | Gumroad | Digital product storefront. Zero fees, zero commissions. |
+| [Sellf](apps/sellf/) | Gumroad | Digital product storefront. Zero fees, zero commissions. |
 | [FileBrowser](apps/filebrowser/) | Dropbox / Tiiny.host | Private file manager with web UI + static hosting. |
 | [LinkStack](apps/linkstack/) | Linktree | Link-in-bio page with admin panel. |
 | [LittleLink](apps/littlelink/) | Linktree | Ultra-lightweight link-in-bio page (pure HTML). |
@@ -139,7 +139,7 @@ These apps are not isolated islands. Together they form a **business operating s
 **Example: automated e-book sales funnel**
 
 ```
-Customer --> Typebot (chatbot) --> GateFlow (Stripe payment)
+Customer --> Typebot (chatbot) --> Sellf (Stripe payment)
                                         |
                                   n8n (webhook)
                                  /    |    \     \
@@ -150,7 +150,7 @@ Customer --> Typebot (chatbot) --> GateFlow (Stripe payment)
 ```
 
 1. **Typebot** -- the customer chats with a bot that qualifies their needs
-2. **GateFlow** -- the bot directs them to checkout for the e-book
+2. **Sellf** -- the bot directs them to checkout for the e-book
 3. **n8n** -- detects the payment and automatically: adds the customer to CRM (**NocoDB**), sends the e-book via email, generates an invoice, subscribes them to a newsletter (**Listmonk**)
 4. **Umami** -- tracks the conversion
 
@@ -312,7 +312,7 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | Listmonk | Mailchimp (5k contacts) | $50+ | $0 |
 | Typebot | Typeform Pro | $50+ | $0 |
 | NocoDB | Airtable Pro | $20+ | $0 |
-| GateFlow | Gumroad (10% commission) | $$$ | $0 |
+| Sellf | Gumroad (10% commission) | $$$ | $0 |
 | Uptime Kuma | UptimeRobot Pro | $7+ | $0 |
 | Vaultwarden | 1Password Teams | $8/user | $0 |
 | Postiz | Buffer Pro | $15+ | $0 |
@@ -342,7 +342,7 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | Base (Caddy + Dockge) | ~100MB |
 | + n8n | ~500MB |
 | + Listmonk + Uptime Kuma | ~800MB |
-| + Typebot + GateFlow | ~1.5GB |
+| + Typebot + Sellf | ~1.5GB |
 | Full stack (10+ tools) | ~1.8GB |
 | Coolify (PaaS, 280+ apps) | ~500--800MB (platform only) |
 
@@ -507,7 +507,7 @@ Configuration is stored in `~/.config/stackpilot/`.
 
 **Pawel** ([@jurczykpawel](https://github.com/jurczykpawel))
 
-- [GateFlow](https://github.com/jurczykpawel/gateflow) -- Open-source digital product storefront
+- [Sellf](https://github.com/jurczykpawel/sellf) -- Open-source digital product storefront
 - [StackPilot](https://github.com/jurczykpawel/stackpilot) -- The AI-native self-hosting toolkit
 
 ---

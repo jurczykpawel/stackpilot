@@ -160,7 +160,7 @@ SKIP_APPS=(
     "redis|SKIP|TCP only (no HTTP)|/"
     "mcp-docker|SKIP|MCP protocol (no HTTP)|/"
     "coolify|SKIP|tested separately (Lima VM)|/"
-    "gateflow|SKIP|requires Supabase|/"
+    "sellf|SKIP|requires Supabase|/"
 )
 
 # Filter apps if specific ones requested via CLI args

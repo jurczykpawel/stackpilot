@@ -223,16 +223,16 @@ Configure automatic backups on a VPS. Auto-installs the toolbox on the server if
 
 **Note:** After any `deploy_app`, `deploy_custom_app`, or `deploy_site`, the server is checked for backup configuration. If no backup is found, a warning is returned suggesting `setup_backup`.
 
-### `setup_gateflow_config`
+### `setup_sellf_config`
 
-Configure GateFlow deployment credentials (Supabase keys) securely -- without exposing secrets in the conversation.
+Configure Sellf deployment credentials (Supabase keys) securely -- without exposing secrets in the conversation.
 
 Multi-step flow:
 1. Call with no params -- opens browser for Supabase login, returns instructions
 2. Call with `verification_code` -- exchanges code for token, returns project list
-3. Call with `project_ref` -- fetches API keys and saves config to `~/.config/stackpilot/gateflow/deploy-config.env`
+3. Call with `project_ref` -- fetches API keys and saves config to `~/.config/stackpilot/sellf/deploy-config.env`
 
-After setup is complete, `deploy_app(app_name='gateflow')` will use the saved config automatically.
+After setup is complete, `deploy_app(app_name='sellf')` will use the saved config automatically.
 
 ## Example Conversations
 
@@ -291,7 +291,7 @@ MCP is not just a "run commands" interface. Because the AI model sees tool descr
 Planned improvements:
 - **Resource budgeting** - "You have 1.2GB free RAM. This app needs ~800MB - want to check first?"
 - **Post-deploy checklist** - security hardening, SSL verification, backup setup, monitoring
-- **Multi-app orchestration** - "Set up my complete solopreneur stack" -> deploys n8n + Listmonk + Uptime Kuma + GateFlow in the right order
+- **Multi-app orchestration** - "Set up my complete solopreneur stack" -> deploys n8n + Listmonk + Uptime Kuma + Sellf in the right order
 
 ## Development
 

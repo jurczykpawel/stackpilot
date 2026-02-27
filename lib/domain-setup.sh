@@ -447,7 +447,7 @@ configure_domain_cloudflare() {
         local CF_APP_FLAG=""
         case "${APP_NAME:-}" in
             wordpress) CF_APP_FLAG="--app=wordpress" ;;
-            gateflow)  CF_APP_FLAG="--app=nextjs" ;;
+            sellf)  CF_APP_FLAG="--app=nextjs" ;;
         esac
         bash "$OPTIMIZE_SCRIPT" "$DOMAIN" $CF_APP_FLAG || echo -e "${YELLOW}Cloudflare optimization skipped${NC}"
     fi

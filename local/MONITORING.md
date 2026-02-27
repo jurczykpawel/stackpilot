@@ -1,6 +1,6 @@
-# Monitoring GateFlow
+# Monitoring Sellf
 
-Guide to tools for monitoring performance and resource usage of the GateFlow application on your VPS.
+Guide to tools for monitoring performance and resource usage of the Sellf application on your VPS.
 
 ## Quick Start
 
@@ -14,45 +14,45 @@ ssh ALIAS "pm2 status"
 ssh ALIAS "pm2 monit"
 
 # Logs (last 50 lines)
-ssh ALIAS "pm2 logs gateflow-admin --lines 50"
+ssh ALIAS "pm2 logs sellf-admin --lines 50"
 ```
 
 ### Full Benchmark (test + monitoring)
 
 ```bash
 # Run with one command
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS
 
 # With heavier load
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS 500 30
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS 500 30
 ```
 
 ## Available Tools
 
-### 1. monitor-gateflow.sh
+### 1. monitor-sellf.sh
 
-Continuous monitoring of CPU and RAM usage by the GateFlow application.
+Continuous monitoring of CPU and RAM usage by the Sellf application.
 
 **Usage:**
 ```bash
-./local/monitor-gateflow.sh <ssh_alias> [time_in_seconds] [app_name]
+./local/monitor-sellf.sh <ssh_alias> [time_in_seconds] [app_name]
 ```
 
 **Examples:**
 ```bash
 # Monitor for 60 seconds (default)
-./local/monitor-gateflow.sh ALIAS
+./local/monitor-sellf.sh ALIAS
 
 # Monitor for 5 minutes
-./local/monitor-gateflow.sh ALIAS 300
+./local/monitor-sellf.sh ALIAS 300
 
 # Specific instance (multi-instance setup)
-./local/monitor-gateflow.sh ALIAS 300 gateflow-shop
+./local/monitor-sellf.sh ALIAS 300 sellf-shop
 ```
 
 **Output:**
 - Real-time metrics (progress bar)
-- CSV file with data: `gateflow-metrics-YYYYMMDD-HHMMSS.csv`
+- CSV file with data: `sellf-metrics-YYYYMMDD-HHMMSS.csv`
 - Summary: CPU/RAM (max, average)
 - Recommendation: whether the app will fit on a 2GB VPS
 
@@ -73,28 +73,28 @@ Continuous monitoring of CPU and RAM usage by the GateFlow application.
 
 ---
 
-### 2. load-test-gateflow.sh
+### 2. load-test-sellf.sh
 
 Load test for the application - simulates user traffic.
 
 **Usage:**
 ```bash
-./local/load-test-gateflow.sh <url> [number_of_requests] [concurrency]
+./local/load-test-sellf.sh <url> [number_of_requests] [concurrency]
 ```
 
 **Examples:**
 ```bash
 # Basic test (50 requests, 5 concurrent)
-./local/load-test-gateflow.sh https://shop.your-domain.com
+./local/load-test-sellf.sh https://shop.your-domain.com
 
 # Medium test (100 requests, 10 concurrent)
-./local/load-test-gateflow.sh https://shop.your-domain.com 100 10
+./local/load-test-sellf.sh https://shop.your-domain.com 100 10
 
 # Large test (500 requests, 20 concurrent)
-./local/load-test-gateflow.sh https://shop.your-domain.com 500 20
+./local/load-test-sellf.sh https://shop.your-domain.com 500 20
 
 # Stress test (1000 requests, 50 concurrent)
-./local/load-test-gateflow.sh https://shop.your-domain.com 1000 50
+./local/load-test-sellf.sh https://shop.your-domain.com 1000 50
 ```
 
 **Test scenario (realistic endpoint mix):**
@@ -125,25 +125,25 @@ Load test for the application - simulates user traffic.
 
 ---
 
-### 3. benchmark-gateflow.sh
+### 3. benchmark-sellf.sh
 
 **Best tool!** Combines load testing + resource monitoring.
 
 **Usage:**
 ```bash
-./local/benchmark-gateflow.sh <url> <ssh_alias> [requests] [concurrency]
+./local/benchmark-sellf.sh <url> <ssh_alias> [requests] [concurrency]
 ```
 
 **Examples:**
 ```bash
 # Quick benchmark (100 requests)
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS
 
 # Medium benchmark (200 requests, 20 concurrent)
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS 200 20
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS 200 20
 
 # Large benchmark (500 requests, 30 concurrent)
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS 500 30
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS 500 30
 ```
 
 **What it does:**
@@ -155,7 +155,7 @@ Load test for the application - simulates user traffic.
 
 **Output (folder `benchmark-YYYYMMDD-HHMMSS/`):**
 - `REPORT.txt` - Complete text report
-- `gateflow-metrics-*.csv` - Data for charting
+- `sellf-metrics-*.csv` - Data for charting
 - `load-test.log` - Detailed test logs
 - `monitoring.log` - Detailed monitoring logs
 
@@ -174,10 +174,10 @@ Load test for the application - simulates user traffic.
 
 ```bash
 # 1. Install the app on a test server
-./local/deploy.sh gateflow --ssh=ALIAS --domain=auto
+./local/deploy.sh sellf --ssh=ALIAS --domain=auto
 
 # 2. Run benchmark
-./local/benchmark-gateflow.sh https://test.your-domain.com ALIAS 200 20
+./local/benchmark-sellf.sh https://test.your-domain.com ALIAS 200 20
 
 # 3. Check the report
 cat benchmark-*/REPORT.txt
@@ -192,10 +192,10 @@ cat benchmark-*/REPORT.txt
 
 ```bash
 # 1. Start long monitoring (10 minutes)
-./local/monitor-gateflow.sh ALIAS 600 &
+./local/monitor-sellf.sh ALIAS 600 &
 
 # 2. In another terminal - load test
-./local/load-test-gateflow.sh https://shop.your-domain.com 1000 50
+./local/load-test-sellf.sh https://shop.your-domain.com 1000 50
 
 # 3. Wait for monitoring to finish
 
@@ -210,13 +210,13 @@ cat benchmark-*/REPORT.txt
 
 ```bash
 # BEFORE optimization
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS 300 30
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS 300 30
 mv benchmark-* benchmark-before/
 
 # ... (make changes) ...
 
 # AFTER optimization
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS 300 30
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS 300 30
 mv benchmark-* benchmark-after/
 
 # Compare
@@ -249,7 +249,7 @@ ssh ALIAS "pm2 link <SECRET_KEY> <PUBLIC_KEY>"
 **Check:**
 ```bash
 # Are there memory leaks?
-./local/monitor-gateflow.sh ALIAS 600  # 10 minutes
+./local/monitor-sellf.sh ALIAS 600  # 10 minutes
 # Open CSV and check if RAM keeps growing
 ```
 
@@ -260,7 +260,7 @@ ssh ALIAS "pm2 link <SECRET_KEY> <PUBLIC_KEY>"
 
 **Solution:**
 - Add `NODE_OPTIONS='--max-old-space-size=512'` in PM2 config
-- Restart: `ssh ALIAS "pm2 restart gateflow-admin"`
+- Restart: `ssh ALIAS "pm2 restart sellf-admin"`
 
 ### Problem: High CPU in idle (> 5% without traffic)
 
@@ -271,7 +271,7 @@ ssh ALIAS "pm2 list"
 ssh ALIAS "pm2 monit"  # Watch for 2 minutes
 
 # Logs - look for repeating operations
-ssh ALIAS "pm2 logs gateflow-admin --lines 200"
+ssh ALIAS "pm2 logs sellf-admin --lines 200"
 ```
 
 **Possible causes:**
@@ -280,7 +280,7 @@ ssh ALIAS "pm2 logs gateflow-admin --lines 200"
 - Hot reload (DEV mode - should not be in production!)
 
 **Solution:**
-- Check `NODE_ENV`: `ssh ALIAS "grep NODE_ENV ~/gateflow/admin-panel/.env.local"`
+- Check `NODE_ENV`: `ssh ALIAS "grep NODE_ENV ~/sellf/admin-panel/.env.local"`
 - Must be `NODE_ENV=production`!
 
 ### Problem: Slow response times (> 1s average)
@@ -288,7 +288,7 @@ ssh ALIAS "pm2 logs gateflow-admin --lines 200"
 **Check:**
 ```bash
 # Test from different locations
-./local/load-test-gateflow.sh https://shop.your-domain.com 50 5
+./local/load-test-sellf.sh https://shop.your-domain.com 50 5
 
 # Check if all endpoints are slow or only some
 curl -w "@curl-format.txt" -o /dev/null -s https://shop.your-domain.com
@@ -315,15 +315,15 @@ curl -w "@curl-format.txt" -o /dev/null -s https://shop.your-domain.com/products
 **Check:**
 ```bash
 # Gradual load test
-./local/load-test-gateflow.sh https://shop.your-domain.com 10 2   # OK?
-./local/load-test-gateflow.sh https://shop.your-domain.com 50 5   # OK?
-./local/load-test-gateflow.sh https://shop.your-domain.com 100 10 # Crash?
+./local/load-test-sellf.sh https://shop.your-domain.com 10 2   # OK?
+./local/load-test-sellf.sh https://shop.your-domain.com 50 5   # OK?
+./local/load-test-sellf.sh https://shop.your-domain.com 100 10 # Crash?
 
 # Logs during crash
-ssh ALIAS "pm2 logs gateflow-admin --lines 500 --err"
+ssh ALIAS "pm2 logs sellf-admin --lines 500 --err"
 
 # Check restart count
-ssh ALIAS "pm2 show gateflow-admin"
+ssh ALIAS "pm2 show sellf-admin"
 ```
 
 **Possible causes:**
@@ -358,7 +358,7 @@ ssh ALIAS "pm2 show gateflow-admin"
 | Response time | 100-200ms | 200-350ms | 350-600ms | 600-1000ms |
 | Concurrent users | - | ~10 | ~20-30 | ~50-80 |
 
-**Note:** These are values for standard GateFlow with Supabase. Your results may vary depending on:
+**Note:** These are values for standard Sellf with Supabase. Your results may vary depending on:
 - Number of products
 - Query complexity
 - Image sizes
@@ -375,7 +375,7 @@ ssh ALIAS "pm2 show gateflow-admin"
 ssh ALIAS "pm2 status"
 
 # Weekly - full report
-./local/benchmark-gateflow.sh https://shop.your-domain.com ALIAS 100 10
+./local/benchmark-sellf.sh https://shop.your-domain.com ALIAS 100 10
 
 # Keep history
 mkdir -p benchmarks/
@@ -406,13 +406,13 @@ Configure PM2 Plus (free) for alerts:
 
 ```bash
 # Before each update
-./local/benchmark-gateflow.sh https://test.your-domain.com ALIAS 200 20
+./local/benchmark-sellf.sh https://test.your-domain.com ALIAS 200 20
 
 # If results are OK - deploy to production
-./local/deploy.sh gateflow --ssh=prod-server --update
+./local/deploy.sh sellf --ssh=prod-server --update
 
 # After deploy - check if performance degraded
-./local/benchmark-gateflow.sh https://shop.example.com prod-server 200 20
+./local/benchmark-sellf.sh https://shop.example.com prod-server 200 20
 ```
 
 ---
@@ -437,7 +437,7 @@ ssh ALIAS "pm2 link <SECRET> <PUBLIC>"
 ### Grafana + Prometheus (advanced)
 
 If you need professional monitoring:
-1. Install `prom-client` in GateFlow
+1. Install `prom-client` in Sellf
 2. Expose `/metrics` endpoint
 3. Configure Prometheus on the server
 4. Connect Grafana
@@ -452,8 +452,8 @@ If you need professional monitoring:
 
 A: Yes! Benchmark each separately:
 ```bash
-./local/benchmark-gateflow.sh https://shop1.example.com ALIAS
-./local/benchmark-gateflow.sh https://shop2.example.com ALIAS
+./local/benchmark-sellf.sh https://shop1.example.com ALIAS
+./local/benchmark-sellf.sh https://shop2.example.com ALIAS
 ```
 
 **Q: How often should I run benchmarks?**
@@ -482,14 +482,14 @@ apt install wrk   # Linux
 wrk -t12 -c400 -d30s https://shop.your-domain.com
 ```
 
-**Q: Do these scripts work with other applications (not just GateFlow)?**
+**Q: Do these scripts work with other applications (not just Sellf)?**
 
 A: Yes! All PM2 scripts work with any PM2-managed application. Just provide the process name:
 ```bash
-./local/monitor-gateflow.sh ALIAS 300 n8n-server
-./local/monitor-gateflow.sh ALIAS 300 uptime-kuma
+./local/monitor-sellf.sh ALIAS 300 n8n-server
+./local/monitor-sellf.sh ALIAS 300 uptime-kuma
 ```
 
 ---
 
-**Pro Tip:** Run a benchmark before purchasing a VPS. Install GateFlow on a free service (Railway, Render free tier) and run `benchmark-gateflow.sh`. If RAM < 500 MB - a 1GB VPS is sufficient. If RAM > 500 MB - you need a 2GB VPS.
+**Pro Tip:** Run a benchmark before purchasing a VPS. Install Sellf on a free service (Railway, Render free tier) and run `benchmark-sellf.sh`. If RAM < 500 MB - a 1GB VPS is sufficient. If RAM > 500 MB - you need a 2GB VPS.

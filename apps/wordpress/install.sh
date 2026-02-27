@@ -32,7 +32,7 @@ set -e
 PORT=${PORT:-8080}
 
 # =============================================================================
-# MULTI-INSTANCE: instance name from domain (GateFlow pattern)
+# MULTI-INSTANCE: instance name from domain (Sellf pattern)
 # =============================================================================
 # blog.example.com → wordpress-blog
 # shop.example.com → wordpress-shop

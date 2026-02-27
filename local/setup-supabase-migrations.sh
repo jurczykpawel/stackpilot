@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # StackPilot - Supabase Migrations (via API)
-# Prepares the database for GateFlow
+# Prepares the database for Sellf
 # Author: Paweł (Lazy Engineer)
 #
 # Uses Supabase Management API - does not require DATABASE_URL or psql
@@ -19,7 +19,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
-GITHUB_REPO="jurczykpawel/gateflow"
+GITHUB_REPO="jurczykpawel/sellf"
 MIGRATIONS_PATH="supabase/migrations"
 
 # Colors
@@ -30,7 +30,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-CONFIG_DIR="$HOME/.config/gateflow"
+CONFIG_DIR="$HOME/.config/sellf"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
 echo ""
@@ -57,7 +57,7 @@ fi
 # Check SUPABASE_URL
 if [ -z "$SUPABASE_URL" ]; then
     echo -e "${RED}❌ Missing SUPABASE_URL${NC}"
-    echo "   First run the GateFlow installation or setup-supabase-gateflow.sh"
+    echo "   First run the Sellf installation or setup-supabase-sellf.sh"
     exit 1
 fi
 
@@ -165,21 +165,21 @@ trap "rm -rf $TEMP_DIR" EXIT
 SSH_ALIAS="${SSH_ALIAS:-vps}"
 MIGRATIONS_SOURCE=""
 
-# Find GateFlow installation directory
-# New location: /opt/stacks/gateflow*
-# Old location: /root/gateflow* (for compatibility)
-GATEFLOW_DIR=$(server_exec "ls -d /opt/stacks/gateflow-* 2>/dev/null | head -1" 2>/dev/null)
-if [ -z "$GATEFLOW_DIR" ]; then
-    GATEFLOW_DIR=$(server_exec "ls -d /opt/stacks/gateflow 2>/dev/null" 2>/dev/null)
+# Find Sellf installation directory
+# New location: /opt/stacks/sellf*
+# Old location: /root/sellf* (for compatibility)
+SELLF_DIR=$(server_exec "ls -d /opt/stacks/sellf-* 2>/dev/null | head -1" 2>/dev/null)
+if [ -z "$SELLF_DIR" ]; then
+    SELLF_DIR=$(server_exec "ls -d /opt/stacks/sellf 2>/dev/null" 2>/dev/null)
 fi
-if [ -z "$GATEFLOW_DIR" ]; then
+if [ -z "$SELLF_DIR" ]; then
     # Fallback to old location
-    GATEFLOW_DIR=$(server_exec "ls -d /root/gateflow-* 2>/dev/null | head -1" 2>/dev/null)
+    SELLF_DIR=$(server_exec "ls -d /root/sellf-* 2>/dev/null | head -1" 2>/dev/null)
 fi
-if [ -z "$GATEFLOW_DIR" ]; then
-    GATEFLOW_DIR="/root/gateflow"
+if [ -z "$SELLF_DIR" ]; then
+    SELLF_DIR="/root/sellf"
 fi
-REMOTE_MIGRATIONS_DIR="$GATEFLOW_DIR/admin-panel/supabase/migrations"
+REMOTE_MIGRATIONS_DIR="$SELLF_DIR/admin-panel/supabase/migrations"
 
 # Get migration list from server via SSH
 MIGRATIONS_LIST=$(server_exec "ls '$REMOTE_MIGRATIONS_DIR'/*.sql 2>/dev/null | xargs -n1 basename 2>/dev/null | sort" 2>/dev/null)

@@ -34,9 +34,9 @@ import {
   handleSetupBackup,
 } from "./tools/setup-backup.js";
 import {
-  setupGateflowTool,
-  handleSetupGateflow,
-} from "./tools/setup-gateflow.js";
+  setupSellfTool,
+  handleSetupSellf,
+} from "./tools/setup-sellf.js";
 import { updateToolboxIfCloned } from "./lib/repo.js";
 
 // Auto-update toolbox scripts if running from ~/.stackpilot clone
@@ -57,7 +57,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     serverStatusTool,
     setupDomainTool,
     setupBackupTool,
-    setupGateflowTool,
+    setupSellfTool,
   ],
 }));
 
@@ -81,8 +81,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return handleSetupDomain(args ?? {});
     case "setup_backup":
       return handleSetupBackup(args ?? {});
-    case "setup_gateflow_config":
-      return handleSetupGateflow(args ?? {});
+    case "setup_sellf_config":
+      return handleSetupSellf(args ?? {});
     default:
       return {
         content: [{ type: "text", text: `Unknown tool: ${name}` }],

@@ -96,7 +96,7 @@ This connects from the container to the host, where tools are installed.
 n8n is the "brain" of your automation:
 
 ```
-[GateFlow - sales] --webhook--> [n8n]
+[Sellf - sales] --webhook--> [n8n]
 [Typebot - chatbot]  --webhook-->  |
 [Uptime Kuma - alert] -webhook-->  |
                                    v

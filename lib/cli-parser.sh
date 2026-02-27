@@ -152,7 +152,7 @@ parse_args() {
             --domain-type=*) DOMAIN_TYPE="${1#*=}" ;;
             --domain-type) DOMAIN_TYPE="$2"; shift ;;
 
-            # Supabase (for GateFlow)
+            # Supabase (for Sellf)
             --supabase-project=*) SUPABASE_PROJECT="${1#*=}" ;;
             --supabase-project) SUPABASE_PROJECT="$2"; shift ;;
 
@@ -220,7 +220,7 @@ Domain options:
   --domain=DOMAIN      Application domain (e.g. app.example.com)
   --domain-type=TYPE   Type: cloudflare, caddy, local
 
-GateFlow options:
+Sellf options:
   --supabase-project=REF  Supabase project ref (skips interactive selection)
   --instance=NAME         Instance name (for multi-instance, e.g. --instance=shop)
   --port=PORT             Application port (default: auto-increment from 3333)

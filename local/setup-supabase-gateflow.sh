@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# StackPilot - Supabase Setup for GateFlow
+# StackPilot - Supabase Setup for Sellf
 # Configures Supabase and runs migrations
 # Author: Paweł (Lazy Engineer)
 #
 # Usage:
-#   ./local/setup-supabase-gateflow.sh [ssh_alias]
+#   ./local/setup-supabase-sellf.sh [ssh_alias]
 #
 # Examples:
-#   ./local/setup-supabase-gateflow.sh vps     # Configuration + migrations on server
-#   ./local/setup-supabase-gateflow.sh          # Configuration only
+#   ./local/setup-supabase-sellf.sh vps     # Configuration + migrations on server
+#   ./local/setup-supabase-sellf.sh          # Configuration only
 
 set -e
 
 SSH_ALIAS="${1:-}"
-GITHUB_REPO="jurczykpawel/gateflow"
+GITHUB_REPO="jurczykpawel/sellf"
 MIGRATIONS_PATH="supabase/migrations"
 
 # Colors
@@ -25,11 +25,11 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-CONFIG_DIR="$HOME/.config/gateflow"
+CONFIG_DIR="$HOME/.config/sellf"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
 echo ""
-echo -e "${BLUE}🗄️  Supabase Setup for GateFlow${NC}"
+echo -e "${BLUE}🗄️  Supabase Setup for Sellf${NC}"
 echo ""
 
 # =============================================================================
@@ -94,13 +94,13 @@ fi
 # 2. CREATE SUPABASE PROJECT
 # =============================================================================
 
-echo "GateFlow requires a Supabase project (the free plan is sufficient)."
+echo "Sellf requires a Supabase project (the free plan is sufficient)."
 echo ""
 echo "If you don't have a project yet, create one now:"
 echo "   1. Open: https://supabase.com/dashboard"
 echo "   2. Click 'New Project'"
 echo "   3. Select organization and region (e.g. Frankfurt)"
-echo "   4. Enter a name (e.g. 'gateflow')"
+echo "   4. Enter a name (e.g. 'sellf')"
 echo "   5. Generate a strong database password"
 echo "   6. Click 'Create new project'"
 echo ""
@@ -190,7 +190,7 @@ echo "💾 Saving configuration..."
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_FILE" <<EOF
-# GateFlow - Supabase Configuration
+# Sellf - Supabase Configuration
 # Generated: $(date)
 
 SUPABASE_URL='$SUPABASE_URL'
@@ -237,12 +237,12 @@ echo ""
 echo "Configuration saved in: $CONFIG_FILE"
 echo ""
 echo "Usage with deploy.sh:"
-echo "   source ~/.config/gateflow/supabase.env"
-echo "   ./local/deploy.sh gateflow --ssh=vps --domain=gf.example.com"
+echo "   source ~/.config/sellf/supabase.env"
+echo "   ./local/deploy.sh sellf --ssh=vps --domain=gf.example.com"
 echo ""
 echo "Or manually:"
 echo "   SUPABASE_URL='$SUPABASE_URL' \\"
 echo "   SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' \\"
 echo "   SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY' \\"
-echo "   ./local/deploy.sh gateflow --ssh=vps --domain=gf.example.com"
+echo "   ./local/deploy.sh sellf --ssh=vps --domain=gf.example.com"
 echo ""

@@ -101,7 +101,7 @@ Applications are located in `apps/<name>/install.sh`:
 | **postiz** | Social media scheduler | PostgreSQL* | 5000 |
 | **crawl4ai** | Web crawler with AI extraction | - | 8000 |
 | **cap** | Screen recording and sharing | MySQL | 3000 |
-| **gateflow** | Digital product sales / launch page | PostgreSQL (Supabase) | 3333 |
+| **sellf** | Digital product sales / launch page | PostgreSQL (Supabase) | 3333 |
 | **minio** | Object storage (S3-compatible) | - | 9000 |
 | **gotenberg** | Document conversion API (PDF) | - | 3000 |
 | **cookie-hub** | Consent management (GDPR) | - | 8091 |
@@ -149,7 +149,7 @@ Applications are located in `apps/<name>/install.sh`:
 # Examples:
 ./local/deploy.sh n8n --ssh=vps --domain-type=cloudflare --domain=n8n.example.com
 ./local/deploy.sh uptime-kuma --ssh=vps --domain-type=local --yes
-./local/deploy.sh gateflow --ssh=vps --domain-type=cloudflare --domain=gateflow.example.com
+./local/deploy.sh sellf --ssh=vps --domain-type=cloudflare --domain=sellf.example.com
 ```
 
 **deploy.sh flow:**

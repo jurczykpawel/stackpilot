@@ -22,14 +22,14 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$SCRIPT_DIR/../lib"
 
-source "$LIB_DIR/gateflow-setup.sh"
+source "$LIB_DIR/sellf-setup.sh"
 
 # Check if we have a token
 if [ ! -f ~/.config/supabase/access_token ]; then
     echo -e "${RED}❌ Missing Supabase token${NC}"
     echo ""
     echo "You need to log in first:"
-    echo "   ./local/setup-gateflow-config.sh"
+    echo "   ./local/setup-sellf-config.sh"
     echo ""
     exit 1
 fi

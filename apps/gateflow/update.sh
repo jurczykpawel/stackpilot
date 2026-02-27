@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# StackPilot - GateFlow Update
-# Updates GateFlow to the latest version
+# StackPilot - Sellf Update
+# Updates Sellf to the latest version
 # Author: Paweł (Lazy Engineer)
 #
 # Usage:
-#   ./local/deploy.sh gateflow --ssh=vps --update
-#   ./local/deploy.sh gateflow --ssh=vps --update --build-file=~/Downloads/gateflow-build.tar.gz
-#   ./local/deploy.sh gateflow --ssh=vps --update --restart (restart without updating)
+#   ./local/deploy.sh sellf --ssh=vps --update
+#   ./local/deploy.sh sellf --ssh=vps --update --build-file=~/Downloads/sellf-build.tar.gz
+#   ./local/deploy.sh sellf --ssh=vps --update --restart (restart without updating)
 #
 # Environment variables:
 #   BUILD_FILE - path to local tar.gz file (instead of downloading from GitHub)
@@ -19,7 +19,7 @@
 
 set -e
 
-GITHUB_REPO="jurczykpawel/gateflow"
+GITHUB_REPO="jurczykpawel/sellf"
 RESTART_ONLY=false
 
 # Parse arguments
@@ -35,37 +35,37 @@ done
 # =============================================================================
 # AUTO-DETECT INSTALLATION DIRECTORY
 # =============================================================================
-# New location: /opt/stacks/gateflow* (backup-friendly)
-# Old location: /root/gateflow* (for compatibility)
+# New location: /opt/stacks/sellf* (backup-friendly)
+# Old location: /root/sellf* (for compatibility)
 
-find_gateflow_dir() {
+find_sellf_dir() {
     local NAME="$1"
     # Check new location
-    if [ -d "/opt/stacks/gateflow-${NAME}" ]; then
-        echo "/opt/stacks/gateflow-${NAME}"
-    elif [ -d "/root/gateflow-${NAME}" ]; then
-        echo "/root/gateflow-${NAME}"
-    elif [ -d "/opt/stacks/gateflow" ]; then
-        echo "/opt/stacks/gateflow"
-    elif [ -d "/root/gateflow" ]; then
-        echo "/root/gateflow"
+    if [ -d "/opt/stacks/sellf-${NAME}" ]; then
+        echo "/opt/stacks/sellf-${NAME}"
+    elif [ -d "/root/sellf-${NAME}" ]; then
+        echo "/root/sellf-${NAME}"
+    elif [ -d "/opt/stacks/sellf" ]; then
+        echo "/opt/stacks/sellf"
+    elif [ -d "/root/sellf" ]; then
+        echo "/root/sellf"
     fi
 }
 
 if [ -n "$INSTANCE" ]; then
-    INSTALL_DIR=$(find_gateflow_dir "$INSTANCE")
-    PM2_NAME="gateflow-${INSTANCE}"
-elif ls -d /opt/stacks/gateflow-* &>/dev/null 2>&1; then
-    INSTALL_DIR=$(ls -d /opt/stacks/gateflow-* 2>/dev/null | head -1)
-    PM2_NAME="gateflow-${INSTALL_DIR##*-}"
-elif ls -d /root/gateflow-* &>/dev/null 2>&1; then
-    INSTALL_DIR=$(ls -d /root/gateflow-* 2>/dev/null | head -1)
-    PM2_NAME="gateflow-${INSTALL_DIR##*-}"
-elif [ -d "/opt/stacks/gateflow" ]; then
-    INSTALL_DIR="/opt/stacks/gateflow"
+    INSTALL_DIR=$(find_sellf_dir "$INSTANCE")
+    PM2_NAME="sellf-${INSTANCE}"
+elif ls -d /opt/stacks/sellf-* &>/dev/null 2>&1; then
+    INSTALL_DIR=$(ls -d /opt/stacks/sellf-* 2>/dev/null | head -1)
+    PM2_NAME="sellf-${INSTALL_DIR##*-}"
+elif ls -d /root/sellf-* &>/dev/null 2>&1; then
+    INSTALL_DIR=$(ls -d /root/sellf-* 2>/dev/null | head -1)
+    PM2_NAME="sellf-${INSTALL_DIR##*-}"
+elif [ -d "/opt/stacks/sellf" ]; then
+    INSTALL_DIR="/opt/stacks/sellf"
     PM2_NAME="$PM2_NAME"
 else
-    INSTALL_DIR="/root/gateflow"
+    INSTALL_DIR="/root/sellf"
     PM2_NAME="$PM2_NAME"
 fi
 
@@ -78,18 +78,18 @@ NC='\033[0m'
 
 echo ""
 if [ "$RESTART_ONLY" = true ]; then
-    echo -e "${BLUE}🔄 GateFlow Restart${NC}"
+    echo -e "${BLUE}🔄 Sellf Restart${NC}"
 else
-    echo -e "${BLUE}🔄 GateFlow Update${NC}"
+    echo -e "${BLUE}🔄 Sellf Update${NC}"
 fi
 echo ""
 
 # =============================================================================
-# 1. CHECK IF GATEFLOW IS INSTALLED
+# 1. CHECK IF SELLF IS INSTALLED
 # =============================================================================
 
 if [ ! -d "$INSTALL_DIR/admin-panel" ]; then
-    echo -e "${RED}❌ GateFlow is not installed${NC}"
+    echo -e "${RED}❌ Sellf is not installed${NC}"
     echo "   Use deploy.sh for the first installation."
     exit 1
 fi
@@ -102,7 +102,7 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-echo "✅ GateFlow found in $INSTALL_DIR"
+echo "✅ Sellf found in $INSTALL_DIR"
 
 # Get current version (if available)
 CURRENT_VERSION="unknown"
@@ -137,12 +137,12 @@ if [ "$RESTART_ONLY" = false ]; then
         fi
     else
         echo "📥 Downloading from GitHub..."
-        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/gateflow-build.tar.gz"
+        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/sellf-build.tar.gz"
         if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
             echo -e "${RED}❌ Failed to download new version${NC}"
             echo ""
             echo "If the repo is private, use --build-file:"
-            echo "   ./local/deploy.sh gateflow --ssh=vps --update --build-file=~/Downloads/gateflow-build.tar.gz"
+            echo "   ./local/deploy.sh sellf --ssh=vps --update --build-file=~/Downloads/sellf-build.tar.gz"
             exit 1
         fi
     fi
@@ -177,7 +177,7 @@ fi
 # =============================================================================
 
 echo ""
-echo "⏹️  Stopping GateFlow..."
+echo "⏹️  Stopping Sellf..."
 
 export PATH="$HOME/.bun/bin:$PATH"
 pm2 stop $PM2_NAME 2>/dev/null || true
@@ -226,7 +226,7 @@ fi
 # =============================================================================
 
 echo ""
-echo "🚀 Starting GateFlow..."
+echo "🚀 Starting Sellf..."
 
 cd "$STANDALONE_DIR"
 
@@ -250,7 +250,7 @@ pm2 save
 sleep 3
 
 if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo -e "${GREEN}✅ GateFlow is running!${NC}"
+    echo -e "${GREEN}✅ Sellf is running!${NC}"
 else
     echo -e "${RED}❌ Problem starting. Logs:${NC}"
     pm2 logs $PM2_NAME --lines 20
@@ -264,9 +264,9 @@ fi
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 if [ "$RESTART_ONLY" = true ]; then
-    echo -e "${GREEN}✅ GateFlow restarted!${NC}"
+    echo -e "${GREEN}✅ Sellf restarted!${NC}"
 else
-    echo -e "${GREEN}✅ GateFlow updated!${NC}"
+    echo -e "${GREEN}✅ Sellf updated!${NC}"
 fi
 echo "════════════════════════════════════════════════════════════════"
 echo ""
