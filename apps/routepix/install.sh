@@ -7,6 +7,7 @@
 # Author: Paweł (Lazy Engineer)
 #
 # IMAGE_SIZE_MB=600  # Node.js 22 + Next.js standalone + better-sqlite3 + vips
+# DB_BUNDLED=true  # SQLite embedded in container — no external database needed
 #
 # Stack: Next.js 16 + Prisma + SQLite + Leaflet
 # Lekka aplikacja — SQLite bundled, zero zewnętrznych zależności.

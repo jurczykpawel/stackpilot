@@ -37,19 +37,19 @@ else
     BIND_ADDR="127.0.0.1:"
 fi
 
-# Sprawdź dostępny RAM - WYMAGANE minimum 2GB!
+# Check RAM - requires minimum 2GB!
 TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")
 
 if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ BŁĄD: Za mało RAM dla Subtitle Burner!                   ║"
+    echo "║  ❌ ERROR: Not enough RAM for Subtitle Burner!               ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Wymagane:    2048MB RAM                                     ║"
+    echo "║  Your server: ${TOTAL_RAM}MB RAM                             ║"
+    echo "║  Requires:    2048MB RAM                                     ║"
     echo "║                                                              ║"
-    echo "║  Kontenery: web, worker (FFmpeg), nginx, minio + PG/Redis.   ║"
-    echo "║  Na serwerze <2GB nie uruchomi się poprawnie!                ║"
+    echo "║  Containers: web, worker (FFmpeg), nginx, minio + PG/Redis. ║"
+    echo "║  Will not run properly on servers with less than 2GB RAM!   ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1

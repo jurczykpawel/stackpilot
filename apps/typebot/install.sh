@@ -5,7 +5,7 @@
 # Requires External PostgreSQL.
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=3000  # 2x Next.js images (~1.5GB each)
+# IMAGE_SIZE_MB=6000  # 2x Next.js images (~1.5GB each compressed, ~3GB each extracted)
 # NOTE: Typebot requires at least ~12GB disk and 600MB RAM.
 #        Recommended: 2GB+ VPS or VPS with larger disk.
 #

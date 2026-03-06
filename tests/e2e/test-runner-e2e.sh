@@ -80,7 +80,7 @@ e2e_test() {
 
     if [ "$deploy_exit" -ne 0 ]; then
         # Check for resource constraints
-        if echo "$deploy_output" | grep -qiE "not enough|insufficient|requires.*MB|requires.*RAM|not enough space"; then
+        if echo "$deploy_output" | grep -qiE "not enough|insufficient|requires.*MB|requires.*RAM|not enough space|Wymagane.*MB|Wymagane.*RAM|nie uruchomi|za mało|Installation failed.*RAM|required.*MB RAM"; then
             echo -e "  ${E2E_YELLOW}SKIP: resource constraint${E2E_NC}"
             echo "$deploy_output" | grep -iE "RAM:|Disk:|requires|required" | tail -3 | sed 's/^/    /'
             E2E_RESULTS+=("SKIP|$app|resource constraint")
@@ -174,8 +174,13 @@ e2e_test_tcp() {
         return 1
     fi
 
-    # Check port listening
-    if assert_port "$port"; then
+    # Check port listening (skip if no port given — container-only apps like mcp-docker)
+    if [ -z "$port" ]; then
+        echo -e "  ${E2E_GREEN}PASS: container running (no TCP port)${E2E_NC}"
+        E2E_RESULTS+=("PASS|$app|container running")
+        E2E_PASS=$((E2E_PASS + 1))
+        maybe_cleanup "$app" true
+    elif assert_port "$port"; then
         echo -e "  ${E2E_GREEN}PASS: port $port listening${E2E_NC}"
         E2E_RESULTS+=("PASS|$app|port $port listening")
         E2E_PASS=$((E2E_PASS + 1))
@@ -199,11 +204,22 @@ suite_deploy_no_db() {
     e2e_test "ntfy"          "8085" "200 302"     "60"
     e2e_test "uptime-kuma"   "3001" "200 302 301" "60"
     e2e_test "filebrowser"   "8095" "200 302 301" "60"
+    e2e_test "linkstack"     "8090" "200 302 301" "60"
+    # minio: Console WebUI is on port 9001 (API port 9000 returns 403)
+    e2e_test "minio"         "9001" "200 302 301" "60"
+    # picoclaw: requires bot token config before deploy (YES_MODE creates template + exits 1)
+    # Manual step: edit /opt/stacks/picoclaw/config/config.json then re-run deploy
+    # e2e_test "picoclaw" "18790" "200 302 301" "60"
 
     if [ "$QUICK" = false ]; then
         e2e_test "dockge"        "5001" "200 302 301" "60"
         e2e_test "vaultwarden"   "8088" "200 302"     "60"
+        # gotenberg: /health returns 200, root returns 401 (basic auth required)
+        e2e_test "gotenberg"     "3000" "200 401 302 301" "120" "--domain-type=local --yes" "/health"
+        e2e_test "routepix"      "3000" "200 302 301" "120"
+        e2e_test "convertx"      "3000" "200 302 301" "120"
         e2e_test "stirling-pdf"  "8087" "200 302 301" "120"
+        e2e_test "crawl4ai"      "8000" "200 302 301" "120"
     fi
 }
 
@@ -215,8 +231,14 @@ suite_deploy_postgres() {
     e2e_test "nocodb"   "8080" "200 302 301" "60"  "--domain-type=local --db-source=bundled --yes"
 
     if [ "$QUICK" = false ]; then
-        e2e_test "listmonk" "9000" "200 302"     "120" "--domain-type=local --db-source=bundled --yes"
-        e2e_test "n8n"      "5678" "200 302"     "180" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "listmonk"              "9000" "200 302"     "120" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "n8n"                   "5678" "200 302"     "180" "--domain-type=local --db-source=bundled --yes"
+        # typebot: builder on 8081, viewer on 8082 (not port 3000)
+        e2e_test "typebot"                "8081" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "postiz"                 "5000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "social-media-generator" "8000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "subtitle-burner"        "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
     fi
 }
 
@@ -228,13 +250,17 @@ suite_deploy_mysql() {
     export WP_DB_MODE=sqlite
     e2e_test "wordpress" "8080" "200 302 301 403" "120" "--domain-type=local --yes"
     unset WP_DB_MODE
+
+    # cap: requires DOMAIN — tested in suite_domain_cloudflare (not here)
+    # e2e_test "cap" "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
 }
 
 suite_deploy_tcp() {
     echo ""
     echo -e "${E2E_BOLD}━━━ Suite: deploy-tcp-only ━━━${E2E_NC}"
 
-    e2e_test_tcp "redis" "6379" "--domain-type=local --yes"
+    e2e_test_tcp "redis"      "6379" "--domain-type=local --yes"
+    e2e_test_tcp "mcp-docker" ""     "--domain-type=local --yes"
 }
 
 suite_provider_mikrus() {
@@ -383,6 +409,61 @@ suite_domain_cloudflare() {
 
     # Always clean up domain resources
     cleanup_domain_app "$app" "$test_domain"
+
+    # littlelink and cookie-hub require a domain (Caddy file_server mode, no Docker port)
+    # Test them here since they need --domain-type=cloudflare
+    if [ "$QUICK" = false ]; then
+        local ll_domain="e2ell.automagicznie.pl"
+        local ch_domain="e2ech.automagicznie.pl"
+
+        # cookie-hub serves JS files, not a homepage (no index.html) — check /klaro.js
+        for pair in "littlelink:$ll_domain:/" "cookie-hub:$ch_domain:/klaro.js"; do
+            local pair_app="${pair%%:*}"
+            local pair_rest="${pair#*:}"
+            local pair_domain="${pair_rest%%:*}"
+            local pair_path="${pair_rest#*:}"
+
+            # Skip if app filter set and doesn't match
+            if [ -n "$APP_FILTER" ] && [ "$APP_FILTER" != "$pair_app" ]; then
+                continue
+            fi
+
+            local pair_num=$((E2E_PASS + E2E_FAIL + E2E_SKIP + 1))
+            echo ""
+            echo -e "${E2E_BLUE}▸ [$pair_num] domain-cloudflare: $pair_app via $pair_domain${E2E_NC}"
+
+            # Pre-cleanup
+            cf_dns_delete "$pair_domain" 2>/dev/null
+            caddy_cleanup "$pair_domain" 2>/dev/null
+            ssh "$E2E_SSH" "rm -rf /opt/stacks/$pair_app /var/www/$pair_app" 2>/dev/null
+            sleep 2
+
+            local pair_out pair_exit
+            pair_out=$("$E2E_REPO/local/deploy.sh" "$pair_app" --ssh="$E2E_SSH" --domain-type=cloudflare --domain="$pair_domain" --yes 2>&1) && pair_exit=0 || pair_exit=$?
+
+            if [ "$pair_exit" -ne 0 ]; then
+                echo -e "  ${E2E_RED}FAIL: deploy failed (exit $pair_exit)${E2E_NC}"
+                echo "$pair_out" | tail -5 | sed 's/^/    /'
+                E2E_RESULTS+=("FAIL|$pair_app|deploy failed (exit $pair_exit)")
+                E2E_FAIL=$((E2E_FAIL + 1))
+            else
+                local pair_code
+                pair_code=$(assert_https_remote "$pair_domain" "200 302 301" "90" "$pair_path")
+                if [ $? -eq 0 ]; then
+                    echo -e "  ${E2E_GREEN}PASS: HTTPS $pair_code via $pair_domain${E2E_NC}"
+                    E2E_RESULTS+=("PASS|$pair_app|HTTPS $pair_code via $pair_domain")
+                    E2E_PASS=$((E2E_PASS + 1))
+                else
+                    echo -e "  ${E2E_RED}FAIL: HTTPS $pair_code via $pair_domain${E2E_NC}"
+                    E2E_RESULTS+=("FAIL|$pair_app|HTTPS $pair_code via $pair_domain")
+                    E2E_FAIL=$((E2E_FAIL + 1))
+                fi
+            fi
+
+            cleanup_domain_app "$pair_app" "$pair_domain"
+            ssh "$E2E_SSH" "sudo rm -rf /var/www/$pair_app" 2>/dev/null
+        done
+    fi
 }
 
 suite_domain_caddy() {
