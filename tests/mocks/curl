@@ -1,0 +1,11 @@
+#!/bin/bash
+# Mock curl — returns configurable responses
+# Set MOCK_CURL_RESPONSE to control output
+# Set MOCK_CURL_EXIT to control exit code
+
+if [ -n "$MOCK_CURL_LOG" ]; then
+    echo "curl $*" >> "$MOCK_CURL_LOG"
+fi
+
+echo "${MOCK_CURL_RESPONSE:-}"
+exit ${MOCK_CURL_EXIT:-0}

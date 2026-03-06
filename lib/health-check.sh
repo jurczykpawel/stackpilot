@@ -2,7 +2,7 @@
 
 # StackPilot - Health Check Helper
 # Checks if a container has started and the application is responding.
-# Author: Paweł (Lazy Engineer)
+# Author: Pawel (Lazy Engineer)
 #
 # Usage:
 #   source "$(dirname "$0")/../../lib/health-check.sh"
@@ -11,12 +11,14 @@
 # Function returns:
 #   0 - success (application is running)
 #   1 - error (timeout or app not responding)
+#
+# Requires: lib/i18n.sh must be sourced before this file.
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+# Colors (if not already defined)
+RED="${RED:-\033[0;31m}"
+GREEN="${GREEN:-\033[0;32m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+NC="${NC:-\033[0m}"
 
 # Checks if container is running and application responds to HTTP
 # Arguments: APP_NAME PORT [TIMEOUT] [HEALTH_PATH]
@@ -32,11 +34,11 @@ wait_for_healthy() {
     local INTERVAL=2
 
     echo ""
-    echo "🔍 Checking if $APP_NAME is running..."
+    msg "$MSG_HC_CHECKING" "$APP_NAME"
 
     # 1. Check if container is running
     cd "$STACK_DIR" 2>/dev/null || {
-        echo -e "${RED}❌ Directory $STACK_DIR not found${NC}"
+        msg "$MSG_HC_DIR_NOT_FOUND" "$STACK_DIR"
         return 1
     }
 
@@ -52,17 +54,18 @@ wait_for_healthy() {
 
     if ! sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
         echo ""
-        echo -e "${RED}❌ Container did not start!${NC}"
+        msg "$MSG_HC_CONTAINER_NOT_STARTED"
         echo ""
-        echo "📋 Logs:"
+        msg "$MSG_HC_LOGS"
         sudo docker compose logs --tail 20
         return 1
     fi
 
-    echo -e " container ${GREEN}running${NC}"
+    msg_n "$MSG_HC_CONTAINER_RUNNING"
+    echo ""
 
     # 2. Check if application responds to HTTP
-    echo -n "   Waiting for HTTP response"
+    msg_n "$MSG_HC_WAITING_HTTP"
 
     while [ $ELAPSED -lt $TIMEOUT ]; do
         # Check if curl gets a response (any response, even 401/403)
@@ -70,16 +73,16 @@ wait_for_healthy() {
 
         if [ -n "$HTTP_CODE" ] && [ "$HTTP_CODE" != "000" ]; then
             echo ""
-            echo -e "   ${GREEN}✅ Application is responding (HTTP $HTTP_CODE)${NC}"
+            msg "$MSG_HC_APP_RESPONDING" "$HTTP_CODE"
             return 0
         fi
 
         # Check if container is still running (might be crash-looping)
         if ! sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
             echo ""
-            echo -e "${RED}❌ Container stopped running!${NC}"
+            msg "$MSG_HC_CONTAINER_STOPPED"
             echo ""
-            echo "📋 Logs:"
+            msg "$MSG_HC_LOGS"
             sudo docker compose logs --tail 30
             return 1
         fi
@@ -90,9 +93,9 @@ wait_for_healthy() {
     done
 
     echo ""
-    echo -e "${YELLOW}⚠️  Timeout - application not responding after ${TIMEOUT}s${NC}"
+    msg "$MSG_HC_TIMEOUT" "$TIMEOUT"
     echo ""
-    echo "📋 Logs:"
+    msg "$MSG_HC_LOGS"
     sudo docker compose logs --tail 30
     return 1
 }
@@ -106,10 +109,10 @@ check_container_running() {
 
     sleep 3
     if sudo docker compose ps --format json 2>/dev/null | grep -q '"State":"running"'; then
-        echo -e "${GREEN}✅ Container $APP_NAME is running${NC}"
+        msg "$MSG_HC_CONTAINER_OK" "$APP_NAME"
         return 0
     else
-        echo -e "${RED}❌ Container $APP_NAME did not start${NC}"
+        msg "$MSG_HC_CONTAINER_FAIL" "$APP_NAME"
         sudo docker compose logs --tail 20
         return 1
     fi

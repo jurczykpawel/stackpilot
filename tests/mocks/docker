@@ -1,0 +1,21 @@
+#!/bin/bash
+# Mock Docker — returns configurable responses
+
+if [ -n "$MOCK_DOCKER_LOG" ]; then
+    echo "docker $*" >> "$MOCK_DOCKER_LOG"
+fi
+
+# Handle docker compose ps
+if [ "$1" = "compose" ] && [ "$2" = "ps" ]; then
+    echo "${MOCK_DOCKER_PS:-NAME   IMAGE   COMMAND   SERVICE   CREATED   STATUS   PORTS}"
+    exit 0
+fi
+
+# Handle docker info
+if [ "$1" = "info" ]; then
+    echo "${MOCK_DOCKER_INFO:-Docker version 24.0.0}"
+    exit 0
+fi
+
+echo "${MOCK_DOCKER_RESPONSE:-}"
+exit ${MOCK_DOCKER_EXIT:-0}

@@ -1,0 +1,50 @@
+name: E2E Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_host:
+        description: 'SSH alias for test server'
+        required: true
+        default: 'test-vps'
+      suite:
+        description: 'E2E suite (leave empty for all)'
+        required: false
+      quick:
+        description: 'Quick mode (1 variant per app)'
+        type: boolean
+        default: true
+  schedule:
+    # Run nightly at 3:00 AM UTC
+    - cron: '0 3 * * *'
+
+jobs:
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.E2E_SSH_KEY }}
+          SSH_HOST: ${{ github.event.inputs.ssh_host || 'test-vps' }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run E2E tests
+        env:
+          SSH_HOST: ${{ github.event.inputs.ssh_host || 'test-vps' }}
+          SUITE: ${{ github.event.inputs.suite || '' }}
+          QUICK: ${{ github.event.inputs.quick && '--quick' || '' }}
+        run: |
+          ARGS="e2e --ssh=$SSH_HOST"
+          [ -n "$SUITE" ] && ARGS="$ARGS --suite=$SUITE"
+          [ -n "$QUICK" ] && ARGS="$ARGS $QUICK"
+          bash tests/run.sh $ARGS --verbose

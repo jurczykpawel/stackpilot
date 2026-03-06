@@ -1,0 +1,36 @@
+#!/bin/bash
+# Mock SSH — returns configurable responses
+# Set MOCK_SSH_RESPONSE to control output
+# Set MOCK_SSH_EXIT to control exit code
+# Set MOCK_SSH_LOG to file to log commands
+
+if [ -n "$MOCK_SSH_LOG" ]; then
+    echo "ssh $*" >> "$MOCK_SSH_LOG"
+fi
+
+# Handle ssh -G (config query)
+if [ "$1" = "-G" ]; then
+    echo "hostname mock-server.example.com"
+    echo "user root"
+    exit 0
+fi
+
+# Handle specific command patterns
+for arg in "$@"; do
+    case "$arg" in
+        *"cat /klucz_api"*)
+            echo "${MOCK_SSH_API_KEY:-mock-api-key-12345}"
+            exit 0
+            ;;
+        *"hostname"*)
+            echo "${MOCK_SSH_HOSTNAME:-mikrus42}"
+            exit 0
+            ;;
+        *"test -f"*)
+            exit ${MOCK_SSH_TEST_EXIT:-0}
+            ;;
+    esac
+done
+
+echo "${MOCK_SSH_RESPONSE:-ok}"
+exit ${MOCK_SSH_EXIT:-0}

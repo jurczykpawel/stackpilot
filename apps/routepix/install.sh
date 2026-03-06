@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - RoutePix
+# StackPilot - RoutePix
 # Wizualizuj trasy podróży ze zdjęć geotagowanych.
 # Upload zdjęć → EXIF → mapa z markerami i trasą. AI rozpoznaje sceny.
 # https://github.com/jurczykpawel/routepix
@@ -136,7 +136,7 @@ sudo docker compose up -d
 
 # Health check
 echo "⏳ Czekam na uruchomienie (~20-30s)..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

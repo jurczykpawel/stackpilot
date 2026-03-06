@@ -26,6 +26,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# i18n
+_CP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_CP_DIR/i18n.sh"
+fi
+
 # =============================================================================
 # ENVIRONMENT DETECTION (Git Bash / WSL / etc.)
 # =============================================================================
@@ -59,15 +65,15 @@ warn_gitbash_mintty() {
 
     echo ""
     echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║  ⚠️  Git Bash with MinTTY detected                              ║${NC}"
+    printf "${YELLOW}║  %s${NC}\n" "$(msg "$MSG_CP_MINTTY_HEADER")                              ║"
     echo -e "${YELLOW}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${YELLOW}║  Interactive mode may not work correctly.                       ║${NC}"
+    printf "${YELLOW}║  %s${NC}\n" "$(msg "$MSG_CP_MINTTY_BODY")                       ║"
     echo -e "${YELLOW}║                                                                ║${NC}"
     echo -e "${YELLOW}║  Solutions:                                                     ║${NC}"
-    echo -e "${YELLOW}║  1. Use Windows Terminal instead of MinTTY                      ║${NC}"
-    echo -e "${YELLOW}║  2. Run: winpty ./local/deploy.sh ...                           ║${NC}"
-    echo -e "${YELLOW}║  3. Use automatic mode: --yes                                   ║${NC}"
-    echo -e "${YELLOW}║  4. Install WSL2 (best solution)                                ║${NC}"
+    printf "${YELLOW}║  %s${NC}\n" "$(msg "$MSG_CP_MINTTY_SOL1")                      ║"
+    printf "${YELLOW}║  %s${NC}\n" "$(msg "$MSG_CP_MINTTY_SOL2")                           ║"
+    printf "${YELLOW}║  %s${NC}\n" "$(msg "$MSG_CP_MINTTY_SOL3")                                   ║"
+    printf "${YELLOW}║  %s${NC}\n" "$(msg "$MSG_CP_MINTTY_SOL4")                        ║"
     echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
@@ -173,8 +179,8 @@ parse_args() {
 
             # Unknown options
             --*)
-                echo -e "${RED}Unknown option: $1${NC}" >&2
-                echo "Use --help to see available options." >&2
+                msg "$MSG_CP_UNKNOWN_OPTION" "$1" >&2
+                msg "$MSG_CP_UNKNOWN_HINT" >&2
                 exit 1
                 ;;
 
@@ -198,59 +204,46 @@ parse_args() {
 
 show_help() {
     local SCRIPT_NAME="${0##*/}"
-    cat <<EOF
-StackPilot - $SCRIPT_NAME
-
-Usage:
-  $SCRIPT_NAME APP [options]
-
-SSH options:
-  --ssh=ALIAS          SSH alias from ~/.ssh/config (default: vps)
-
-Database options:
-  --db-source=TYPE     Database source: bundled (Docker container) or custom
-  --db-host=HOST       Database host
-  --db-port=PORT       Database port (default: 5432)
-  --db-name=NAME       Database name
-  --db-schema=SCHEMA   PostgreSQL schema (default: public)
-  --db-user=USER       Database user
-  --db-pass=PASS       Database password
-
-Domain options:
-  --domain=DOMAIN      Application domain (e.g. app.example.com)
-  --domain-type=TYPE   Type: cloudflare, caddy, local
-
-Sellf options:
-  --supabase-project=REF  Supabase project ref (skips interactive selection)
-  --instance=NAME         Instance name (for multi-instance, e.g. --instance=shop)
-  --port=PORT             Application port (default: auto-increment from 3333)
-
-Modes:
-  --yes, -y            Skip all confirmations (requires full parameters)
-  --dry-run            Show what would be executed without running it
-  --update             Update an existing application
-  --restart            Restart without updating (e.g. after .env change) - used with --update
-  --help, -h           Show this help
-
-Examples:
-  # Interactive (prompts for missing data)
-  $SCRIPT_NAME n8n --ssh=vps
-
-  # Full automation
-  $SCRIPT_NAME n8n --ssh=vps --db-source=bundled --domain=n8n.example.com --yes
-
-  # Custom database
-  $SCRIPT_NAME n8n --ssh=vps --db-source=custom --db-host=psql.example.com \\
-    --db-name=n8n --db-user=myuser --db-pass=secret --domain=n8n.example.com --yes
-
-Config file:
-  ~/.config/stackpilot/defaults.sh
-  Example:
-    export DEFAULT_SSH="vps"
-    export DEFAULT_DB_PORT="5432"
-    export DEFAULT_DOMAIN_TYPE="cloudflare"
-
-EOF
+    printf "$(msg "$MSG_CP_HELP_TITLE")\n\n" "$SCRIPT_NAME"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_USAGE")"
+    printf "  %s %s\n\n" "$SCRIPT_NAME" "APP [options]"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_SSH")"
+    printf "%s\n\n" "$(msg "$MSG_CP_HELP_SSH_ALIAS")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB_SOURCE")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB_HOST")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB_PORT")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB_NAME")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB_SCHEMA")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DB_USER")"
+    printf "%s\n\n" "$(msg "$MSG_CP_HELP_DB_PASS")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DOMAIN")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DOMAIN_FLAG")"
+    printf "%s\n\n" "$(msg "$MSG_CP_HELP_DOMAIN_TYPE")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_SELLF")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_SUPABASE")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_INSTANCE")"
+    printf "%s\n\n" "$(msg "$MSG_CP_HELP_PORT")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_MODES")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_YES")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_DRYRUN")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_UPDATE")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_RESTART")"
+    printf "%s\n\n" "$(msg "$MSG_CP_HELP_HELP")"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_EXAMPLES")"
+    printf "  # Interactive (prompts for missing data)\n"
+    printf "  %s n8n --ssh=vps\n\n" "$SCRIPT_NAME"
+    printf "  # Full automation\n"
+    printf "  %s n8n --ssh=vps --db-source=bundled --domain=n8n.example.com --yes\n\n" "$SCRIPT_NAME"
+    printf "  # Custom database\n"
+    printf "  %s n8n --ssh=vps --db-source=custom --db-host=psql.example.com \\\\\n" "$SCRIPT_NAME"
+    printf "    --db-name=n8n --db-user=myuser --db-pass=secret --domain=n8n.example.com --yes\n\n"
+    printf "%s\n" "$(msg "$MSG_CP_HELP_CONFIG")"
+    printf "  ~/.config/stackpilot/defaults.sh\n"
+    printf "  Example:\n"
+    printf "    export DEFAULT_SSH=\"vps\"\n"
+    printf "    export DEFAULT_DB_PORT=\"5432\"\n"
+    printf "    export DEFAULT_DOMAIN_TYPE=\"cloudflare\"\n\n"
 }
 
 # =============================================================================
@@ -274,13 +267,13 @@ ask_if_empty() {
 
     # --yes mode without value = error
     if [ "$YES_MODE" = true ]; then
-        echo -e "${RED}Error: --${VAR_NAME,,} is required in --yes mode${NC}" >&2
+        msg "$MSG_CP_REQUIRED_YES" "${VAR_NAME,,}" >&2
         exit 1
     fi
 
     # Dry-run - don't ask
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[dry-run] Missing value for $VAR_NAME${NC}"
+        msg "$MSG_CP_MISSING_DRYRUN" "$VAR_NAME"
         return 0
     fi
 
@@ -320,13 +313,13 @@ ask_choice() {
 
     # --yes mode without value = error
     if [ "$YES_MODE" = true ]; then
-        echo -e "${RED}Error: --${VAR_NAME,,} is required in --yes mode${NC}" >&2
+        msg "$MSG_CP_REQUIRED_YES" "${VAR_NAME,,}" >&2
         exit 1
     fi
 
     # Dry-run - don't ask
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[dry-run] Missing value for $VAR_NAME${NC}"
+        msg "$MSG_CP_MISSING_DRYRUN" "$VAR_NAME"
         return 0
     fi
 
@@ -340,7 +333,7 @@ ask_choice() {
     for opt in "${OPTS[@]}"; do
         local marker=""
         if [ "$i" = "$DEFAULT_INDEX" ]; then
-            marker=" (default)"
+            marker="$(msg "$MSG_CP_DEFAULT")"
         fi
         echo "  $i) $opt$marker"
         ((i++))
@@ -348,7 +341,7 @@ ask_choice() {
     echo ""
 
     local CHOICE
-    read -p "Choose [1-${#OPTS[@]}]: " CHOICE
+    read -p "$(msg "$MSG_CP_CHOOSE" "${#OPTS[@]}")" CHOICE
 
     # Use default if empty
     if [ -z "$CHOICE" ] && [ -n "$DEFAULT_INDEX" ]; then
@@ -357,7 +350,7 @@ ask_choice() {
 
     # Validation
     if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "${#OPTS[@]}" ]; then
-        echo -e "${RED}Invalid choice${NC}" >&2
+        msg "$MSG_CP_INVALID_CHOICE" >&2
         return 1
     fi
 
@@ -383,7 +376,7 @@ confirm() {
 
     # Dry-run = always yes (but we don't do anything)
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[dry-run] Auto-confirmed: $MESSAGE${NC}"
+        msg "$MSG_CP_DRYRUN_CONFIRM" "$MESSAGE"
         return 0
     fi
 
@@ -403,7 +396,7 @@ dry_run_cmd() {
     local CMD="$2"
 
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] $DESC:${NC}"
+        msg "$MSG_CP_DRYRUN_CMD" "$DESC"
         echo "  $CMD"
         return 0
     fi

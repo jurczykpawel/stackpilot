@@ -17,28 +17,34 @@ SSH_ALIAS="$VPS_HOST"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
+# i18n guard (server-exec.sh already loads it)
+_REST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_REST_DIR/../lib/i18n.sh"
+fi
+
 # Get remote server info for confirmation
 REMOTE_HOST=$(server_hostname)
 REMOTE_USER=$(server_user)
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🚨  EMERGENCY RESTORE PROTOCOL                                ║"
-echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║  Server:  $REMOTE_USER@$REMOTE_HOST"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_REST_HEADER_TOP"
+msg "$MSG_REST_HEADER_TITLE"
+msg "$MSG_REST_HEADER_MID"
+msg "$MSG_REST_HEADER_SERVER" "$REMOTE_USER" "$REMOTE_HOST"
+msg "$MSG_REST_HEADER_BOT"
 echo ""
-echo "WARNING: This will restore data from the cloud and OVERWRITE current files!"
-echo "All changes since the last backup will be LOST."
+msg "$MSG_REST_WARNING"
+msg "$MSG_REST_WARNING2"
 echo ""
-read -p "Are you sure you want to continue? (y/N) " -n 1 -r
+read -p "$(msg_n "$MSG_REST_CONFIRM")" -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-    echo "Cancelled."
+    msg "$MSG_REST_CANCELLED"
     exit 1
 fi
 
-read -p "Press [Enter] to connect to the server..."
+read -p "$(msg_n "$MSG_REST_PRESS_ENTER")"
 
 # 1. Deploy the restore core script (ensure it's up to date)
 REPO_ROOT="$SCRIPT_DIR/.."

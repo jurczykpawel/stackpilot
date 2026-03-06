@@ -1,27 +1,34 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Listmonk Mail Setup
-# Wrapper na setup-mail-domain.sh + konfiguracja Listmonk API.
+# StackPilot - Listmonk Mail Setup
+# Wrapper for setup-mail-domain.sh + Listmonk API configuration.
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
-#   ./local/setup-listmonk-mail.sh [DOMENY...] [--listmonk-url=URL] [--ssh=ALIAS]
+# Usage:
+#   ./local/setup-listmonk-mail.sh [DOMAINS...] [--listmonk-url=URL] [--ssh=ALIAS]
 #
-# Przykłady:
-#   ./local/setup-listmonk-mail.sh mojafirma.pl sklep.mojafirma.pl
-#   ./local/setup-listmonk-mail.sh --listmonk-url=https://newsletter.mojafirma.pl --ssh=mikrus
+# Examples:
+#   ./local/setup-listmonk-mail.sh mycompany.com shop.mycompany.com
+#   ./local/setup-listmonk-mail.sh --listmonk-url=https://newsletter.mycompany.com --ssh=vps
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Kolory
+# Colors (before i18n so they are available in MSG_ strings)
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
+BLUE='\033[0;34m'
+
+# i18n
+_LM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_LM_DIR/../lib/i18n.sh"
+fi
 
 ok()   { echo -e "  ${GREEN}✅ $1${NC}"; }
 fail() { echo -e "  ${RED}❌ $1${NC}"; }
@@ -29,7 +36,7 @@ warn() { echo -e "  ${YELLOW}⚠️  $1${NC}"; }
 info() { echo -e "  ${CYAN}ℹ️  $1${NC}"; }
 step() { echo ""; echo -e "${BOLD}── $1 ──────────────────────────────────────────${NC}"; echo ""; }
 
-# Parsuj argumenty — wyciągnij Listmonk-specific, resztę przekaż dalej
+# Parse arguments — extract Listmonk-specific, pass the rest through
 LISTMONK_URL=""
 LISTMONK_USER=""
 LISTMONK_PASS=""
@@ -43,29 +50,28 @@ for arg in "$@"; do
         --ssh=*) SSH_ALIAS="${arg#*=}" ;;
         --dry-run) DRY_RUN=true; GENERIC_ARGS+=("$arg") ;;
         --help|-h)
-            echo "Użycie: $0 [DOMENY...] [--listmonk-url=URL] [--ssh=ALIAS]"
+            msg "$MSG_LM_HELP_USAGE" "$0"
             echo ""
-            echo "Konfiguruje domeny (DKIM, DMARC) + Listmonk (bounce, powiadomienia)."
+            msg "$MSG_LM_HELP_DESC"
             echo ""
-            echo "Opcje:"
-            echo "  --listmonk-url=URL   URL instancji Listmonk"
-            echo "  --ssh=ALIAS          SSH alias (restart Listmonka po zmianach)"
+            msg "$MSG_LM_HELP_OPTS"
+            msg "$MSG_LM_HELP_OPT_URL"
+            msg "$MSG_LM_HELP_OPT_SSH"
             echo ""
-            echo "Przykłady:"
-            echo "  $0 mojafirma.pl sklep.mojafirma.pl"
-            echo "  $0 --listmonk-url=https://newsletter.mojafirma.pl --ssh=mikrus"
+            msg "$MSG_LM_HELP_EX_1" "$0"
+            msg "$MSG_LM_HELP_EX_2" "$0"
             echo ""
-            echo "Skrypt łączy:"
-            echo "  1. setup-mail-domain.sh — konfiguracja DNS (SPF, DKIM, DMARC)"
-            echo "  2. Listmonk API — bounce handling + powiadomienia"
-            echo "  3. Restart Listmonka via SSH"
+            msg "$MSG_LM_HELP_COMBINES"
+            msg "$MSG_LM_HELP_STEP1"
+            msg "$MSG_LM_HELP_STEP2"
+            msg "$MSG_LM_HELP_STEP3"
             exit 0
             ;;
         *) GENERIC_ARGS+=("$arg") ;;
     esac
 done
 
-# ─── Krok 1: Konfiguracja DNS (generic) ─────────────────────
+# ─── Step 1: DNS configuration (generic) ─────────────────────
 
 WEBHOOK_URL=""
 if [ -n "$LISTMONK_URL" ]; then
@@ -78,53 +84,53 @@ MAIL_DOMAIN_ARGS=("${GENERIC_ARGS[@]}")
 
 "$SCRIPT_DIR/setup-mail-domain.sh" "${MAIL_DOMAIN_ARGS[@]}"
 
-# ─── Krok 2: Konfiguracja Listmonk API ──────────────────────
+# ─── Step 2: Listmonk API configuration ──────────────────────
 
-step "Konfiguracja Listmonka (API)"
+step "$(msg_n "$MSG_LM_API_STEP")"
 
 LISTMONK_CONFIGURED=false
 
 if $DRY_RUN; then
-    info "[DRY-RUN] Pominięto konfigurację Listmonk API"
+    msg "$MSG_LM_API_DRYRUN"
     if [ -n "$LISTMONK_URL" ]; then
-        info "Bounce handling: SES webhook ON, count=1, action=blocklist"
-        info "Powiadomienia: skonfigurowane na podany email"
-        [ -n "$SSH_ALIAS" ] && info "Restart Listmonka na '$SSH_ALIAS'"
+        msg "$MSG_LM_API_DRYRUN_BOUNCE"
+        msg "$MSG_LM_API_DRYRUN_NOTIFY"
+        [ -n "$SSH_ALIAS" ] && msg "$MSG_LM_API_DRYRUN_RESTART" "$SSH_ALIAS"
     fi
 else
 
-echo "Skonfiguruję bounce handling i powiadomienia przez Listmonk API."
+msg "$MSG_LM_API_INTRO"
 echo ""
 
 if [ -z "$LISTMONK_URL" ]; then
-    read -p "URL Listmonka (np. https://newsletter.mojafirma.pl) lub Enter żeby pominąć: " LISTMONK_URL
+    read -p "$(msg_n "$MSG_LM_API_URL_PROMPT")" LISTMONK_URL
     LISTMONK_URL="${LISTMONK_URL%/}"
 fi
 
 if [ -n "$LISTMONK_URL" ]; then
-    [ -z "$LISTMONK_USER" ] && read -p "Login (domyślnie: admin): " LISTMONK_USER
+    [ -z "$LISTMONK_USER" ] && read -p "$(msg_n "$MSG_LM_API_USER_PROMPT")" LISTMONK_USER
     LISTMONK_USER="${LISTMONK_USER:-admin}"
-    [ -z "$LISTMONK_PASS" ] && { read -s -p "Hasło: " LISTMONK_PASS; echo ""; }
+    [ -z "$LISTMONK_PASS" ] && { read -s -p "$(msg_n "$MSG_LM_API_PASS_PROMPT")" LISTMONK_PASS; echo ""; }
     echo ""
 
-    # Test połączenia
-    echo "Testuję połączenie z $LISTMONK_URL..."
+    # Test connection
+    msg "$MSG_LM_API_CONNECTING" "$LISTMONK_URL"
     http_code=$(curl -s -o /dev/null -w "%{http_code}" \
         -u "${LISTMONK_USER}:${LISTMONK_PASS}" \
         "${LISTMONK_URL}/api/settings" 2>/dev/null || echo "000")
 
     if [ "$http_code" = "200" ]; then
-        ok "Połączenie OK"
+        msg "$MSG_LM_API_OK"
         echo ""
 
         # Bounce handling
-        echo -e "  ${BOLD}Bounce handling:${NC}"
-        echo "  • SES bounce webhook: ON"
-        echo "  • Hard bounce po 1 zdarzeniu → blocklist"
-        echo "  • Complaint po 1 zdarzeniu → blocklist"
+        msg "$MSG_LM_API_BOUNCE_HEADER"
+        msg "$MSG_LM_API_BOUNCE_SES"
+        msg "$MSG_LM_API_BOUNCE_HARD"
+        msg "$MSG_LM_API_BOUNCE_COMP"
         echo ""
 
-        read -p "  Włączyć? (T/n) " -n 1 -r
+        read -p "$(msg_n "$MSG_LM_API_BOUNCE_ENABLE")" -n 1 -r
         echo ""
 
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
@@ -142,20 +148,20 @@ if [ -n "$LISTMONK_URL" ]; then
                 ]' 2>/dev/null || true)
 
             if echo "$bounce_response" | grep -q '"data"'; then
-                ok "Bounce handling włączony"
+                msg "$MSG_LM_API_BOUNCE_OK"
                 LISTMONK_CONFIGURED=true
             else
-                warn "Nie udało się przez API — skonfiguruj ręcznie:"
-                echo "     Settings → Bounces → Enable SES, count=1, action=blocklist"
+                msg "$MSG_LM_API_BOUNCE_WARN"
+                msg "$MSG_LM_API_BOUNCE_MANUAL"
             fi
         fi
         echo ""
 
-        # Powiadomienia
-        echo -e "  ${BOLD}Powiadomienia email:${NC}"
-        echo "  (zakończone kampanie, błędy importu, bounce raporty)"
+        # Notifications
+        msg "$MSG_LM_API_NOTIFY_HEADER"
+        msg "$MSG_LM_API_NOTIFY_DESC"
         echo ""
-        read -p "  Email do powiadomień: " notify_email
+        read -p "$(msg_n "$MSG_LM_API_NOTIFY_PROMPT")" notify_email
 
         if [ -n "$notify_email" ]; then
             notify_response=$(curl -s -X PUT "${LISTMONK_URL}/api/settings" \
@@ -164,69 +170,69 @@ if [ -n "$LISTMONK_URL" ]; then
                 -d "[{\"key\":\"app.notify_emails\",\"value\":[\"$notify_email\"]}]" 2>/dev/null || true)
 
             if echo "$notify_response" | grep -q '"data"'; then
-                ok "Powiadomienia → $notify_email"
+                msg "$MSG_LM_API_NOTIFY_OK" "$notify_email"
                 LISTMONK_CONFIGURED=true
             else
-                warn "Nie udało się — ustaw ręcznie:"
-                echo "     Settings → General → Notification emails: $notify_email"
+                msg "$MSG_LM_API_NOTIFY_WARN"
+                msg "$MSG_LM_API_NOTIFY_MANUAL" "$notify_email"
             fi
         fi
     else
-        fail "Nie mogę się połączyć (HTTP $http_code)"
+        msg "$MSG_LM_API_CONN_FAIL" "$http_code"
         echo ""
-        echo "  Skonfiguruj ręcznie w panelu Listmonka:"
-        echo "  • Settings → Bounces → Enable SES bounces, count=1, action=blocklist"
-        echo "  • Settings → General → Notification emails"
+        echo "  $(msg_n "$MSG_LM_API_SKIP")"
+        msg "$MSG_LM_API_MANUAL_BOUNCES"
+        msg "$MSG_LM_API_MANUAL_NOTIFY"
     fi
 else
-    echo "  Pominięto. Skonfiguruj ręcznie:"
-    echo "  • Settings → Bounces → Enable SES bounces, count=1, action=blocklist"
-    echo "  • Settings → General → Notification emails"
+    msg "$MSG_LM_API_SKIP"
+    msg "$MSG_LM_API_MANUAL_BOUNCES"
+    msg "$MSG_LM_API_MANUAL_NOTIFY"
 fi
 
-fi  # koniec if ! $DRY_RUN
+fi  # end if ! $DRY_RUN
 
-# ─── Krok 3: Restart Listmonka ──────────────────────────────
+# ─── Step 3: Restart Listmonk ────────────────────────────────
 
 if $LISTMONK_CONFIGURED; then
     echo ""
-    echo -e "  ${BOLD}Restart Listmonka:${NC}"
-    echo "  Po zmianach ustawień Listmonk wymaga restartu."
+    msg "$MSG_LM_RESTART_HEADER"
+    msg "$MSG_LM_RESTART_NEEDED"
     echo ""
 
     if [ -n "$SSH_ALIAS" ]; then
-        read -p "  Zrestartować na '$SSH_ALIAS'? (T/n) " -n 1 -r
+        read -p "$(msg_n "$MSG_LM_RESTART_PROMPT" "$SSH_ALIAS")" -n 1 -r
         echo ""
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            echo "  Restartuję..."
+            msg "$MSG_LM_RESTART_ING"
             if ssh "$SSH_ALIAS" 'cd /opt/stacks/listmonk && docker compose restart' 2>/dev/null; then
-                ok "Listmonk zrestartowany"
+                msg "$MSG_LM_RESTART_OK"
             else
-                fail "Nie udało się"
-                echo "     ssh $SSH_ALIAS 'cd /opt/stacks/listmonk && docker compose restart'"
+                msg "$MSG_LM_RESTART_FAIL"
+                msg "$MSG_LM_RESTART_FAIL_CMD" "$SSH_ALIAS"
             fi
         fi
     else
-        warn "Brak --ssh=ALIAS — zrestartuj ręcznie:"
-        echo "     ssh SERWER 'cd /opt/stacks/listmonk && docker compose restart'"
+        msg "$MSG_LM_RESTART_NO_SSH"
+        msg "$MSG_LM_RESTART_NO_SSH_CMD"
     fi
 fi
 
-# ─── Podsumowanie Listmonk ──────────────────────────────────
+# ─── Listmonk summary ────────────────────────────────────────
 
-step "Listmonk — status"
+step "$(msg_n "$MSG_LM_STATUS_STEP")"
 
 if $LISTMONK_CONFIGURED; then
-    ok "Bounce handling + powiadomienia — skonfigurowane"
+    msg "$MSG_LM_STATUS_OK"
 else
-    warn "Bounce handling + powiadomienia — wymaga ręcznej konfiguracji"
+    msg "$MSG_LM_STATUS_WARN"
 fi
 
 if [ -n "$LISTMONK_URL" ]; then
     echo ""
-    echo "  Panel: $LISTMONK_URL"
-    echo "  Webhook: ${LISTMONK_URL}/webhooks/service/ses"
+    msg "$MSG_LM_STATUS_PANEL" "$LISTMONK_URL"
+    msg "$MSG_LM_STATUS_WEBHOOK" "$LISTMONK_URL"
 fi
 echo ""
-echo "✅ Gotowe!"
+msg "$MSG_LM_DONE"
 echo ""

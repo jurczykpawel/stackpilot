@@ -1,0 +1,41 @@
+name: Unit & Static Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'lib/**'
+      - 'local/**'
+      - 'system/**'
+      - 'apps/**'
+      - 'locale/**'
+      - 'tests/**'
+      - '.github/workflows/test-unit.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'local/**'
+      - 'system/**'
+      - 'apps/**'
+      - 'locale/**'
+      - 'tests/**'
+
+jobs:
+  test:
+    name: Unit & Static Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run unit tests
+        run: bash tests/run.sh unit --verbose
+
+      - name: Run static tests
+        run: bash tests/run.sh static --verbose

@@ -132,12 +132,59 @@ Open an [Issue](https://github.com/jurczykpawel/stackpilot/issues) with:
 ## Testing
 
 ```bash
-# Test a single app on a server
-SSH_HOST=your-server ./tests/test-apps.sh app-name
+# Run all local tests (unit + static)
+./tests/run.sh
 
-# Test all apps
-SSH_HOST=your-server ./tests/test-apps.sh
+# Run only unit tests
+./tests/run.sh unit
+
+# Run with verbose output
+./tests/run.sh --verbose
+
+# Run only static validation
+./tests/run.sh static
+
+# E2E tests on a real server
+./tests/run.sh e2e --ssh=your-server
+
+# Filter by test name
+./tests/run.sh unit --filter=cli-parser
 ```
+
+All unit and static tests must pass before merging. CI runs them automatically on every push and PR.
+
+---
+
+## How to Add a New Locale
+
+1. Copy `locale/en.sh` to `locale/xx.sh` (e.g., `locale/de.sh` for German)
+2. Translate all `MSG_*` values (keep the variable names unchanged)
+3. Run `./tests/run.sh static` — the locale coverage test will verify every key exists in both files
+4. Test with `TOOLBOX_LANG=xx ./local/deploy.sh n8n --domain-type=local --yes`
+
+---
+
+## How to Add a New Provider
+
+Create a directory in `lib/providers/your-provider/` with:
+
+```
+lib/providers/your-provider/
+|-- hooks.sh       # Entry point: defines provider_domain_options, provider_db_options,
+|                  #   provider_post_deploy, provider_upgrade_suggestion
++-- (other files)  # Provider-specific logic (domain registration, DB setup, etc.)
+```
+
+Register detection in `lib/providers/detect.sh`:
+
+```bash
+# Add your detection logic
+if [ -f "/your-marker-file" ]; then
+    TOOLBOX_PROVIDER="your-provider"
+fi
+```
+
+See `lib/providers/mikrus/` for a complete example with 4 hooks and 3 feature modules.
 
 ---
 

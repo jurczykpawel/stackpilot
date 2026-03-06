@@ -25,8 +25,14 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Load cli-parser (for --ssh, --yes, colors)
+# Load cli-parser (for --ssh, --yes, colors) — cli-parser loads i18n
 source "$REPO_ROOT/lib/cli-parser.sh"
+
+# i18n guard (cli-parser already loads it, but guard for safety)
+_SYNC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_SYNC_DIR/../lib/i18n.sh"
+fi
 
 # Parse arguments — extract direction, src, dest + CLI flags
 DIRECTION=""
@@ -91,56 +97,56 @@ fi
 
 # Check if rsync is installed
 if ! command -v rsync &>/dev/null; then
-    echo -e "${RED}❌ rsync is not installed.${NC}"
+    msg "$MSG_SYNC_NO_RSYNC"
     echo ""
     if [[ "$OSTYPE" == darwin* ]]; then
-        echo "Install: brew install rsync"
+        msg "$MSG_SYNC_NO_RSYNC_MAC"
     else
-        echo "Install: sudo apt install rsync"
+        msg "$MSG_SYNC_NO_RSYNC_LINUX"
     fi
     exit 1
 fi
 
 # Validate SSH alias (prevent injection)
 if ! [[ "$SSH_ALIAS" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
-    echo -e "${RED}❌ Invalid SSH alias: '$SSH_ALIAS'${NC}"
+    msg "$MSG_SYNC_INVALID_ALIAS" "$SSH_ALIAS"
     exit 1
 fi
 
 echo ""
-echo -e "🔄 Sync: ${BLUE}$DIRECTION${NC} (server: $SSH_ALIAS)"
+msg "$MSG_SYNC_HEADER" "$DIRECTION" "$SSH_ALIAS"
 
 if [ "$DIRECTION" == "up" ]; then
     # Upload: Local -> Remote
     if [ ! -e "$SRC" ]; then
-        echo -e "${RED}❌ Local path '$SRC' does not exist.${NC}"
+        msg "$MSG_SYNC_NO_SRC" "$SRC"
         exit 1
     fi
 
-    echo "   $SRC → $SSH_ALIAS:$DEST"
+    msg "$MSG_SYNC_UP_ARROW" "$SRC" "$SSH_ALIAS" "$DEST"
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] rsync -avzP \"$SRC\" \"$SSH_ALIAS:$DEST\"${NC}"
+        msg "$MSG_SYNC_DRYRUN_UP" "$SRC" "$SSH_ALIAS" "$DEST"
     else
         rsync -avzP -e "ssh -o ConnectTimeout=10" "$SRC" "$SSH_ALIAS:$DEST"
     fi
 
 elif [ "$DIRECTION" == "down" ]; then
     # Download: Remote -> Local
-    echo "   $SSH_ALIAS:$SRC → $DEST"
+    msg "$MSG_SYNC_DOWN_ARROW" "$SSH_ALIAS" "$SRC" "$DEST"
     echo ""
 
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] rsync -avzP \"$SSH_ALIAS:$SRC\" \"$DEST\"${NC}"
+        msg "$MSG_SYNC_DRYRUN_DOWN" "$SSH_ALIAS" "$SRC" "$DEST"
     else
         rsync -avzP -e "ssh -o ConnectTimeout=10" "$SSH_ALIAS:$SRC" "$DEST"
     fi
 
 else
-    echo -e "${RED}❌ Invalid direction: '$DIRECTION'. Use 'up' or 'down'.${NC}"
+    msg "$MSG_SYNC_INVALID_DIR" "$DIRECTION"
     print_usage
 fi
 
 echo ""
-echo -e "${GREEN}✅ Sync complete.${NC}"
+msg "$MSG_SYNC_DONE"

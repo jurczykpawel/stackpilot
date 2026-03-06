@@ -1,0 +1,6 @@
+TAP version 13
+1..4
+ok 1 - umami: HTTP 200
+ok 2 - nocodb: HTTP 302
+ok 3 - listmonk: HTTP 200
+ok 4 - n8n: requires 800MB RAM (only 737MB available) # SKIP

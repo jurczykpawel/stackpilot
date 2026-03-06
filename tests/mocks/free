@@ -1,0 +1,16 @@
+#!/bin/bash
+# Mock free — returns configurable RAM output
+# Set MOCK_FREE_TOTAL, MOCK_FREE_USED, MOCK_FREE_AVAILABLE
+
+TOTAL="${MOCK_FREE_TOTAL:-2048}"
+USED="${MOCK_FREE_USED:-1024}"
+FREE_MEM="${MOCK_FREE_FREE:-512}"
+SHARED="${MOCK_FREE_SHARED:-64}"
+BUFF="${MOCK_FREE_BUFF:-256}"
+AVAILABLE="${MOCK_FREE_AVAILABLE:-768}"
+
+if [ "$1" = "-m" ]; then
+    echo "              total        used        free      shared  buff/cache   available"
+    echo "Mem:          $TOTAL        $USED        $FREE_MEM        $SHARED        $BUFF        $AVAILABLE"
+    echo "Swap:         0           0           0"
+fi

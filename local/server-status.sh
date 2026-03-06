@@ -16,12 +16,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Colors
+# Colors must be defined BEFORE sourcing server-exec.sh (which loads i18n)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+# Load server-exec (which also loads i18n)
+source "$REPO_ROOT/lib/server-exec.sh"
+
+_SS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_SS_DIR/../lib/i18n.sh"
+fi
 
 # Parse arguments
 SSH_ALIAS="vps"
@@ -44,8 +52,6 @@ for arg in "$@"; do
     esac
 done
 
-# Load server-exec
-source "$REPO_ROOT/lib/server-exec.sh"
 export SSH_ALIAS
 
 # =============================================================================
@@ -53,25 +59,25 @@ export SSH_ALIAS
 # =============================================================================
 
 echo ""
-echo -n "🔗 Connecting to server ($SSH_ALIAS)... "
+msg_n "$MSG_SS_CONNECTING" "$SSH_ALIAS"
 if ! server_exec "true" 2>/dev/null; then
-    echo -e "${RED}✗${NC}"
-    echo -e "${RED}❌ Cannot connect to server: $SSH_ALIAS${NC}"
+    msg "$MSG_SS_CONNECT_FAIL"
+    msg "$MSG_SS_CONNECT_ERR" "$SSH_ALIAS"
     exit 1
 fi
-echo -e "${GREEN}✓${NC}"
+msg "$MSG_SS_CONNECT_OK"
 
 HOSTNAME=$(server_exec "hostname" 2>/dev/null)
-echo "   Host: $HOSTNAME"
+msg "$MSG_SS_HOST" "$HOSTNAME"
 
 # =============================================================================
 # RESOURCES
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  📊 Server resources                                           ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_SS_RES_HEADER_TOP"
+msg "$MSG_SS_RES_HEADER_TITLE"
+msg "$MSG_SS_RES_HEADER_BOT"
 echo ""
 
 RESOURCES=$(server_exec "free -m | awk '/^Mem:/ {print \$7, \$2}'; df -m / | awk 'NR==2 {print \$4, \$2}'" 2>/dev/null)
@@ -83,15 +89,14 @@ DISK_TOTAL=$(echo "$RESOURCES" | sed -n '2p' | awk '{print $2}')
 if [ -n "$RAM_AVAIL" ] && [ -n "$RAM_TOTAL" ]; then
     RAM_USED_PCT=$(( (RAM_TOTAL - RAM_AVAIL) * 100 / RAM_TOTAL ))
     if [ "$RAM_USED_PCT" -gt 80 ]; then
-        RAM_LABEL="${RED}CRITICAL${NC}"
+        msg "$MSG_SS_RAM_CRIT" "$RAM_AVAIL" "$RAM_TOTAL" "$RAM_USED_PCT"
     elif [ "$RAM_USED_PCT" -gt 60 ]; then
-        RAM_LABEL="${YELLOW}TIGHT${NC}"
+        msg "$MSG_SS_RAM_TIGHT" "$RAM_AVAIL" "$RAM_TOTAL" "$RAM_USED_PCT"
     else
-        RAM_LABEL="${GREEN}OK${NC}"
+        msg "$MSG_SS_RAM_OK" "$RAM_AVAIL" "$RAM_TOTAL" "$RAM_USED_PCT"
     fi
-    echo -e "   RAM:  ${RAM_AVAIL}MB / ${RAM_TOTAL}MB free (${RAM_USED_PCT}% used) — $RAM_LABEL"
 else
-    echo -e "   RAM:  ${YELLOW}could not read${NC}"
+    msg "$MSG_SS_RAM_ERR"
 fi
 
 if [ -n "$DISK_AVAIL" ] && [ -n "$DISK_TOTAL" ]; then
@@ -99,15 +104,14 @@ if [ -n "$DISK_AVAIL" ] && [ -n "$DISK_TOTAL" ]; then
     DISK_AVAIL_GB=$(awk "BEGIN {printf \"%.1f\", $DISK_AVAIL / 1024}")
     DISK_TOTAL_GB=$(awk "BEGIN {printf \"%.1f\", $DISK_TOTAL / 1024}")
     if [ "$DISK_USED_PCT" -gt 85 ]; then
-        DISK_LABEL="${RED}CRITICAL${NC}"
+        msg "$MSG_SS_DISK_CRIT" "$DISK_AVAIL_GB" "$DISK_TOTAL_GB" "$DISK_USED_PCT"
     elif [ "$DISK_USED_PCT" -gt 60 ]; then
-        DISK_LABEL="${YELLOW}TIGHT${NC}"
+        msg "$MSG_SS_DISK_TIGHT" "$DISK_AVAIL_GB" "$DISK_TOTAL_GB" "$DISK_USED_PCT"
     else
-        DISK_LABEL="${GREEN}OK${NC}"
+        msg "$MSG_SS_DISK_OK" "$DISK_AVAIL_GB" "$DISK_TOTAL_GB" "$DISK_USED_PCT"
     fi
-    echo -e "   Disk: ${DISK_AVAIL_GB}GB / ${DISK_TOTAL_GB}GB free (${DISK_USED_PCT}% used) — $DISK_LABEL"
 else
-    echo -e "   Disk: ${YELLOW}could not read${NC}"
+    msg "$MSG_SS_DISK_ERR"
 fi
 
 # =============================================================================
@@ -115,18 +119,18 @@ fi
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🐳 Docker containers                                         ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_SS_DOCKER_HEADER_TOP"
+msg "$MSG_SS_DOCKER_HEADER_TITLE"
+msg "$MSG_SS_DOCKER_HEADER_BOT"
 echo ""
 
 CONTAINERS=$(server_exec "docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null" 2>/dev/null)
 
 if [ -z "$CONTAINERS" ]; then
-    echo "   (no running containers)"
+    msg "$MSG_SS_DOCKER_NONE"
 else
     CONTAINER_COUNT=$(echo "$CONTAINERS" | wc -l | tr -d ' ')
-    echo "   Running: $CONTAINER_COUNT"
+    msg "$MSG_SS_DOCKER_COUNT" "$CONTAINER_COUNT"
     echo ""
     echo "$CONTAINERS" | while IFS=$'\t' read -r NAME IMAGE STATUS PORTS; do
         # Shorten status
@@ -134,7 +138,7 @@ else
         # Shorten ports (remove IPv6 duplicates)
         SHORT_PORTS=$(echo "$PORTS" | sed 's/, \[::\]:[0-9]*->[0-9]*\/tcp//g; s/0\.0\.0\.0://g; s/\/tcp//g')
 
-        # Colorize status
+        # Colorize status (inline formatting — dynamic, not translatable)
         if echo "$STATUS" | grep -q "healthy"; then
             echo -e "   ${GREEN}●${NC} $NAME  $SHORT_STATUS  $SHORT_PORTS"
         elif echo "$STATUS" | grep -q "unhealthy"; then
@@ -150,9 +154,9 @@ fi
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🔌 Occupied ports                                             ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_SS_PORTS_HEADER_TOP"
+msg "$MSG_SS_PORTS_HEADER_TITLE"
+msg "$MSG_SS_PORTS_HEADER_BOT"
 echo ""
 
 PORTS=$(server_exec "ss -tlnp 2>/dev/null | awk 'NR>1 {split(\$4,a,\":\"); port=a[length(a)]; if(port+0>0) print port}' | sort -un | tr '\n' ' '" 2>/dev/null)
@@ -163,14 +167,14 @@ echo "   $PORTS"
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  📦 Installed stacks                                           ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_SS_STACKS_HEADER_TOP"
+msg "$MSG_SS_STACKS_HEADER_TITLE"
+msg "$MSG_SS_STACKS_HEADER_BOT"
 echo ""
 
 STACKS_STATUS=$(server_exec "for s in /opt/stacks/*/; do name=\$(basename \"\$s\"); if [ -f \"\$s/docker-compose.yaml\" ] || [ -f \"\$s/docker-compose.yml\" ]; then state=\$(cd \"\$s\" && docker compose ps --format '{{.State}}' 2>/dev/null | head -1); echo \"\$name|\$state\"; else echo \"\$name|static\"; fi; done" 2>/dev/null)
 if [ -z "$STACKS_STATUS" ]; then
-    echo "   (no stacks in /opt/stacks/)"
+    msg "$MSG_SS_STACKS_NONE"
 else
     echo "$STACKS_STATUS" | while IFS='|' read -r stack state; do
         if [ "$state" = "static" ]; then
@@ -198,11 +202,11 @@ if [ -n "$RAM_AVAIL" ] && [ -n "$DISK_AVAIL" ]; then
     [ "${DISK_USED_PCT:-0}" -gt 85 ] && HEALTH_LEVEL=2
 
     if [ "$HEALTH_LEVEL" -eq 0 ]; then
-        echo -e "${GREEN}✅ Server is in good shape.${NC}"
+        msg "$MSG_SS_SUMMARY_OK"
     elif [ "$HEALTH_LEVEL" -eq 1 ]; then
-        echo -e "${YELLOW}⚠️  Getting tight. Consider upgrading before adding heavy services.${NC}"
+        msg "$MSG_SS_SUMMARY_TIGHT"
     else
-        echo -e "${RED}❌ Server is heavily loaded! Consider upgrading or removing unused services.${NC}"
+        msg "$MSG_SS_SUMMARY_CRIT"
     fi
 fi
 echo ""

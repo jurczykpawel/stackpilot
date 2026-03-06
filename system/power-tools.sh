@@ -7,20 +7,32 @@
 
 set -e
 
-echo "--- 🛠️  Installing Power Tools ---"
+_PT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    if [ -n "$_PT_DIR" ] && [ -f "$_PT_DIR/../lib/i18n.sh" ]; then
+        source "$_PT_DIR/../lib/i18n.sh"
+    elif [ -f /opt/stackpilot/lib/i18n.sh ]; then
+        source /opt/stackpilot/lib/i18n.sh
+    else
+        msg() { printf "%s\n" "$1"; }
+        msg_n() { printf "%s" "$1"; }
+    fi
+fi
+
+msg "$MSG_PT_HEADER"
 
 # 1. Standard Repos
-echo "Installing APT packages (ffmpeg, jq, mc, ncdu)..."
+msg "$MSG_PT_APT"
 sudo apt-get update -q
 sudo apt-get install -y ffmpeg jq mc ncdu unzip
 
 # 2. yt-dlp (Latest Binary)
-echo "Installing yt-dlp (Latest)..."
+msg "$MSG_PT_YTDLP"
 sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
 sudo chmod a+rx /usr/local/bin/yt-dlp
 
 # 3. pup (HTML Processor - jq for HTML)
-echo "Installing pup..."
+msg "$MSG_PT_PUP"
 # We download the linux zip
 PUP_VERSION="v0.4.0"
 curl -L "https://github.com/ericchiang/pup/releases/download/$PUP_VERSION/pup_${PUP_VERSION}_linux_amd64.zip" -o /tmp/pup.zip
@@ -31,17 +43,17 @@ rm /tmp/pup.zip
 
 # 4. Rclone (Ensure it's there)
 if ! command -v rclone &> /dev/null; then
-    echo "Installing rclone..."
+    msg "$MSG_PT_RCLONE"
     curl https://rclone.org/install.sh | sudo bash
 fi
 
-echo "--- ✅ Installation Complete ---"
-echo "Binary Locations:"
-echo " - yt-dlp:  $(which yt-dlp)"
-echo " - ffmpeg:  $(which ffmpeg)"
-echo " - jq:      $(which jq)"
-echo " - pup:     $(which pup)"
+msg "$MSG_PT_DONE_HDR"
+msg "$MSG_PT_LOCATIONS"
+msg "$MSG_PT_YTDLP_LOC" "$(which yt-dlp)"
+msg "$MSG_PT_FFMPEG_LOC" "$(which ffmpeg)"
+msg "$MSG_PT_JQ_LOC" "$(which jq)"
+msg "$MSG_PT_PUP_LOC" "$(which pup)"
 echo ""
-echo "💡 Usage in n8n:"
-echo "   Use 'Execute Command' node with SSH to localhost."
-echo "   Command: 'yt-dlp https://youtube.com/watch?v=...' "
+msg "$MSG_PT_N8N_TIP"
+msg "$MSG_PT_N8N_TIP2"
+msg "$MSG_PT_N8N_TIP3"

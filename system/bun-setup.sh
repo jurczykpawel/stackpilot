@@ -6,14 +6,26 @@
 
 set -e
 
-echo "--- 🥟 Bun + PM2 Setup ---"
+_BUN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    if [ -n "$_BUN_DIR" ] && [ -f "$_BUN_DIR/../lib/i18n.sh" ]; then
+        source "$_BUN_DIR/../lib/i18n.sh"
+    elif [ -f /opt/stackpilot/lib/i18n.sh ]; then
+        source /opt/stackpilot/lib/i18n.sh
+    else
+        msg() { printf "%s\n" "$1"; }
+        msg_n() { printf "%s" "$1"; }
+    fi
+fi
+
+msg "$MSG_BUN_HEADER"
 
 # Check if Bun is already installed
 if command -v bun &> /dev/null; then
     BUN_VERSION=$(bun --version)
-    echo "✅ Bun already installed: v$BUN_VERSION"
+    msg "$MSG_BUN_ALREADY" "$BUN_VERSION"
 else
-    echo "📦 Installing Bun..."
+    msg "$MSG_BUN_INSTALLING"
     curl -fsSL https://bun.sh/install | bash
 
     # Add to PATH for the current session
@@ -28,21 +40,21 @@ else
         echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> ~/.bashrc
     fi
 
-    echo "✅ Bun installed: v$(bun --version)"
+    msg "$MSG_BUN_INSTALLED" "$(bun --version)"
 fi
 
 # Check if PM2 is already installed
 if command -v pm2 &> /dev/null; then
     PM2_VERSION=$(pm2 --version)
-    echo "✅ PM2 already installed: v$PM2_VERSION"
+    msg "$MSG_PM2_ALREADY" "$PM2_VERSION"
 else
-    echo "📦 Installing PM2..."
+    msg "$MSG_PM2_INSTALLING"
     bun install -g pm2
 
-    echo "✅ PM2 installed: v$(pm2 --version)"
+    msg "$MSG_PM2_INSTALLED" "$(pm2 --version)"
 
     # Configure autostart
-    echo "⚙️  Configuring PM2 autostart..."
+    msg "$MSG_PM2_AUTOSTART"
     # pm2 startup generates a command that needs to be executed
     STARTUP_CMD=$(pm2 startup 2>/dev/null | grep -E "^\s*sudo" | head -1)
     if [ -n "$STARTUP_CMD" ]; then
@@ -51,5 +63,5 @@ else
 fi
 
 echo ""
-echo "✅ Bun + PM2 ready!"
+msg "$MSG_BUN_READY"
 echo ""

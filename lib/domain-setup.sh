@@ -28,6 +28,12 @@ if ! type is_on_server &>/dev/null; then
     source "$SCRIPT_DIR/server-exec.sh"
 fi
 
+# Load i18n if not loaded
+_DOM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_DOM_DIR/i18n.sh"
+fi
+
 CLOUDFLARE_CONFIG="$HOME/.config/cloudflare/config"
 
 # Colors (if not defined by cli-parser)
@@ -52,14 +58,24 @@ ask_domain() {
 
     # If DOMAIN_TYPE already set from CLI
     if [ -n "$DOMAIN_TYPE" ]; then
-        # Value validation
+        # Value validation (core types + provider-specific types)
         case "$DOMAIN_TYPE" in
-            cloudflare|caddy|local) ;;
+            cloudflare|caddy|local|cytrus) ;;
             *)
-                echo -e "${RED}Error: --domain-type must be: cloudflare, caddy or local${NC}" >&2
+                msg "$MSG_DOM_INVALID_TYPE" >&2
                 return 1
                 ;;
         esac
+
+        # Cytrus (Mikrus provider) — delegate to provider hook
+        if [ "$DOMAIN_TYPE" = "cytrus" ]; then
+            if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "auto" ]; then
+                export DOMAIN="-"
+            fi
+            # Domain will be registered post-deploy via provider_post_deploy hook
+            msg "$MSG_DOM_DOMAIN_SET" "$DOMAIN" "$DOMAIN_TYPE"
+            return 0
+        fi
 
         # local doesn't need a public domain, but keep DOMAIN if provided
         # (install.sh may use domain for instance naming, e.g. WordPress multi-instance)
@@ -67,14 +83,14 @@ ask_domain() {
             if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "auto" ]; then
                 export DOMAIN=""
             fi
-            echo -e "${GREEN}Mode: local only (SSH tunnel)${NC}"
+            msg "$MSG_DOM_MODE_LOCAL"
             return 0
         fi
 
         # Cloudflare/Caddy requires DOMAIN
         if [ -z "$DOMAIN" ]; then
             if [ "$YES_MODE" = true ]; then
-                echo -e "${RED}Error: --domain is required for --domain-type=$DOMAIN_TYPE${NC}" >&2
+                msg "$MSG_DOM_DOMAIN_REQUIRED" "$DOMAIN_TYPE" >&2
                 return 1
             fi
             # Interactive mode - ask for it
@@ -91,44 +107,51 @@ ask_domain() {
             local CLI_ROOT=$(echo "$DOMAIN" | rev | cut -d. -f1-2 | rev)
             if ! grep -q "^${CLI_ROOT}=" "$CLOUDFLARE_CONFIG"; then
                 local AVAILABLE=$(grep -v "^#" "$CLOUDFLARE_CONFIG" | grep -v "API_TOKEN" | grep "=" | cut -d= -f1 | tr '\n' ' ')
-                echo -e "${RED}Error: Domain '$CLI_ROOT' — your Cloudflare token doesn't have access to this domain!${NC}" >&2
-                echo "   Available domains: $AVAILABLE" >&2
-                echo "   To add this domain, run: ./local/setup-cloudflare.sh" >&2
+                msg "$MSG_DOM_CF_NO_ACCESS" "$CLI_ROOT" >&2
+                msg "$MSG_DOM_CF_AVAILABLE" "$AVAILABLE" >&2
+                msg "$MSG_DOM_CF_ADD_DOMAIN" >&2
                 return 1
             fi
         fi
 
-        echo -e "${GREEN}Domain: $DOMAIN (type: $DOMAIN_TYPE)${NC}"
+        msg "$MSG_DOM_DOMAIN_SET" "$DOMAIN" "$DOMAIN_TYPE"
         return 0
     fi
 
     # --yes mode without --domain-type = error
     if [ "$YES_MODE" = true ]; then
-        echo -e "${RED}Error: --domain-type is required in --yes mode${NC}" >&2
+        msg "$MSG_DOM_YES_REQUIRES" >&2
         return 1
     fi
 
     # Interactive mode
     echo ""
-    echo "How do you want to access the application?"
+    msg "$MSG_DOM_HOW_ACCESS"
     echo ""
 
-    echo "  1) Own domain via Cloudflare"
-    echo "     Script will configure DNS automatically"
-    echo "     Requires: ./local/setup-cloudflare.sh"
+    msg "$MSG_DOM_OPT_CF"
+    msg "$MSG_DOM_OPT_CF_DESC"
+    msg "$MSG_DOM_OPT_CF_REQ"
     echo ""
 
-    echo "  2) Own domain via Caddy auto-HTTPS"
-    echo "     Point your A record to the server IP, Caddy gets Let's Encrypt cert"
-    echo "     No third-party service needed"
+    msg "$MSG_DOM_OPT_CADDY"
+    msg "$MSG_DOM_OPT_CADDY_DESC"
+    msg "$MSG_DOM_OPT_CADDY_REQ"
     echo ""
 
-    echo "  3) Local only (SSH tunnel)"
-    echo "     Access via: ssh -L $PORT:localhost:$PORT $SSH_ALIAS"
-    echo "     No domain, ideal for admin panels"
+    msg "$MSG_DOM_OPT_LOCAL"
+    msg "$MSG_DOM_OPT_LOCAL_DESC" "$PORT" "$PORT" "$SSH_ALIAS"
+    msg "$MSG_DOM_OPT_LOCAL_REQ"
+
+    # Provider-specific domain options (e.g. Cytrus on Mikrus)
+    PROVIDER_DOMAIN_ADDED=false
+    PROVIDER_DOMAIN_NUM=""
+    if type provider_domain_options &>/dev/null; then
+        provider_domain_options 4
+    fi
     echo ""
 
-    read -p "Choose option [1-3]: " DOMAIN_CHOICE
+    read -p "$(msg "$MSG_DOM_CHOOSE")" DOMAIN_CHOICE
 
     case $DOMAIN_CHOICE in
         1)
@@ -145,11 +168,19 @@ ask_domain() {
             export DOMAIN_TYPE="local"
             export DOMAIN=""
             echo ""
-            echo -e "${GREEN}Selected: local only (SSH tunnel)${NC}"
+            msg "$MSG_DOM_SELECTED_LOCAL"
             return 0
             ;;
         *)
-            echo -e "${RED}Invalid choice${NC}"
+            # Check if it matches a provider-added option
+            if [ "$PROVIDER_DOMAIN_ADDED" = true ] && [ "$DOMAIN_CHOICE" = "$PROVIDER_DOMAIN_NUM" ]; then
+                export DOMAIN_TYPE="cytrus"
+                export DOMAIN="-"
+                echo ""
+                msg "$MSG_DOM_DOMAIN_SET" "auto" "cytrus"
+                return 0
+            fi
+            msg "$MSG_DOM_INVALID_CHOICE"
             return 1
             ;;
     esac
@@ -164,20 +195,20 @@ ask_domain_caddy() {
     fi
 
     echo ""
-    echo "Enter the domain you want to use for $APP_NAME."
-    echo "Make sure the A record points to your server IP."
+    msg "$MSG_DOM_CADDY_ENTER" "$APP_NAME"
+    msg "$MSG_DOM_CADDY_A_RECORD"
     echo ""
 
-    read -p "Domain (e.g. $APP_NAME.example.com): " FULL_DOMAIN
+    read -p "$(msg "$MSG_DOM_CADDY_PROMPT" "$APP_NAME")" FULL_DOMAIN
 
     if [ -z "$FULL_DOMAIN" ]; then
-        echo -e "${RED}Domain cannot be empty${NC}"
+        msg "$MSG_DOM_CADDY_EMPTY"
         return 1
     fi
 
     export DOMAIN="$FULL_DOMAIN"
     echo ""
-    echo -e "${GREEN}Selected: $DOMAIN${NC}"
+    msg "$MSG_DOM_SELECTED" "$DOMAIN"
 
     return 0
 }
@@ -192,13 +223,13 @@ ask_domain_cloudflare() {
 
     if [ ! -f "$CLOUDFLARE_CONFIG" ]; then
         echo ""
-        echo -e "${YELLOW}Cloudflare is not configured!${NC}"
-        echo "   Run first: ./local/setup-cloudflare.sh"
+        msg "$MSG_DOM_CF_NOT_CONFIGURED"
+        msg "$MSG_DOM_CF_RUN_FIRST"
         return 1
     fi
 
     echo ""
-    echo -e "${GREEN}Cloudflare configured${NC}"
+    msg "$MSG_DOM_CF_CONFIGURED"
     echo ""
 
     # Get list of domains (only real domains - without spaces, with dot)
@@ -213,7 +244,7 @@ ask_domain_cloudflare() {
     local DOMAIN_COUNT=${#DOMAINS[@]}
 
     if [ "$DOMAIN_COUNT" -eq 0 ]; then
-        echo -e "${RED}No configured domains in Cloudflare${NC}"
+        msg "$MSG_DOM_CF_NO_DOMAINS"
         return 1
     fi
 
@@ -221,7 +252,7 @@ ask_domain_cloudflare() {
 
     # If <= 3 domains, show ready-made suggestions
     if [ "$DOMAIN_COUNT" -le 3 ]; then
-        echo "Choose a domain for $APP_NAME:"
+        msg "$MSG_DOM_CF_CHOOSE" "$APP_NAME"
         echo ""
 
         local i=1
@@ -230,10 +261,10 @@ ask_domain_cloudflare() {
             ((i++))
         done
         echo ""
-        echo "  Or type a custom domain (e.g. $APP_NAME.mydomain.com)"
+        msg "$MSG_DOM_CF_OR_CUSTOM" "$APP_NAME"
         echo ""
 
-        read -p "Choice [1-$DOMAIN_COUNT] or domain: " CHOICE
+        read -p "$(msg "$MSG_DOM_CF_CHOICE" "$DOMAIN_COUNT")" CHOICE
 
         # Check if it's a number
         if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "$DOMAIN_COUNT" ]; then
@@ -252,19 +283,19 @@ ask_domain_cloudflare() {
             done
             if [ "$DOMAIN_FOUND" = false ]; then
                 echo ""
-                echo -e "${RED}Error: Domain '$INPUT_ROOT' — your Cloudflare token doesn't have access to this domain!${NC}"
-                echo "   Available domains: ${DOMAINS[*]}"
+                msg "$MSG_DOM_CF_NO_ACCESS" "$INPUT_ROOT"
+                msg "$MSG_DOM_CF_AVAILABLE" "${DOMAINS[*]}"
                 echo ""
-                echo "   To add this domain, run: ./local/setup-cloudflare.sh"
+                msg "$MSG_DOM_CF_ADD_DOMAIN"
                 return 1
             fi
         else
-            echo -e "${RED}No domain provided${NC}"
+            msg "$MSG_DOM_CF_NO_DOMAIN"
             return 1
         fi
     else
         # More than 3 domains - old mode
-        echo "Available domains:"
+        msg "$MSG_DOM_CF_AVAILABLE_LIST"
         local i=1
         for domain in "${DOMAINS[@]}"; do
             echo "  $i) $domain"
@@ -272,11 +303,11 @@ ask_domain_cloudflare() {
         done
         echo ""
 
-        read -p "Enter full domain (e.g. $APP_NAME.yourdomain.com): " FULL_DOMAIN
+        read -p "$(msg "$MSG_DOM_CF_ENTER_FULL" "$APP_NAME")" FULL_DOMAIN
     fi
 
     if [ -z "$FULL_DOMAIN" ]; then
-        echo -e "${RED}Domain cannot be empty${NC}"
+        msg "$MSG_DOM_CF_EMPTY"
         return 1
     fi
 
@@ -291,16 +322,16 @@ ask_domain_cloudflare() {
     done
     if [ "$DOMAIN_FOUND" = false ]; then
         echo ""
-        echo -e "${RED}Error: Domain '$INPUT_ROOT' — your Cloudflare token doesn't have access to this domain!${NC}"
-        echo "   Available domains: ${DOMAINS[*]}"
+        msg "$MSG_DOM_CF_NO_ACCESS" "$INPUT_ROOT"
+        msg "$MSG_DOM_CF_AVAILABLE" "${DOMAINS[*]}"
         echo ""
-        echo "   To add this domain, run: ./local/setup-cloudflare.sh"
+        msg "$MSG_DOM_CF_ADD_DOMAIN"
         return 1
     fi
 
     export DOMAIN="$FULL_DOMAIN"
     echo ""
-    echo -e "${GREEN}Selected: $DOMAIN${NC}"
+    msg "$MSG_DOM_SELECTED" "$DOMAIN"
 
     return 0
 }
@@ -311,12 +342,12 @@ ask_domain_cloudflare() {
 
 show_domain_summary() {
     echo ""
-    echo "Domain configuration:"
-    echo "   Type:   $DOMAIN_TYPE"
+    msg "$MSG_DOM_SUMMARY"
+    msg "$MSG_DOM_SUMMARY_TYPE" "$DOMAIN_TYPE"
     if [ "$DOMAIN_TYPE" = "local" ]; then
-        echo "   Access: SSH tunnel"
+        msg "$MSG_DOM_SUMMARY_SSH"
     else
-        echo "   Domain: $DOMAIN"
+        msg "$MSG_DOM_SUMMARY_DOMAIN" "$DOMAIN"
     fi
     echo ""
 }
@@ -331,16 +362,16 @@ configure_domain() {
 
     # Dry-run mode
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] Configuring domain: $DOMAIN_TYPE / $DOMAIN${NC}"
+        msg "$MSG_DOM_DRYRUN" "$DOMAIN_TYPE" "$DOMAIN"
         return 0
     fi
 
     # Local - nothing to do
     if [ "$DOMAIN_TYPE" = "local" ]; then
         echo ""
-        echo "Access via SSH tunnel:"
-        echo -e "   ${BLUE}ssh -L $PORT:localhost:$PORT $SSH_ALIAS${NC}"
-        echo "   Then open: http://localhost:$PORT"
+        msg "$MSG_DOM_LOCAL_ACCESS"
+        msg "$MSG_DOM_LOCAL_CMD" "$PORT" "$PORT" "$SSH_ALIAS"
+        msg "$MSG_DOM_LOCAL_OPEN" "$PORT"
         return 0
     fi
 
@@ -356,7 +387,7 @@ configure_domain() {
         return $?
     fi
 
-    echo -e "${RED}Unknown domain type: $DOMAIN_TYPE${NC}"
+    msg "$MSG_DOM_UNKNOWN_TYPE" "$DOMAIN_TYPE"
     return 1
 }
 
@@ -365,11 +396,11 @@ configure_domain_caddy() {
     local SSH_ALIAS="$2"
 
     echo ""
-    echo "Configuring HTTPS via Caddy (Let's Encrypt)..."
+    msg "$MSG_DOM_CADDY_CONFIGURING"
 
     # Domain validation (preventing Caddyfile/shell injection)
     if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$ ]]; then
-        echo -e "${RED}Invalid domain: $DOMAIN${NC}" >&2
+        msg "$MSG_DOM_CADDY_INVALID" "$DOMAIN" >&2
         return 1
     fi
 
@@ -378,32 +409,32 @@ configure_domain_caddy() {
 
     if [ -n "$WEBROOT" ]; then
         # Static site (littlelink, etc.) - use file_server mode
-        echo "   Detected static site: $WEBROOT"
+        msg "$MSG_DOM_CADDY_STATIC" "$WEBROOT"
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static"; then
-            echo -e "${GREEN}HTTPS configured (file_server)${NC}"
+            msg "$MSG_DOM_CADDY_FS_OK"
             # Remove marker (don't remove domain_public_webroot!)
             server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
         else
-            echo -e "${YELLOW}sp-expose not available${NC}"
+            msg "$MSG_DOM_CADDY_EXPOSE_NA"
         fi
     else
         # Docker app - use reverse_proxy
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
-            echo -e "${GREEN}HTTPS configured (reverse_proxy)${NC}"
+            msg "$MSG_DOM_CADDY_RP_OK"
         else
             # Check if domain is already in Caddyfile
             if server_exec "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
-                echo -e "${GREEN}HTTPS already configured in Caddy${NC}"
+                msg "$MSG_DOM_CADDY_ALREADY"
             else
-                echo -e "${YELLOW}sp-expose not available${NC}"
+                msg "$MSG_DOM_CADDY_EXPOSE_NA"
             fi
         fi
     fi
 
     echo ""
-    echo -e "${GREEN}Domain configured: https://$DOMAIN${NC}"
+    msg "$MSG_DOM_CADDY_DONE" "$DOMAIN"
     echo ""
-    echo "Make sure your DNS A record points to the server IP."
+    msg "$MSG_DOM_CADDY_DNS_HINT"
 
     return 0
 }
@@ -417,27 +448,27 @@ configure_domain_cloudflare() {
     local OPTIMIZE_SCRIPT="$REPO_ROOT/local/setup-cloudflare-optimize.sh"
 
     echo ""
-    echo "Configuring DNS in Cloudflare..."
+    msg "$MSG_DOM_CF_CONFIGURING"
 
     # Domain validation (preventing Caddyfile/shell injection)
     if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$ ]]; then
-        echo -e "${RED}Invalid domain: $DOMAIN${NC}" >&2
+        msg "$MSG_DOM_CF_INVALID" "$DOMAIN" >&2
         return 1
     fi
 
     local DNS_OK=false
     if [ -f "$DNS_SCRIPT" ]; then
         if bash "$DNS_SCRIPT" "$DOMAIN" "$SSH_ALIAS"; then
-            echo -e "${GREEN}DNS configured: $DOMAIN${NC}"
+            msg "$MSG_DOM_CF_DNS_OK" "$DOMAIN"
             DNS_OK=true
         else
             # Check if record already exists (dns-add.sh exits 0 when IP is the same)
             # So exit != 0 means a real error
-            echo -e "${RED}DNS configuration failed!${NC}"
-            echo "   Check manually: ./local/dns-add.sh $DOMAIN $SSH_ALIAS"
+            msg "$MSG_DOM_CF_DNS_FAILED"
+            msg "$MSG_DOM_CF_DNS_CHECK" "$DOMAIN" "$SSH_ALIAS"
         fi
     else
-        echo -e "${YELLOW}dns-add.sh not found${NC}"
+        msg "$MSG_DOM_CF_DNS_MISSING"
     fi
 
     # Cloudflare settings optimization (SSL Full, cache, compression)
@@ -449,18 +480,18 @@ configure_domain_cloudflare() {
             wordpress) CF_APP_FLAG="--app=wordpress" ;;
             sellf)  CF_APP_FLAG="--app=nextjs" ;;
         esac
-        bash "$OPTIMIZE_SCRIPT" "$DOMAIN" $CF_APP_FLAG || echo -e "${YELLOW}Cloudflare optimization skipped${NC}"
+        bash "$OPTIMIZE_SCRIPT" "$DOMAIN" $CF_APP_FLAG || msg "$MSG_DOM_CF_OPT_SKIPPED"
     fi
 
     # Configure Caddy on server (even if DNS didn't need changes)
     echo ""
-    echo "Configuring HTTPS (Caddy)..."
+    msg "$MSG_DOM_CF_HTTPS"
 
     local CADDY_OK=false
 
     # Make sure Caddy + sp-expose is on the server
     if ! server_exec "command -v sp-expose &>/dev/null" 2>/dev/null; then
-        echo "   sp-expose not found — installing Caddy..."
+        msg "$MSG_DOM_CF_EXPOSE_MISSING"
         ensure_toolbox "$SSH_ALIAS"
         local CADDY_SCRIPT="$REPO_ROOT/system/caddy-install.sh"
         if [ -f "$CADDY_SCRIPT" ]; then
@@ -476,9 +507,9 @@ configure_domain_cloudflare() {
 
     if [ -n "$WEBROOT" ]; then
         # Static site (littlelink, etc.) - use file_server mode
-        echo "   Detected static site: $WEBROOT"
+        msg "$MSG_DOM_CF_STATIC" "$WEBROOT"
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static" 2>/dev/null; then
-            echo -e "${GREEN}HTTPS configured (file_server)${NC}"
+            msg "$MSG_DOM_CF_FS_OK"
             CADDY_OK=true
             # Remove marker (don't remove domain_public_webroot!)
             server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
@@ -486,7 +517,7 @@ configure_domain_cloudflare() {
     else
         # Docker app - use reverse_proxy
         if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT' proxy" 2>/dev/null; then
-            echo -e "${GREEN}HTTPS configured (reverse_proxy)${NC}"
+            msg "$MSG_DOM_CF_RP_OK"
             CADDY_OK=true
         fi
     fi
@@ -494,25 +525,25 @@ configure_domain_cloudflare() {
     # Fallback: sp-expose may have refused because domain is already in Caddyfile — that's OK
     if [ "$CADDY_OK" = false ]; then
         if server_exec "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
-            echo -e "${GREEN}HTTPS already configured in Caddy${NC}"
+            msg "$MSG_DOM_CF_ALREADY"
             CADDY_OK=true
         fi
     fi
 
     if [ "$CADDY_OK" = false ]; then
         if server_exec "command -v sp-expose &>/dev/null" 2>/dev/null; then
-            echo -e "${RED}sp-expose could not configure Caddy${NC}"
-            echo "   Check manually: ssh $SSH_ALIAS 'cat /etc/caddy/Caddyfile'"
+            msg "$MSG_DOM_CF_EXPOSE_FAIL"
+            msg "$MSG_DOM_CF_EXPOSE_CHECK" "$SSH_ALIAS"
         else
-            echo -e "${RED}Caddy / sp-expose not installed on the server${NC}"
-            echo "   Install: ssh $SSH_ALIAS 'bash -s' < system/caddy-install.sh"
+            msg "$MSG_DOM_CF_NOT_INSTALLED"
+            msg "$MSG_DOM_CF_INSTALL_HINT" "$SSH_ALIAS"
         fi
     fi
 
     # Make sure Caddy is running
     if [ "$CADDY_OK" = true ]; then
         if ! server_exec "systemctl is-active --quiet caddy" 2>/dev/null; then
-            echo "   Starting Caddy..."
+            msg "$MSG_DOM_CF_STARTING_CADDY"
             server_exec "systemctl start caddy && systemctl enable caddy 2>/dev/null" 2>/dev/null
         fi
     fi
@@ -520,13 +551,13 @@ configure_domain_cloudflare() {
     # Summary
     echo ""
     if [ "$DNS_OK" = true ] && [ "$CADDY_OK" = true ]; then
-        echo -e "${GREEN}Domain configured: https://$DOMAIN${NC}"
+        msg "$MSG_DOM_CF_FULL_OK" "$DOMAIN"
     elif [ "$CADDY_OK" = true ]; then
-        echo -e "${YELLOW}Caddy OK, but DNS needs attention: https://$DOMAIN${NC}"
+        msg "$MSG_DOM_CF_CADDY_OK" "$DOMAIN"
     elif [ "$DNS_OK" = true ]; then
-        echo -e "${YELLOW}DNS OK, but Caddy needs configuration${NC}"
+        msg "$MSG_DOM_CF_DNS_ONLY"
     else
-        echo -e "${RED}Domain was not configured — DNS and Caddy need attention${NC}"
+        msg "$MSG_DOM_CF_BOTH_FAIL"
         return 1
     fi
 
@@ -546,12 +577,12 @@ wait_for_domain() {
 
     # Dry-run mode
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${BLUE}[dry-run] Waiting for domain: $DOMAIN${NC}"
+        msg "$MSG_DOM_WAIT_DRYRUN" "$DOMAIN"
         return 0
     fi
 
     echo ""
-    echo "Waiting for $DOMAIN to start responding..."
+    msg "$MSG_DOM_WAIT_CHECKING" "$DOMAIN"
 
     local START_TIME=$(date +%s)
     local SPINNER="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -563,11 +594,11 @@ wait_for_domain() {
 
         if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
             echo ""
-            echo -e "${YELLOW}Timeout - domain is not responding yet${NC}"
+            msg "$MSG_DOM_WAIT_TIMEOUT"
             echo ""
 
             # DNS diagnostics
-            echo "Diagnostics:"
+            msg "$MSG_DOM_WAIT_DIAG"
             local DIG_RESULT=""
             if command -v dig &>/dev/null; then
                 # Check A and AAAA (Cloudflare mode uses AAAA)
@@ -593,40 +624,40 @@ wait_for_domain() {
                         local CF_TYPE=$(echo "$CF_CHECK" | grep -o '"type":"[^"]*"' | head -1 | sed 's/"type":"//;s/"//')
                         local CF_CONTENT=$(echo "$CF_CHECK" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//;s/"//')
                         local CF_PROXIED=$(echo "$CF_CHECK" | grep -o '"proxied":[a-z]*' | head -1 | sed 's/"proxied"://')
-                        echo -e "   ${GREEN}Cloudflare DNS: $CF_TYPE -> $CF_CONTENT (proxy: $CF_PROXIED)${NC}"
+                        msg "$MSG_DOM_WAIT_CF_DNS" "$CF_TYPE" "$CF_CONTENT" "$CF_PROXIED"
                     fi
                 fi
             fi
 
             if [ -n "$DIG_RESULT" ]; then
-                echo -e "   ${GREEN}DNS resolve: $DOMAIN -> $DIG_RESULT${NC}"
+                msg "$MSG_DOM_WAIT_DNS_OK" "$DOMAIN" "$DIG_RESULT"
                 if [ "$DOMAIN_TYPE" = "cloudflare" ]; then
-                    echo "   The IP above is a Cloudflare edge IP (correct when proxy is ON)"
+                    msg "$MSG_DOM_WAIT_CF_EDGE"
                 fi
             elif [ "$CF_RECORD_OK" = true ]; then
-                echo -e "   ${YELLOW}DNS: record exists in Cloudflare, but not propagating yet${NC}"
-                echo "   Wait 2-5 minutes and check: dig +short $DOMAIN"
+                msg "$MSG_DOM_WAIT_DNS_PROP"
+                msg "$MSG_DOM_WAIT_DNS_PROP_HINT" "$DOMAIN"
             else
-                echo -e "   ${RED}DNS: no record — domain does not resolve${NC}"
-                echo "   Check: ./local/dns-add.sh $DOMAIN ${SSH_ALIAS:-vps}"
+                msg "$MSG_DOM_WAIT_DNS_NONE"
+                msg "$MSG_DOM_WAIT_DNS_CHECK" "$DOMAIN" "${SSH_ALIAS:-vps}"
             fi
 
             # Check HTTP (only when DNS resolves)
             if [ -n "$DIG_RESULT" ]; then
                 local DIAG_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://$DOMAIN" 2>/dev/null || echo "000")
                 if [ "$DIAG_HTTP" = "000" ]; then
-                    echo -e "   ${RED}HTTPS: no connection — SSL may not be ready${NC}"
+                    msg "$MSG_DOM_WAIT_HTTPS_NONE"
                 elif [ "$DIAG_HTTP" = "521" ] || [ "$DIAG_HTTP" = "522" ] || [ "$DIAG_HTTP" = "523" ]; then
-                    echo -e "   ${RED}HTTPS: HTTP $DIAG_HTTP — Cloudflare cannot reach the server (check Caddy)${NC}"
+                    msg "$MSG_DOM_WAIT_HTTPS_CF" "$DIAG_HTTP"
                 elif [ "$DIAG_HTTP" -ge 500 ]; then
-                    echo -e "   ${RED}HTTPS: HTTP $DIAG_HTTP — server error${NC}"
+                    msg "$MSG_DOM_WAIT_HTTPS_ERR" "$DIAG_HTTP"
                 else
-                    echo -e "   ${YELLOW}HTTPS: HTTP $DIAG_HTTP${NC}"
+                    msg "$MSG_DOM_WAIT_HTTPS_OTHER" "$DIAG_HTTP"
                 fi
             fi
 
             echo ""
-            echo "   Check shortly: https://$DOMAIN"
+            msg "$MSG_DOM_WAIT_CHECK_LATER" "$DOMAIN"
             # Timeout is just diagnostic info — deployment succeeded, DNS is propagating
             return 0
         fi
@@ -637,14 +668,14 @@ wait_for_domain() {
         # Check HTTP 2xx-4xx (not 5xx)
         if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 500 ]; then
             echo ""
-            echo -e "${GREEN}Domain is working! (HTTP $HTTP_CODE)${NC}"
+            msg "$MSG_DOM_WAIT_WORKING" "$HTTP_CODE"
             return 0
         fi
 
         # Spinner
         local CHAR="${SPINNER:$SPINNER_IDX:1}"
         SPINNER_IDX=$(( (SPINNER_IDX + 1) % ${#SPINNER} ))
-        printf "\r   %s Checking... (%ds/%ds)" "$CHAR" "$ELAPSED" "$TIMEOUT"
+        printf "\r$(msg "$MSG_DOM_WAIT_CHECKING_SPIN" "$CHAR" "$ELAPSED" "$TIMEOUT")"
 
         sleep 3
     done
@@ -683,7 +714,7 @@ setup_domain() {
     local SSH_ALIAS="${3:-${SSH_ALIAS:-vps}}"
 
     echo ""
-    echo "Domain configuration for: $APP_NAME"
+    msg "$MSG_DOM_SETUP_TITLE" "$APP_NAME"
 
     get_domain "$APP_NAME" "$PORT" "$SSH_ALIAS"
     return $?

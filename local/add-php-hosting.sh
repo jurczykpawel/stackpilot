@@ -33,22 +33,27 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
-echo ""
-echo "Adding PHP Hosting"
-echo ""
-echo "   Domain:    $DOMAIN"
-echo "   Server:    $SSH_ALIAS"
-echo "   Directory: $WEB_ROOT"
-echo ""
+_APH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_APH_DIR/../lib/i18n.sh"
+fi
 
-echo "Mode: Caddy + PHP-FPM"
+msg ""
+msg "$MSG_APH_HEADER"
+msg ""
+msg "$MSG_APH_DOMAIN" "$DOMAIN"
+msg "$MSG_APH_SERVER" "$SSH_ALIAS"
+msg "$MSG_APH_DIR" "$WEB_ROOT"
+msg ""
+
+msg "$MSG_APH_MODE"
 
 # Create directory
 server_exec "sudo mkdir -p '$WEB_ROOT' && sudo chown -R \$(whoami) '$WEB_ROOT' && sudo chmod -R o+rX '$WEB_ROOT'"
 
 # Install PHP-FPM if missing
 if ! server_exec "bash -c 'ls /run/php/php*-fpm.sock >/dev/null 2>&1'"; then
-    echo "Installing PHP-FPM..."
+    msg "$MSG_APH_PHP_INSTALLING"
     server_exec "bash -s" << 'PHPEOF'
 set -e
 PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;' 2>/dev/null || echo "")
@@ -63,36 +68,36 @@ if [ -n "$PHP_SVC" ]; then
     sudo systemctl start "$PHP_SVC"
 fi
 PHPEOF
-    echo "PHP-FPM installed"
+    msg "$MSG_APH_PHP_INSTALLED"
 else
-    echo "PHP-FPM already installed"
+    msg "$MSG_APH_PHP_ALREADY"
 fi
 
 # Install Caddy if missing
 if ! server_exec "command -v sp-expose >/dev/null 2>&1"; then
-    echo "Installing Caddy + sp-expose..."
-    server_exec "bash -s" < "$SCRIPT_DIR/../system/caddy-install.sh" || { echo "Caddy install failed"; exit 1; }
-    echo "Caddy installed"
+    msg "$MSG_APH_CADDY_INSTALLING"
+    server_exec "bash -s" < "$SCRIPT_DIR/../system/caddy-install.sh" || { msg "$MSG_APH_CADDY_FAIL"; exit 1; }
+    msg "$MSG_APH_CADDY_INSTALLED"
 else
-    echo "Caddy already installed"
+    msg "$MSG_APH_CADDY_ALREADY"
 fi
 
 # Configure DNS via Cloudflare if available
 if [ -f "$SCRIPT_DIR/dns-add.sh" ]; then
-    "$SCRIPT_DIR/dns-add.sh" "$DOMAIN" "$SSH_ALIAS" || echo "DNS may already exist"
+    "$SCRIPT_DIR/dns-add.sh" "$DOMAIN" "$SSH_ALIAS" || msg "$MSG_APH_DNS_MAYBE_EXISTS"
 fi
 
 # Configure Caddy with PHP-FPM
 server_exec "sp-expose '$DOMAIN' '$WEB_ROOT' php"
 
-echo "Caddy + PHP-FPM configured"
+msg "$MSG_APH_CADDY_CONFIGURED"
 
-echo ""
-echo "PHP Hosting ready!"
-echo ""
-echo "URL: https://$DOMAIN"
-echo "Files: $WEB_ROOT"
-echo ""
-echo "Test:   ssh $SSH_ALIAS \"echo '<?php echo phpinfo();' > $WEB_ROOT/info.php\""
-echo "Verify: curl https://$DOMAIN/info.php"
-echo ""
+msg ""
+msg "$MSG_APH_READY"
+msg ""
+msg "$MSG_APH_URL" "$DOMAIN"
+msg "$MSG_APH_FILES" "$WEB_ROOT"
+msg ""
+msg "$MSG_APH_TEST" "$SSH_ALIAS" "$WEB_ROOT"
+msg "$MSG_APH_VERIFY" "$DOMAIN"
+msg ""

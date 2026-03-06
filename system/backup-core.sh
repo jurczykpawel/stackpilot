@@ -6,6 +6,18 @@
 
 set -e
 
+_BC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    if [ -n "$_BC_DIR" ] && [ -f "$_BC_DIR/../lib/i18n.sh" ]; then
+        source "$_BC_DIR/../lib/i18n.sh"
+    elif [ -f /opt/stackpilot/lib/i18n.sh ]; then
+        source /opt/stackpilot/lib/i18n.sh
+    else
+        msg() { printf "%s\n" "$1"; }
+        msg_n() { printf "%s" "$1"; }
+    fi
+fi
+
 # Configuration
 BACKUP_NAME="stackpilot-backup"
 REMOTE_NAME="backup_remote" # Must match what we configure in rclone.conf
@@ -35,16 +47,16 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-log "--- Starting Backup ---"
+log "$(msg "$MSG_BC_START")"
 
 # 1. Check if Rclone is configured
 if ! command -v rclone &> /dev/null; then
-    log "❌ Rclone not installed. Install it first."
+    log "$(msg "$MSG_BC_NO_RCLONE")"
     exit 1
 fi
 
 if ! rclone listremotes | grep -q "$REMOTE_NAME"; then
-    log "❌ Remote '$REMOTE_NAME' not configured in rclone."
+    log "$(msg "$MSG_BC_NO_REMOTE" "$REMOTE_NAME")"
     exit 1
 fi
 
@@ -61,15 +73,15 @@ done
 for DIR in "${SOURCE_DIRS[@]}"; do
     if [ -d "$DIR" ]; then
         DEST="$REMOTE_NAME:$BACKUP_NAME$(basename "$DIR")"
-        log "📤 Syncing $DIR to $DEST..."
+        log "$(msg "$MSG_BC_SYNCING" "$DIR" "$DEST")"
 
         # --update: skip files that are newer on destination
         # --transfers 1: limited concurrency to save RAM/CPU
         # shellcheck disable=SC2086
         rclone sync "$DIR" "$DEST" --create-empty-src-dirs --update --transfers 1 --verbose $EXCLUDE_FLAGS >> "$LOG_FILE" 2>&1
     else
-        log "⚠️ Directory $DIR does not exist. Skipping."
+        log "$(msg "$MSG_BC_DIR_SKIP" "$DIR")"
     fi
 done
 
-log "✅ Backup completed successfully."
+log "$(msg "$MSG_BC_DONE")"

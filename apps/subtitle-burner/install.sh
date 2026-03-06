@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Subtitle Burner
+# StackPilot - Subtitle Burner
 # Twórz, styluj i wypalaj animowane napisy na wideo.
 # Edytor wizualny, 8 szablonów, transkrypcja AI, server-side rendering (FFmpeg).
 # https://github.com/jurczykpawel/subtitle-burner
@@ -8,9 +8,9 @@
 #
 # IMAGE_SIZE_MB=900  # Next.js + Bun + FFmpeg + Nginx + MinIO (+ opcjonalnie PG/Redis)
 #
-# ⚠️  UWAGA: Ta aplikacja wymaga minimum 2GB RAM (Mikrus 3.0+)!
+# ⚠️  WARNING: This application requires minimum 2GB RAM!
 #     Kontenery: web, worker (FFmpeg), nginx, minio + opcjonalnie postgres/redis.
-#     Na Mikrus 2.1 (1GB RAM) nie uruchomi się poprawnie.
+#     On servers with 1GB RAM it will not run properly.
 #
 # Stack: Next.js (Bun) + BullMQ Worker (FFmpeg) + PostgreSQL 16 + Redis 7 + MinIO + Nginx
 #
@@ -46,10 +46,10 @@ if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
     echo "║  ❌ BŁĄD: Za mało RAM dla Subtitle Burner!                   ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Wymagane:    2048MB RAM (Mikrus 3.0+)                       ║"
+    echo "║  Wymagane:    2048MB RAM                                     ║"
     echo "║                                                              ║"
     echo "║  Kontenery: web, worker (FFmpeg), nginx, minio + PG/Redis.   ║"
-    echo "║  Na Mikrus 2.1 nie uruchomi się poprawnie!                   ║"
+    echo "║  Na serwerze <2GB nie uruchomi się poprawnie!                ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
     exit 1
@@ -79,7 +79,7 @@ fi
 # =============================================================================
 # 2. REDIS (external vs bundled via redis-detect.sh)
 # =============================================================================
-source /opt/mikrus-toolbox/lib/redis-detect.sh 2>/dev/null || true
+source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
     detect_redis "auto" "redis"
 else
@@ -382,7 +382,7 @@ sudo docker compose exec -T web ./node_modules/.bin/prisma migrate deploy --sche
 
 # Health check
 echo "⏳ Czekam na uruchomienie (~30-60s)..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 90 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

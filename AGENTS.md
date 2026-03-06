@@ -25,9 +25,38 @@ You help users manage their VPS servers. You can:
 local/           -> User scripts (deploy, backup, setup)
 apps/<app>/      -> App installers (install.sh + README.md)
 lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils)
+lib/providers/   -> Provider plugins (mikrus/, generic hooks via detect.sh)
+locale/          -> i18n language files (en.sh, pl.sh) — 1325 MSG_* keys each
 system/          -> System scripts (docker, caddy, backup-core)
+tests/           -> Test suites (unit/, static/, e2e/)
+contrib/         -> Provider-specific deployment scripts (mikrus/)
 docs/            -> Documentation (Cloudflare, CLI reference)
 mcp-server/      -> MCP server for AI assistants (TypeScript)
+```
+
+## i18n System
+
+All user-facing messages use `msg()` with `MSG_*` keys from `locale/en.sh` (default) and `locale/pl.sh`.
+- Language is set via `TOOLBOX_LANG` env var or `~/.config/stackpilot/config`
+- English is always loaded first as fallback, then the requested locale overlays
+- `lib/i18n.sh` is the loader; `msg()` uses printf-style formatting
+- Color variables (`RED`, `GREEN`, etc.) must be defined before sourcing locale files
+
+## Provider System
+
+Provider-specific code lives in `lib/providers/<provider>/`. Detection is in `lib/providers/detect.sh`.
+- Auto-detection: `/klucz_api` file → mikrus, otherwise → generic
+- Override: `TOOLBOX_PROVIDER=mikrus` in config
+- Hooks: `provider_domain_options()`, `provider_db_options()`, `provider_post_deploy()`, `provider_upgrade_suggestion()`
+- Generic provider defines no-op hooks; Mikrus provider adds Cytrus domains, shared DB, free backup
+
+## Testing
+
+```bash
+./tests/run.sh              # unit + static (default)
+./tests/run.sh unit         # 66 unit tests
+./tests/run.sh static       # shellcheck, install contract, compose syntax, locale coverage
+./tests/run.sh e2e --ssh=HOST  # E2E integration tests on a real server
 ```
 
 ## Dual-Mode Operation (local + on-server)
@@ -318,3 +347,15 @@ Detailed documentation -> **`GUIDE.md`** (operational reference):
 Other sources:
 - `apps/<app>/README.md` - per-application details
 - `docs/CLI-REFERENCE.md` - full CLI parameter reference
+
+## Active Refactor
+
+**STATUS:** The refactor plan in `REFACTOR-PLAN.md` tracks the merge of mikrus-toolbox into stackpilot.
+
+**Completed:** Phase 1 (i18n), Phase 2 (providers), Phase 3 (unit tests), Phase 4 (static validation), Phase 6 (test runner + CI).
+**Remaining:** Phase 5 (E2E integration tests), Phase 7 (finalization — archive mikrus-toolbox, production test on Mikrus).
+
+At the start of every session involving this project, READ `REFACTOR-PLAN.md` first to:
+1. Check current progress (look for `- [x]` vs `- [ ]`)
+2. Continue from the first uncompleted task
+3. Update checkboxes as work is completed

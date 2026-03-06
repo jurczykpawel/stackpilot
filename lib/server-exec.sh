@@ -13,8 +13,15 @@
 #   server_exec_tty "bash install.sh"
 #   server_copy "/tmp/file" "/opt/dest"
 
+# i18n
+_SE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_SE_DIR/i18n.sh"
+fi
+
 # Environment detection
-if [ -f /opt/stackpilot/.server-marker ]; then
+# Server marker (stackpilot) OR Mikrus API key file
+if [ -f /opt/stackpilot/.server-marker ] || [ -f /klucz_api ]; then
     _ON_SERVER=true
 else
     _ON_SERVER=false
@@ -115,7 +122,7 @@ ensure_toolbox() {
         return 0
     fi
 
-    echo "Installing toolbox on server..."
+    msg "$MSG_SE_INSTALLING_TOOLBOX"
 
     # Use rsync if we have local repo, otherwise git clone
     local SCRIPT_DIR_SE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -138,10 +145,10 @@ ensure_toolbox() {
 
     # Verification
     if server_exec "test -f /opt/stackpilot/local/deploy.sh" 2>/dev/null; then
-        echo -e "${GREEN:-}Toolbox installed${NC:-}"
+        msg "$MSG_SE_TOOLBOX_INSTALLED"
         return 0
     else
-        echo -e "${RED:-}Failed to install toolbox${NC:-}"
+        msg "$MSG_SE_TOOLBOX_FAILED"
         return 1
     fi
 }

@@ -4,6 +4,12 @@
 # Functions for Sellf configuration (Supabase, Turnstile, etc.)
 # Author: Paweł (Lazy Engineer)
 
+# Load i18n if not loaded
+_SELLF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_SELLF_DIR/i18n.sh"
+fi
+
 # Colors (if not loaded)
 RED="${RED:-\033[0;31m}"
 GREEN="${GREEN:-\033[0;32m}"
@@ -27,15 +33,15 @@ check_saved_supabase_token() {
     if [ -f "$SUPABASE_TOKEN_FILE" ]; then
         local SAVED_TOKEN=$(cat "$SUPABASE_TOKEN_FILE" 2>/dev/null)
         if [ -n "$SAVED_TOKEN" ]; then
-            echo "🔑 Found saved Supabase token..."
+            msg "$MSG_SELLF_TOKEN_FOUND"
             # Check if token is valid
             local TEST_RESPONSE=$(curl -s -H "Authorization: Bearer $SAVED_TOKEN" "https://api.supabase.com/v1/projects" 2>/dev/null)
             if echo "$TEST_RESPONSE" | grep -q '"id"'; then
-                echo "   ✅ Token is valid"
+                msg "$MSG_SELLF_TOKEN_VALID"
                 SUPABASE_TOKEN="$SAVED_TOKEN"
                 return 0
             else
-                echo "   ⚠️  Token has expired or is invalid"
+                msg "$MSG_SELLF_TOKEN_EXPIRED"
                 rm -f "$SUPABASE_TOKEN_FILE"
             fi
         fi
@@ -50,7 +56,7 @@ save_supabase_token() {
         mkdir -p "$SUPABASE_CONFIG_DIR"
         echo "$TOKEN" > "$SUPABASE_TOKEN_FILE"
         chmod 600 "$SUPABASE_TOKEN_FILE"
-        echo "   💾 Token saved to ~/.config/supabase/access_token"
+        msg "$MSG_SELLF_TOKEN_SAVED"
     fi
 }
 
@@ -72,13 +78,13 @@ supabase_login_flow() {
     # Build login URL
     local LOGIN_URL="https://supabase.com/dashboard/cli/login?session_id=${SESSION_ID}&token_name=${TOKEN_NAME}&public_key=${PUBLIC_KEY_RAW}"
 
-    echo "🔐 Logging in to Supabase"
+    msg "$MSG_SELLF_LOGIN_HEADER"
     echo ""
-    echo "   A browser window will open with the Supabase login page."
-    echo "   After logging in, you will see an 8-character verification code."
-    echo "   Copy it and paste it here."
+    msg "$MSG_SELLF_LOGIN_BROWSER"
+    msg "$MSG_SELLF_LOGIN_CODE"
+    msg "$MSG_SELLF_LOGIN_PASTE"
     echo ""
-    read -p "   Press Enter to open browser..." _
+    read -p "$(msg "$MSG_SELLF_LOGIN_OPEN")" _
 
     if command -v open &>/dev/null; then
         open "$LOGIN_URL"
@@ -86,22 +92,22 @@ supabase_login_flow() {
         xdg-open "$LOGIN_URL"
     else
         echo ""
-        echo "   Cannot open browser automatically."
-        echo "   Open manually: $LOGIN_URL"
+        msg "$MSG_SELLF_LOGIN_NO_BROWSER"
+        msg "$MSG_SELLF_LOGIN_MANUAL" "$LOGIN_URL"
     fi
 
     echo ""
-    read -p "Paste verification code: " DEVICE_CODE
+    read -p "$(msg "$MSG_SELLF_LOGIN_ENTER_CODE")" DEVICE_CODE
 
     # Poll endpoint for token
     echo ""
-    echo "🔑 Fetching token..."
+    msg "$MSG_SELLF_LOGIN_FETCHING"
     local POLL_URL="https://api.supabase.com/platform/cli/login/${SESSION_ID}?device_code=${DEVICE_CODE}"
 
     local TOKEN_RESPONSE=$(curl -s "$POLL_URL")
 
     if echo "$TOKEN_RESPONSE" | grep -q '"access_token"'; then
-        echo "   ✓ Token received, decrypting..."
+        msg "$MSG_SELLF_LOGIN_RECEIVED"
 
         # Token in response - we need to decrypt
         local ENCRYPTED_TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
@@ -154,19 +160,19 @@ console.log(decrypted.toString('utf8'));
 NODESCRIPT
             ) || true
         else
-            echo "   Node.js not found - cannot decrypt"
+            msg "$MSG_SELLF_LOGIN_NO_NODE"
         fi
 
         if [ -z "$SUPABASE_TOKEN" ] || echo "$SUPABASE_TOKEN" | grep -qiE "error|node:|Error"; then
             supabase_manual_token_flow
         else
-            echo "   ✅ Token decrypted!"
+            msg "$MSG_SELLF_LOGIN_DECRYPTED"
         fi
     elif echo "$TOKEN_RESPONSE" | grep -q "Cloudflare"; then
-        echo "⚠️  Cloudflare is blocking the request. Generate token manually."
+        msg "$MSG_SELLF_LOGIN_CF_BLOCKED"
         supabase_manual_token_flow
     else
-        echo "❌ Error: $TOKEN_RESPONSE"
+        msg "$MSG_SELLF_LOGIN_ERROR" "$TOKEN_RESPONSE"
         rm -rf "$TEMP_DIR"
         return 1
     fi
@@ -184,27 +190,26 @@ NODESCRIPT
 # Manual token retrieval (fallback)
 supabase_manual_token_flow() {
     echo ""
-    echo "⚠️  Could not decrypt token automatically."
-    echo "   But the token was created in Supabase! We'll retrieve it manually."
+    msg "$MSG_SELLF_MANUAL_HEADER"
+    msg "$MSG_SELLF_MANUAL_BUT"
     echo ""
-    echo "   Step by step:"
-    echo "   1. A page with Supabase tokens will open shortly"
-    echo "   2. Click 'Generate new token'"
-    echo "   3. Give it a name (e.g. stackpilot) and click 'Generate token'"
-    echo "   4. Copy the generated token (sbp_...) and paste it here"
+    msg "$MSG_SELLF_MANUAL_STEP1"
+    msg "$MSG_SELLF_MANUAL_STEP2"
+    msg "$MSG_SELLF_MANUAL_STEP3"
+    msg "$MSG_SELLF_MANUAL_STEP4"
     echo ""
-    echo "   NOTE: Existing tokens cannot be copied - you need to generate a new one!"
+    msg "$MSG_SELLF_MANUAL_NOTE"
     echo ""
-    read -p "   Press Enter to open the tokens page..." _
+    read -p "$(msg "$MSG_SELLF_MANUAL_OPEN")" _
     if command -v open &>/dev/null; then
         open "https://supabase.com/dashboard/account/tokens"
     elif command -v xdg-open &>/dev/null; then
         xdg-open "https://supabase.com/dashboard/account/tokens"
     else
-        echo "   Open: https://supabase.com/dashboard/account/tokens"
+        msg "$MSG_SELLF_MANUAL_URL"
     fi
     echo ""
-    read -p "Paste token (sbp_...): " SUPABASE_TOKEN
+    read -p "$(msg "$MSG_SELLF_MANUAL_PASTE")" SUPABASE_TOKEN
 }
 
 # =============================================================================
@@ -216,16 +221,16 @@ supabase_manual_token_flow() {
 # Sets: PROJECT_REF, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
 select_supabase_project() {
     echo ""
-    echo "📋 Fetching project list..."
+    msg "$MSG_SELLF_FETCHING_PROJECTS"
     local PROJECTS=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" "https://api.supabase.com/v1/projects")
 
     if ! echo "$PROJECTS" | grep -q '"id"'; then
-        echo "❌ Failed to fetch projects: $PROJECTS"
+        msg "$MSG_SELLF_FETCH_FAILED" "$PROJECTS"
         return 1
     fi
 
     echo ""
-    echo "Your Supabase projects:"
+    msg "$MSG_SELLF_YOUR_PROJECTS"
     echo ""
 
     # Parse projects into array
@@ -256,19 +261,19 @@ select_supabase_project() {
     fi
 
     echo ""
-    read -p "Choose project number [1-$((i-1))]: " PROJECT_NUM
+    read -p "$(msg "$MSG_SELLF_CHOOSE_PROJECT" "$((i-1))")" PROJECT_NUM
 
     # Validate choice
     if [[ "$PROJECT_NUM" =~ ^[0-9]+$ ]] && [ "$PROJECT_NUM" -ge 1 ] && [ "$PROJECT_NUM" -lt "$i" ]; then
         PROJECT_REF="${PROJECT_IDS[$((PROJECT_NUM-1))]}"
-        echo "   Selected project: ${PROJECT_NAMES[$((PROJECT_NUM-1))]}"
+        msg "$MSG_SELLF_SELECTED_PROJECT" "${PROJECT_NAMES[$((PROJECT_NUM-1))]}"
     else
-        echo "❌ Invalid choice"
+        msg "$MSG_SELLF_INVALID_CHOICE"
         return 1
     fi
 
     echo ""
-    echo "🔑 Fetching API keys..."
+    msg "$MSG_SELLF_FETCHING_KEYS"
     # IMPORTANT: ?reveal=true returns full keys (without it new secret keys are masked!)
     local API_KEYS=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true")
 
@@ -292,7 +297,7 @@ select_supabase_project() {
     fi
 
     if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
-        echo "✅ Supabase keys fetched!"
+        msg "$MSG_SELLF_KEYS_OK"
 
         # Save project configuration to file
         mkdir -p "$SELLF_CONFIG_DIR"
@@ -303,18 +308,17 @@ SUPABASE_URL=$SUPABASE_URL
 PROJECT_REF=$PROJECT_REF
 EOF
         chmod 600 "$SELLF_SUPABASE_CONFIG"
-        echo "   💾 Configuration saved to ~/.config/sellf/supabase.env"
+        msg "$MSG_SELLF_CONFIG_SAVED"
         return 0
     else
-        echo "❌ Failed to fetch API keys"
+        msg "$MSG_SELLF_KEYS_FAIL"
         echo ""
-        echo "Possible causes:"
-        echo "  - Project doesn't have API keys generated yet"
-        echo "  - Token doesn't have permissions to read keys"
+        msg "$MSG_SELLF_KEYS_CAUSE1"
+        msg "$MSG_SELLF_KEYS_CAUSE2"
         echo ""
-        echo "Solution: Copy keys manually"
-        echo "  1. Open: https://supabase.com/dashboard/project/$PROJECT_REF/settings/api"
-        echo "  2. Run: ./local/setup-sellf-config.sh"
+        msg "$MSG_SELLF_KEYS_SOLUTION"
+        msg "$MSG_SELLF_KEYS_OPEN" "$PROJECT_REF"
+        msg "$MSG_SELLF_KEYS_RUN"
         return 1
     fi
 }
@@ -325,20 +329,20 @@ EOF
 fetch_supabase_keys_by_ref() {
     local ref="$1"
     if [ -z "$ref" ]; then
-        echo "❌ Missing project ref"
+        msg "$MSG_SELLF_MISSING_REF"
         return 1
     fi
 
     PROJECT_REF="$ref"
     SUPABASE_URL="https://${PROJECT_REF}.supabase.co"
 
-    echo "🔑 Fetching API keys for project $PROJECT_REF..."
+    msg "$MSG_SELLF_FETCHING_KEYS_REF" "$PROJECT_REF"
     # IMPORTANT: ?reveal=true returns full keys (without it new secret keys are masked!)
     local API_KEYS=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true")
 
     # Check if project exists
     if echo "$API_KEYS" | grep -q '"error"'; then
-        echo "❌ Project not found: $PROJECT_REF"
+        msg "$MSG_SELLF_PROJECT_NOT_FOUND" "$PROJECT_REF"
         return 1
     fi
 
@@ -360,16 +364,15 @@ fetch_supabase_keys_by_ref() {
     fi
 
     if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
-        echo "✅ Supabase keys fetched!"
+        msg "$MSG_SELLF_KEYS_OK"
         return 0
     else
-        echo "❌ Failed to fetch API keys"
+        msg "$MSG_SELLF_KEYS_FAIL"
         echo ""
-        echo "Possible causes:"
-        echo "  - Project doesn't have API keys generated yet"
-        echo "  - Token doesn't have permissions to read keys"
+        msg "$MSG_SELLF_KEYS_CAUSE1"
+        msg "$MSG_SELLF_KEYS_CAUSE2"
         echo ""
-        echo "Check: https://supabase.com/dashboard/project/$PROJECT_REF/settings/api"
+        msg "$MSG_SELLF_KEYS_CHECK" "$PROJECT_REF"
         return 1
     fi
 }
@@ -388,17 +391,17 @@ configure_supabase_settings() {
 
     echo ""
     echo "════════════════════════════════════════════════════════════════"
-    echo "🔧 SUPABASE CONFIGURATION"
+    msg "$MSG_SELLF_CFG_HEADER"
     echo "════════════════════════════════════════════════════════════════"
 
     # Fetch current configuration
     echo ""
-    echo "📋 Fetching current configuration..."
+    msg "$MSG_SELLF_CFG_FETCHING"
     local CURRENT_CONFIG=$(curl -s -H "Authorization: Bearer $SUPABASE_TOKEN" \
         "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth")
 
     if echo "$CURRENT_CONFIG" | grep -q '"error"'; then
-        echo -e "${RED}❌ Failed to fetch configuration${NC}"
+        msg "$MSG_SELLF_CFG_FETCH_FAIL"
         return 1
     fi
 
@@ -424,7 +427,7 @@ configure_supabase_settings() {
         local NEW_URL="https://$DOMAIN"
 
         if [ "$CURRENT_SITE_URL" != "$NEW_URL" ]; then
-            echo "   🌐 Setting Site URL: $NEW_URL"
+            msg "$MSG_SELLF_CFG_SITE_URL" "$NEW_URL"
             CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq --arg url "$NEW_URL" '. + {site_url: $url}')
             CHANGES_MADE=true
 
@@ -437,18 +440,18 @@ configure_supabase_settings() {
                 fi
 
                 if [ -n "$NEW_REDIRECT_URLS" ]; then
-                    echo "   📝 Adding old domain to Redirect URLs: $CURRENT_SITE_URL"
+                    msg "$MSG_SELLF_CFG_REDIRECT" "$CURRENT_SITE_URL"
                     CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq --arg urls "$NEW_REDIRECT_URLS" '. + {uri_allow_list: $urls}')
                 fi
             fi
         else
-            echo "   ✅ Site URL already set: $CURRENT_SITE_URL"
+            msg "$MSG_SELLF_CFG_SITE_OK" "$CURRENT_SITE_URL"
         fi
     fi
 
     # 2. CAPTCHA (Turnstile)
     if [ -n "$TURNSTILE_SECRET" ]; then
-        echo "   🔐 Configuring CAPTCHA (Turnstile)..."
+        msg "$MSG_SELLF_CFG_CAPTCHA"
         CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
             --arg secret "$TURNSTILE_SECRET" \
             '. + {security_captcha_enabled: true, security_captcha_provider: "turnstile", security_captcha_secret: $secret}')
@@ -461,7 +464,7 @@ configure_supabase_settings() {
         local TEMPLATES_EXIST=$(ssh "$SSH_ALIAS" "ls '$REMOTE_TEMPLATES_DIR'/*.html 2>/dev/null | head -1" 2>/dev/null)
 
         if [ -n "$TEMPLATES_EXIST" ]; then
-            echo "   📧 Configuring email templates..."
+            msg "$MSG_SELLF_CFG_TEMPLATES"
 
             local TEMP_DIR=$(mktemp -d)
             scp -q "$SSH_ALIAS:$REMOTE_TEMPLATES_DIR/"*.html "$TEMP_DIR/" 2>/dev/null
@@ -471,7 +474,8 @@ configure_supabase_settings() {
                 local TEMPLATE_CONTENT=$(cat "$TEMP_DIR/magic-link.html")
                 CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
                     --arg content "$TEMPLATE_CONTENT" \
-                    '. + {mailer_templates_magic_link_content: $content, mailer_subjects_magic_link: "Your login link"}')
+                    --arg subj "$(msg "$MSG_SELLF_EMAIL_MAGIC_LINK")" \
+                    '. + {mailer_templates_magic_link_content: $content, mailer_subjects_magic_link: $subj}')
                 CHANGES_MADE=true
             fi
 
@@ -480,7 +484,8 @@ configure_supabase_settings() {
                 local TEMPLATE_CONTENT=$(cat "$TEMP_DIR/confirmation.html")
                 CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
                     --arg content "$TEMPLATE_CONTENT" \
-                    '. + {mailer_templates_confirmation_content: $content, mailer_subjects_confirmation: "Confirm your email"}')
+                    --arg subj "$(msg "$MSG_SELLF_EMAIL_CONFIRMATION")" \
+                    '. + {mailer_templates_confirmation_content: $content, mailer_subjects_confirmation: $subj}')
                 CHANGES_MADE=true
             fi
 
@@ -489,7 +494,8 @@ configure_supabase_settings() {
                 local TEMPLATE_CONTENT=$(cat "$TEMP_DIR/recovery.html")
                 CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
                     --arg content "$TEMPLATE_CONTENT" \
-                    '. + {mailer_templates_recovery_content: $content, mailer_subjects_recovery: "Reset your password"}')
+                    --arg subj "$(msg "$MSG_SELLF_EMAIL_RECOVERY")" \
+                    '. + {mailer_templates_recovery_content: $content, mailer_subjects_recovery: $subj}')
                 CHANGES_MADE=true
             fi
 
@@ -498,7 +504,8 @@ configure_supabase_settings() {
                 local TEMPLATE_CONTENT=$(cat "$TEMP_DIR/email-change.html")
                 CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
                     --arg content "$TEMPLATE_CONTENT" \
-                    '. + {mailer_templates_email_change_content: $content, mailer_subjects_email_change: "Confirm email address change"}')
+                    --arg subj "$(msg "$MSG_SELLF_EMAIL_CHANGE")" \
+                    '. + {mailer_templates_email_change_content: $content, mailer_subjects_email_change: $subj}')
                 CHANGES_MADE=true
             fi
 
@@ -507,7 +514,8 @@ configure_supabase_settings() {
                 local TEMPLATE_CONTENT=$(cat "$TEMP_DIR/invite.html")
                 CONFIG_UPDATES=$(echo "$CONFIG_UPDATES" | jq \
                     --arg content "$TEMPLATE_CONTENT" \
-                    '. + {mailer_templates_invite_content: $content, mailer_subjects_invite: "Invitation to Sellf"}')
+                    --arg subj "$(msg "$MSG_SELLF_EMAIL_INVITE")" \
+                    '. + {mailer_templates_invite_content: $content, mailer_subjects_invite: $subj}')
                 CHANGES_MADE=true
             fi
 
@@ -518,7 +526,7 @@ configure_supabase_settings() {
     # Send configuration if there are changes
     if [ "$CHANGES_MADE" = true ]; then
         echo ""
-        echo "📤 Saving configuration..."
+        msg "$MSG_SELLF_CFG_SAVING"
 
         local RESPONSE=$(curl -s -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
             -H "Authorization: Bearer $SUPABASE_TOKEN" \
@@ -527,13 +535,13 @@ configure_supabase_settings() {
 
         if echo "$RESPONSE" | grep -q '"error"'; then
             local ERROR=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
-            echo -e "${RED}   ❌ Error: $ERROR${NC}"
+            msg "$MSG_SELLF_CFG_ERROR" "$ERROR"
             return 1
         else
-            echo -e "${GREEN}   ✅ Supabase configuration saved!${NC}"
+            msg "$MSG_SELLF_CFG_SAVED"
         fi
     else
-        echo "   ℹ️  No changes to save"
+        msg "$MSG_SELLF_CFG_NO_CHANGES"
     fi
 
     return 0
@@ -545,7 +553,7 @@ update_supabase_site_url() {
     local NEW_DOMAIN="$1"
 
     echo ""
-    echo "🌐 Updating Site URL in Supabase: https://$NEW_DOMAIN"
+    msg "$MSG_SELLF_URL_UPDATING" "$NEW_DOMAIN"
 
     # Variables should already be set by sellf_collect_config
     # Fallback to config files if for some reason they aren't
@@ -558,15 +566,15 @@ update_supabase_site_url() {
 
     # Debug info
     if [ -z "$SUPABASE_TOKEN" ]; then
-        echo -e "${RED}   ❌ Missing SUPABASE_TOKEN${NC}"
+        msg "$MSG_SELLF_URL_NO_TOKEN"
         return 1
     fi
     if [ -z "$PROJECT_REF" ]; then
-        echo -e "${RED}   ❌ Missing PROJECT_REF${NC}"
+        msg "$MSG_SELLF_URL_NO_REF"
         return 1
     fi
 
-    echo "   Project: $PROJECT_REF"
+    msg "$MSG_SELLF_URL_PROJECT" "$PROJECT_REF"
 
     local NEW_URL="https://$NEW_DOMAIN"
 
@@ -586,7 +594,7 @@ update_supabase_site_url() {
 
     # If Site URL is already the same - do nothing
     if [ "$CURRENT_SITE_URL" = "$NEW_URL" ]; then
-        echo "   ✅ Site URL already set: $NEW_URL"
+        msg "$MSG_SELLF_URL_ALREADY" "$NEW_URL"
         return 0
     fi
 
@@ -597,10 +605,10 @@ update_supabase_site_url() {
     if [ -n "$CURRENT_SITE_URL" ] && [ "$CURRENT_SITE_URL" != "http://localhost:3000" ]; then
         if [ -z "$CURRENT_REDIRECT_URLS" ]; then
             UPDATE_JSON="$UPDATE_JSON,\"uri_allow_list\":\"$CURRENT_SITE_URL\""
-            echo "   📝 Adding old domain to Redirect URLs: $CURRENT_SITE_URL"
+            msg "$MSG_SELLF_URL_REDIRECT" "$CURRENT_SITE_URL"
         elif ! echo "$CURRENT_REDIRECT_URLS" | grep -q "$CURRENT_SITE_URL"; then
             UPDATE_JSON="$UPDATE_JSON,\"uri_allow_list\":\"$CURRENT_REDIRECT_URLS,$CURRENT_SITE_URL\""
-            echo "   📝 Adding old domain to Redirect URLs: $CURRENT_SITE_URL"
+            msg "$MSG_SELLF_URL_REDIRECT" "$CURRENT_SITE_URL"
         fi
     fi
 
@@ -613,11 +621,11 @@ update_supabase_site_url() {
 
     if echo "$RESPONSE" | grep -q '"error"'; then
         local ERROR=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
-        echo -e "${RED}   ❌ Error updating Site URL: $ERROR${NC}"
+        msg "$MSG_SELLF_URL_ERROR" "$ERROR"
         echo "   Response: $RESPONSE"
         return 1
     else
-        echo "   ✅ Site URL updated: $NEW_URL"
+        msg "$MSG_SELLF_URL_UPDATED" "$NEW_URL"
     fi
 
     return 0
@@ -634,7 +642,7 @@ sellf_collect_config() {
     local DOMAIN="${1:-}"
 
     echo "════════════════════════════════════════════════════════════════"
-    echo "📋 SUPABASE CONFIGURATION"
+    msg "$MSG_SELLF_COLLECT_HEADER"
     echo "════════════════════════════════════════════════════════════════"
     echo ""
 
@@ -672,8 +680,8 @@ sellf_show_turnstile_reminder() {
 
     if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
         echo ""
-        echo -e "${YELLOW}🔒 Configure Turnstile (CAPTCHA) for bot protection:${NC}"
-        echo -e "   ${BLUE}./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS${NC}"
+        msg "$MSG_SELLF_TURNSTILE_REM"
+        msg "$MSG_SELLF_POST_TURNSTILE_CMD" "$DOMAIN" "$SSH_ALIAS"
         echo ""
     fi
 }
@@ -693,36 +701,36 @@ sellf_collect_stripe_config() {
 
     echo ""
     echo "════════════════════════════════════════════════════════════════"
-    echo "💳 STRIPE CONFIGURATION"
+    msg "$MSG_SELLF_STRIPE_HEADER"
     echo "════════════════════════════════════════════════════════════════"
     echo ""
-    echo "Sellf needs Stripe keys to handle payments."
-    echo "You can configure them now or later in the Sellf panel."
+    msg "$MSG_SELLF_STRIPE_INTRO"
+    msg "$MSG_SELLF_STRIPE_LATER"
     echo ""
 
     if [ "$YES_MODE" = true ]; then
-        echo "⏭️  --yes mode: Stripe will be configured in the panel after installation."
+        msg "$MSG_SELLF_STRIPE_YES"
         SELLF_STRIPE_CONFIGURED=false
         return 0
     fi
 
-    read -p "Configure Stripe now? [y/N]: " STRIPE_CHOICE
+    read -p "$(msg "$MSG_SELLF_STRIPE_PROMPT")" STRIPE_CHOICE
 
     if [[ "$STRIPE_CHOICE" =~ ^[TtYy1]$ ]]; then
         echo ""
-        echo "   1. Open: https://dashboard.stripe.com/apikeys"
-        echo "   2. Copy 'Publishable key' (pk_live_... or pk_test_...)"
-        echo "   3. Copy 'Secret key' (sk_live_... or sk_test_...)"
+        msg "$MSG_SELLF_STRIPE_STEP1"
+        msg "$MSG_SELLF_STRIPE_STEP2"
+        msg "$MSG_SELLF_STRIPE_STEP3"
         echo ""
         read -p "STRIPE_PUBLISHABLE_KEY (pk_...): " STRIPE_PK
         read -p "STRIPE_SECRET_KEY (sk_...): " STRIPE_SK
         read -p "STRIPE_WEBHOOK_SECRET (whsec_..., optional - Enter to skip): " STRIPE_WEBHOOK_SECRET
         SELLF_STRIPE_CONFIGURED=true
         echo ""
-        echo -e "${GREEN}✅ Stripe keys collected${NC}"
+        msg "$MSG_SELLF_STRIPE_COLLECTED"
     else
         echo ""
-        echo "⏭️  Skipped - you can configure Stripe in the panel after installation."
+        msg "$MSG_SELLF_STRIPE_SKIPPED"
         SELLF_STRIPE_CONFIGURED=false
     fi
 
@@ -738,33 +746,33 @@ sellf_show_post_install_reminders() {
 
     # First user = admin
     echo ""
-    echo "👤 Open https://$DOMAIN - the first user will become admin"
+    msg "$MSG_SELLF_POST_ADMIN" "$DOMAIN"
 
     # Stripe Webhook (always needed for payments)
     echo ""
-    echo -e "${YELLOW}💳 Stripe Webhook:${NC}"
-    echo "   1. Open: https://dashboard.stripe.com/webhooks"
-    echo "   2. Add endpoint: https://$DOMAIN/api/webhooks/stripe"
-    echo "   3. Events: checkout.session.completed, payment_intent.succeeded"
-    echo "   4. Copy Signing secret (whsec_...) to .env.local"
+    msg "$MSG_SELLF_POST_WEBHOOK"
+    msg "$MSG_SELLF_POST_WH_STEP1"
+    msg "$MSG_SELLF_POST_WH_STEP2" "$DOMAIN"
+    msg "$MSG_SELLF_POST_WH_STEP3"
+    msg "$MSG_SELLF_POST_WH_STEP4"
 
     # Stripe keys (if not configured)
     if [ "$STRIPE_CONFIGURED" != true ]; then
         echo ""
-        echo -e "${YELLOW}💳 Stripe API Keys:${NC} (if not configured)"
-        echo -e "   ${BLUE}ssh $SSH_ALIAS nano /opt/stacks/sellf/admin-panel/.env.local${NC}"
+        msg "$MSG_SELLF_POST_STRIPE"
+        msg "$MSG_SELLF_POST_STRIPE_CMD" "$SSH_ALIAS"
     fi
 
     # Turnstile
     if [ "$TURNSTILE_CONFIGURED" != true ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
         echo ""
-        echo -e "${YELLOW}🔒 Turnstile (CAPTCHA):${NC}"
-        echo -e "   ${BLUE}./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS${NC}"
+        msg "$MSG_SELLF_POST_TURNSTILE"
+        msg "$MSG_SELLF_POST_TURNSTILE_CMD" "$DOMAIN" "$SSH_ALIAS"
     fi
 
     # SMTP
     echo ""
-    echo -e "${YELLOW}📧 SMTP (email delivery):${NC}"
-    echo -e "   ${BLUE}./local/setup-supabase-email.sh${NC}"
+    msg "$MSG_SELLF_POST_SMTP"
+    msg "$MSG_SELLF_POST_SMTP_CMD"
     echo ""
 }

@@ -389,7 +389,7 @@ ssh vps 'docker stats --no-stream'
 ## FAQ
 
 **What VPS providers are supported?**
-Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH. If you use [Mikrus](https://mikr.us) (a cheap Polish VPS), check out [Mikrus Toolbox](https://github.com/jurczykpawel/mikrus-toolbox) -- the Polish-language sibling project with built-in Mikrus integration (free subdomains, shared databases, one-click API setup).
+Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH. If you use [Mikrus](https://mikr.us) (a popular Polish VPS), StackPilot auto-detects it and unlocks extra features: free `.byst.re` subdomains, shared databases via API, and 200MB free backup.
 
 **How much RAM do I need?**
 512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 8GB+.
@@ -427,10 +427,14 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 - [x] WordPress multi-instance support with shared Redis
 - [x] Windows support (PowerShell SSH setup)
 
+- [x] Multi-language support (English + Polish, 1,300+ translated messages)
+- [x] Provider plugin system (Mikrus auto-detected, extensible)
+- [x] Comprehensive test suite (unit, static, E2E)
+- [x] CI pipeline (GitHub Actions)
+
 ### In Progress
 
 - [ ] Static and PHP hosting support (`add-static-hosting.sh`, `add-php-hosting.sh`)
-- [ ] Feature parity with [Mikrus Toolbox](https://github.com/jurczykpawel/mikrus-toolbox)
 
 ### Planned
 
@@ -460,14 +464,86 @@ If you run into issues or have questions:
 
 ---
 
+## Multi-Language Support
+
+StackPilot supports multiple languages for all user-facing messages. English is the default; Polish is fully supported.
+
+```bash
+# Use Polish messages
+export TOOLBOX_LANG=pl
+./local/deploy.sh n8n
+
+# Or set it permanently in config
+echo "TOOLBOX_LANG=pl" >> ~/.config/stackpilot/config
+```
+
+All 1,300+ messages are translated. To add a new locale, create `locale/xx.sh` following the pattern in `locale/en.sh`. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+---
+
+## Provider Support
+
+StackPilot works with any VPS provider out of the box. For [Mikrus](https://mikr.us) (a popular Polish VPS), additional features are available automatically:
+
+| Feature | Generic VPS | Mikrus VPS |
+| :--- | :--- | :--- |
+| App deployment | Yes | Yes |
+| Cloudflare/Caddy domains | Yes | Yes |
+| Bundled/custom databases | Yes | Yes |
+| Free `.byst.re` subdomains | - | Yes (auto-detected) |
+| Shared database via API | - | Yes (auto-detected) |
+| Free 200MB backup | - | Yes (auto-detected) |
+| Upgrade suggestions | Generic | Mikrus-specific pricing |
+
+Mikrus features are auto-detected (no configuration needed). On non-Mikrus servers, the provider system is invisible.
+
+To add support for a new provider, create a plugin in `lib/providers/your-provider/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+---
+
+## Testing
+
+StackPilot includes a comprehensive test suite:
+
+```bash
+# Run all local tests (unit + static validation)
+./tests/run.sh
+
+# Run only unit tests
+./tests/run.sh unit
+
+# Run only static validation (shellcheck, contract checks, compose syntax)
+./tests/run.sh static
+
+# Run E2E integration tests on a real server
+./tests/run.sh e2e --ssh=your-vps
+
+# Run everything
+./tests/run.sh all --ssh=your-vps
+```
+
+| Suite | Tests | Runtime | What it checks |
+| :--- | :--- | :--- | :--- |
+| Unit | 67 | <1s | CLI parser, i18n, DB setup, domain setup, ports, resources, providers |
+| Static | 4 | ~8s | ShellCheck (95 files), install.sh contract, compose syntax, locale coverage |
+| E2E | TBD | ~5min | Real deployments on a test server |
+
+CI runs unit + static tests on every push and PR. E2E tests run nightly or on-demand.
+
+---
+
 ## Repository Structure
 
 ```
 local/           -> User-facing scripts (deploy, backup, setup, DNS)
 apps/<app>/      -> App installers: install.sh + README.md
 lib/             -> Shared libraries (CLI parser, DB setup, domain setup, health checks)
+lib/providers/   -> Provider plugins (mikrus/, generic hooks)
+locale/          -> Language files (en.sh, pl.sh)
 system/          -> System scripts (Docker, Caddy, backup, power tools)
+tests/           -> Test suites (unit/, static/, e2e/)
 docs/            -> Documentation (Cloudflare, backups, SSH tunnels, CLI reference)
+contrib/         -> Provider-specific deployment scripts
 ```
 
 Configuration is stored in `~/.config/stackpilot/`.

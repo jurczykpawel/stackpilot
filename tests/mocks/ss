@@ -1,0 +1,10 @@
+#!/bin/bash
+# Mock ss — returns configurable port listing
+# Set MOCK_SS_PORTS to space-separated list of used ports (e.g. "80 443 8080 5432")
+
+PORTS="${MOCK_SS_PORTS:-80 443}"
+
+echo "State   Recv-Q   Send-Q   Local Address:Port   Peer Address:Port"
+for PORT in $PORTS; do
+    echo "LISTEN  0        128      0.0.0.0:$PORT       0.0.0.0:*"
+done

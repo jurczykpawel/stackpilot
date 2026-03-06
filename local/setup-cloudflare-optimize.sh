@@ -21,13 +21,15 @@
 
 set -e
 
-CONFIG_FILE="$HOME/.config/cloudflare/config"
+_CFO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_CFO_DIR/../lib/i18n.sh"
+RED="${RED:-\033[0;31m}"
+GREEN="${GREEN:-\033[0;32m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+BLUE="${BLUE:-\033[0;34m}"
+NC="${NC:-\033[0m}"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+CONFIG_FILE="$HOME/.config/cloudflare/config"
 
 # Parse arguments
 FULL_DOMAIN=""
@@ -36,7 +38,10 @@ APP_TYPE=""
 for arg in "$@"; do
     case "$arg" in
         --app=*) APP_TYPE="${arg#--app=}" ;;
-        -*) echo -e "${RED}❌ Unknown option: $arg${NC}"; exit 1 ;;
+        -*)
+            msg "$MSG_CFO_UNKNOWN_APP" "$arg"
+            exit 1
+            ;;
         *) FULL_DOMAIN="$arg" ;;
     esac
 done
@@ -67,15 +72,15 @@ fi
 
 # Validate --app
 if [ -n "$APP_TYPE" ] && [ "$APP_TYPE" != "wordpress" ] && [ "$APP_TYPE" != "nextjs" ]; then
-    echo -e "${RED}❌ Unknown application type: $APP_TYPE${NC}"
-    echo "   Available: wordpress, nextjs"
+    msg "$MSG_CFO_UNKNOWN_APP" "$APP_TYPE"
+    msg "$MSG_CFO_APP_AVAIL"
     exit 1
 fi
 
 # Check configuration
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo -e "${RED}❌ Missing Cloudflare configuration${NC}"
-    echo "   Run first: ./local/setup-cloudflare.sh"
+    msg "$MSG_CFO_NO_CONFIG"
+    msg "$MSG_CFO_NO_CONFIG_HINT"
     exit 1
 fi
 
@@ -83,7 +88,7 @@ fi
 CF_API_TOKEN=$(grep -E "^(CF_)?API_TOKEN=" "$CONFIG_FILE" | head -1 | cut -d'=' -f2)
 
 if [ -z "$CF_API_TOKEN" ]; then
-    echo -e "${RED}❌ Missing API token${NC}"
+    msg "$MSG_CFO_NO_TOKEN"
     exit 1
 fi
 
@@ -91,16 +96,16 @@ fi
 # app.example.com → example.com
 ZONE_NAME=$(echo "$FULL_DOMAIN" | awk -F. '{print $(NF-1)"."$NF}')
 
-echo "☁️  Cloudflare Optimization"
-echo "   Domain: $FULL_DOMAIN"
-echo "   Zone: $ZONE_NAME"
+msg "$MSG_CFO_HEADER"
+msg "$MSG_CFO_DOMAIN" "$FULL_DOMAIN"
+msg "$MSG_CFO_ZONE" "$ZONE_NAME"
 if [ -n "$APP_TYPE" ]; then
-    echo "   App: $APP_TYPE"
+    msg "$MSG_CFO_APP" "$APP_TYPE"
 fi
 echo ""
 
 # Get Zone ID
-echo "🔍 Looking for Zone ID..."
+msg "$MSG_CFO_ZONE_LOOKUP"
 ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" \
     -H "Authorization: Bearer $CF_API_TOKEN" \
     -H "Content-Type: application/json")
@@ -108,12 +113,12 @@ ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=
 ZONE_ID=$(echo "$ZONE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ -z "$ZONE_ID" ]; then
-    echo -e "${RED}❌ Zone not found: $ZONE_NAME${NC}"
-    echo "   Make sure the domain is added to Cloudflare"
+    msg "$MSG_CFO_ZONE_NOT_FOUND" "$ZONE_NAME"
+    msg "$MSG_CFO_ZONE_NOT_FOUND_HINT"
     exit 1
 fi
 
-echo "   Zone ID: $ZONE_ID"
+msg "$MSG_CFO_ZONE_ID" "$ZONE_ID"
 echo ""
 
 # Track permission errors
@@ -147,7 +152,7 @@ set_zone_setting() {
 # ZONE SETTINGS
 # =============================================================================
 
-echo "⚙️  Zone settings..."
+msg "$MSG_CFO_ZONE_SETTINGS"
 
 # SSL Full - Caddy auto-generates certificate (Let's Encrypt)
 # Don't use Flexible — it breaks other subdomains/servers in the same zone
@@ -284,12 +289,12 @@ scope_rules_to_host() {
 CACHE_RULE_OK=false
 
 if [ -n "$APP_TYPE" ]; then
-    echo "📦 Cache Rules ($APP_TYPE → $FULL_DOMAIN)..."
+    msg "$MSG_CFO_CACHE_RULES" "$APP_TYPE" "$FULL_DOMAIN"
 
     # Check jq (required for rule merging)
     if ! command -v jq &>/dev/null; then
-        echo -e "${YELLOW}⚠️  jq not found - skipped Cache Rules${NC}"
-        echo "   Install: brew install jq (macOS) or apt install jq (Linux)"
+        msg "$MSG_CFO_NO_JQ"
+        msg "$MSG_CFO_NO_JQ_INSTALL"
         echo ""
     else
         # Get rules for selected app and scope per hostname
@@ -321,7 +326,7 @@ if [ -n "$APP_TYPE" ]; then
                 {"rules": ($kept + $new)}
             ')
 
-            echo -n "   Updating cache rules (merge)... "
+            msg_n "$MSG_CFO_RULES_UPDATE"
             RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/$RULESET_ID" \
                 -H "Authorization: Bearer $CF_API_TOKEN" \
                 -H "Content-Type: application/json" \
@@ -335,7 +340,7 @@ if [ -n "$APP_TYPE" ]; then
                 "rules": $rules
             }')
 
-            echo -n "   Creating cache rules... "
+            msg_n "$MSG_CFO_RULES_CREATE"
             RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets" \
                 -H "Authorization: Bearer $CF_API_TOKEN" \
                 -H "Content-Type: application/json" \
@@ -343,25 +348,25 @@ if [ -n "$APP_TYPE" ]; then
         fi
 
         if echo "$RESPONSE" | grep -q '"success":true'; then
-            echo -e "${GREEN}✅${NC}"
+            msg "$MSG_CFO_RULES_OK"
             CACHE_RULE_OK=true
             case "$APP_TYPE" in
                 wordpress)
-                    echo "      /wp-admin, /wp-login.php, /wp-json, /wp-cron.php → bypass"
-                    echo "      /wp-content/uploads, /wp-includes → cache 1 year"
-                    echo "      /wp-content/themes, /wp-content/plugins → cache 1 week"
+                    msg "$MSG_CFO_CACHE_WP_BYPASS"
+                    msg "$MSG_CFO_CACHE_WP_UPLOADS"
+                    msg "$MSG_CFO_CACHE_WP_THEMES"
                     ;;
                 nextjs)
-                    echo "      /_next/static/* → cache 1 year"
-                    echo "      /api/* → bypass cache"
+                    msg "$MSG_CFO_CACHE_NEXTJS_STATIC"
+                    msg "$MSG_CFO_CACHE_NEXTJS_API"
                     ;;
             esac
         else
             ERROR=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4)
             if [ -n "$ERROR" ]; then
-                echo -e "${YELLOW}⚠️  $ERROR${NC}"
+                msg "$MSG_CFO_RULES_FAIL" "$ERROR"
             else
-                echo -e "${YELLOW}⚠️  Failed (possibly missing Cache Rules permissions)${NC}"
+                msg "$MSG_CFO_RULES_FAIL_GENERIC"
             fi
             if echo "$ERROR" | grep -qi "unauthorized\|authentication"; then
                 PERMISSION_ERRORS=$((PERMISSION_ERRORS + 1))
@@ -371,48 +376,48 @@ if [ -n "$APP_TYPE" ]; then
         echo ""
     fi
 else
-    echo "ℹ️  Skipped Cache Rules (use --app=wordpress|nextjs to add)"
+    msg "$MSG_CFO_SKIP_CACHE"
     echo ""
 fi
 
 # Summary
 if [ "$PERMISSION_ERRORS" -gt 0 ]; then
-    echo -e "${YELLOW}⚠️  Some settings were skipped (insufficient token permissions)${NC}"
+    msg "$MSG_CFO_PERM_ERRORS"
     echo ""
-    echo "   Your token does not have the required permissions. Create a new token with:"
-    echo "   • Zone → Zone Settings → Edit  (SSL, Brotli, HTTPS, TLS)"
+    msg "$MSG_CFO_PERM_FIX"
+    msg "$MSG_CFO_PERM_ZONE_SETTINGS"
     if [ -n "$APP_TYPE" ]; then
-        echo "   • Zone → Cache Rules → Edit    (cache for $APP_TYPE)"
+        msg "$MSG_CFO_PERM_CACHE" "$APP_TYPE"
     fi
     echo ""
-    echo "   Create token: https://dash.cloudflare.com/profile/api-tokens"
-    echo "   Or configure manually in the Cloudflare dashboard:"
-    echo "   → SSL/TLS: Full"
-    echo "   → Speed → Optimization: enable Brotli"
+    msg "$MSG_CFO_PERM_LINK"
+    msg "$MSG_CFO_PERM_MANUAL"
+    msg "$MSG_CFO_PERM_SSL"
+    msg "$MSG_CFO_PERM_BROTLI"
     echo ""
 else
-    echo -e "${GREEN}🎉 Optimization complete!${NC}"
+    msg "$MSG_CFO_DONE"
     echo ""
-    echo "📋 Configured:"
-    echo "   • SSL: Full (Caddy auto-cert)"
-    echo "   • Compression: Brotli"
-    echo "   • HTTPS: enforced"
-    echo "   • TLS: minimum 1.2"
-    echo "   • HTTP/2 + HTTP/3"
-    echo "   • Early Hints"
+    msg "$MSG_CFO_SUMMARY"
+    msg "$MSG_CFO_SUM_SSL"
+    msg "$MSG_CFO_SUM_BROTLI"
+    msg "$MSG_CFO_SUM_HTTPS"
+    msg "$MSG_CFO_SUM_TLS"
+    msg "$MSG_CFO_SUM_HTTP"
+    msg "$MSG_CFO_SUM_HINTS"
     if [ "$CACHE_RULE_OK" = true ]; then
         case "$APP_TYPE" in
             wordpress)
-                echo "   • Cache: wp-content/uploads, wp-includes (1 year)"
-                echo "   • Cache: wp-content/themes, plugins (1 week)"
-                echo "   • Bypass: wp-admin, wp-login, wp-json, wp-cron"
+                msg "$MSG_CFO_SUM_CACHE_WP1"
+                msg "$MSG_CFO_SUM_CACHE_WP2"
+                msg "$MSG_CFO_SUM_BYPASS_WP"
                 ;;
             nextjs)
-                echo "   • Cache: /_next/static/* (1 year)"
-                echo "   • No-cache: /api/*"
+                msg "$MSG_CFO_SUM_CACHE_NJS"
+                msg "$MSG_CFO_SUM_BYPASS_NJS"
                 ;;
         esac
-        echo "   • Scope: $FULL_DOMAIN"
+        msg "$MSG_CFO_SUM_SCOPE" "$FULL_DOMAIN"
     fi
 fi
 echo ""

@@ -14,17 +14,23 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../lib/server-exec.sh"
 
-DOMAIN="$1"
-SSH_ALIAS="${2:-vps}"
-
-# Colors
+# Colors must be defined BEFORE sourcing server-exec.sh (which loads i18n)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+source "$SCRIPT_DIR/../lib/server-exec.sh"
+
+_TS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_TS_DIR/../lib/i18n.sh"
+fi
+
+DOMAIN="$1"
+SSH_ALIAS="${2:-vps}"
 
 # Configuration
 CONFIG_DIR="$HOME/.config/cloudflare"
@@ -42,8 +48,8 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 echo ""
-echo -e "${BLUE}🔒 Turnstile Setup${NC}"
-echo "   Domain: $DOMAIN"
+msg "$MSG_TS_HEADER"
+msg "$MSG_TS_DOMAIN" "$DOMAIN"
 echo ""
 
 # =============================================================================
@@ -94,11 +100,11 @@ fi
 
 # Verify saved token
 if [ -n "$TURNSTILE_TOKEN" ] && [ -n "$ACCOUNT_ID" ]; then
-    echo "🔑 Found saved Turnstile token..."
+    msg "$MSG_TS_TOKEN_FOUND"
     if check_turnstile_access "$TURNSTILE_TOKEN" "$ACCOUNT_ID"; then
-        echo -e "${GREEN}   ✅ Token is current${NC}"
+        msg "$MSG_TS_TOKEN_OK"
     else
-        echo "   ⚠️  Token expired or is invalid"
+        msg "$MSG_TS_TOKEN_EXPIRED"
         TURNSTILE_TOKEN=""
         ACCOUNT_ID=""
         rm -f "$TURNSTILE_TOKEN_FILE" "$TURNSTILE_ACCOUNT_FILE"
@@ -112,7 +118,7 @@ if [ -z "$TURNSTILE_TOKEN" ] && [ -f "$CONFIG_FILE" ]; then
         ACCOUNT_ID=$(get_account_id "$MAIN_TOKEN")
         if [ -n "$ACCOUNT_ID" ] && check_turnstile_access "$MAIN_TOKEN" "$ACCOUNT_ID"; then
             TURNSTILE_TOKEN="$MAIN_TOKEN"
-            echo -e "${GREEN}✅ Main token has Turnstile permissions${NC}"
+            msg "$MSG_TS_MAIN_TOKEN_OK"
             # Save Account ID for future use
             mkdir -p "$CONFIG_DIR"
             echo "$ACCOUNT_ID" > "$TURNSTILE_ACCOUNT_FILE"
@@ -127,23 +133,23 @@ fi
 
 if [ -z "$TURNSTILE_TOKEN" ] || [ -z "$ACCOUNT_ID" ]; then
     echo ""
-    echo -e "${YELLOW}⚠️  No token with Turnstile permissions${NC}"
+    msg "$MSG_TS_NO_TOKEN"
     echo ""
-    echo "An API token with permission: Account → Turnstile → Edit is required"
+    msg "$MSG_TS_NEED_PERM"
     echo ""
-    echo "Step by step:"
-    echo "   1. Open: https://dash.cloudflare.com/profile/api-tokens"
-    echo "   2. Click 'Create Token'"
-    echo "   3. Choose 'Create Custom Token'"
-    echo "   4. Name: 'Turnstile API'"
-    echo "   5. Permissions:"
-    echo "      • Account → Turnstile → Edit"
-    echo "   6. Account Resources: Include → All accounts (or choose specific)"
-    echo "   7. Click 'Continue to summary' → 'Create Token'"
-    echo "   8. Copy the token"
+    msg "$MSG_TS_STEPS"
+    msg "$MSG_TS_STEP1"
+    msg "$MSG_TS_STEP2"
+    msg "$MSG_TS_STEP3"
+    msg "$MSG_TS_STEP4"
+    msg "$MSG_TS_STEP5"
+    msg "$MSG_TS_STEP6"
+    msg "$MSG_TS_STEP7"
+    msg "$MSG_TS_STEP8"
+    msg "$MSG_TS_STEP9"
     echo ""
 
-    read -p "Press Enter to open Cloudflare..." _
+    read -p "$(msg_n "$MSG_TS_PRESS_ENTER")" _
 
     # Open browser
     if command -v open &>/dev/null; then
@@ -153,16 +159,16 @@ if [ -z "$TURNSTILE_TOKEN" ] || [ -z "$ACCOUNT_ID" ]; then
     fi
 
     echo ""
-    read -p "Paste Turnstile token: " TURNSTILE_TOKEN
+    read -p "$(msg_n "$MSG_TS_PASTE_TOKEN")" TURNSTILE_TOKEN
 
     if [ -z "$TURNSTILE_TOKEN" ]; then
-        echo -e "${RED}❌ Token cannot be empty${NC}"
+        msg "$MSG_TS_TOKEN_EMPTY"
         exit 1
     fi
 
     # Get account ID
     echo ""
-    echo "🔍 Verifying token..."
+    msg "$MSG_TS_VERIFYING"
 
     # First try to get Account ID from the main CF token (has Zone permissions)
     if [ -z "$ACCOUNT_ID" ] && [ -f "$CONFIG_FILE" ]; then
@@ -186,32 +192,32 @@ if [ -z "$TURNSTILE_TOKEN" ] || [ -z "$ACCOUNT_ID" ]; then
     # Last resort - ask the user
     if [ -z "$ACCOUNT_ID" ]; then
         echo ""
-        echo -e "${YELLOW}Cannot automatically retrieve Account ID.${NC}"
-        echo "Find it at: https://dash.cloudflare.com → any domain → Overview → Account ID (right side)"
+        msg "$MSG_TS_NO_ACCOUNT"
+        msg "$MSG_TS_ACCOUNT_HINT"
         echo ""
-        read -p "Paste Account ID: " ACCOUNT_ID
+        read -p "$(msg_n "$MSG_TS_PASTE_ACCOUNT")" ACCOUNT_ID
 
         if [ -z "$ACCOUNT_ID" ]; then
-            echo -e "${RED}❌ Account ID is required${NC}"
+            msg "$MSG_TS_ACCOUNT_REQUIRED"
             exit 1
         fi
     fi
 
     # Check Turnstile permissions
     if ! check_turnstile_access "$TURNSTILE_TOKEN" "$ACCOUNT_ID"; then
-        echo -e "${RED}❌ Token does not have Turnstile permissions${NC}"
-        echo "   Make sure you added: Account → Turnstile → Edit"
+        msg "$MSG_TS_NO_TURNSTILE_PERM"
+        msg "$MSG_TS_NO_PERM_HINT"
         exit 1
     fi
 
-    echo -e "${GREEN}✅ Token verified!${NC}"
+    msg "$MSG_TS_TOKEN_VERIFIED"
 
     # Save token and Account ID
     mkdir -p "$CONFIG_DIR"
     echo "$TURNSTILE_TOKEN" > "$TURNSTILE_TOKEN_FILE"
     echo "$ACCOUNT_ID" > "$TURNSTILE_ACCOUNT_FILE"
     chmod 600 "$TURNSTILE_TOKEN_FILE" "$TURNSTILE_ACCOUNT_FILE"
-    echo "   Token and Account ID saved"
+    msg "$MSG_TS_TOKEN_SAVED"
 fi
 
 # =============================================================================
@@ -219,7 +225,7 @@ fi
 # =============================================================================
 
 echo ""
-echo "🔍 Checking existing Turnstile widgets..."
+msg "$MSG_TS_CHECK_WIDGETS"
 
 WIDGETS_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widgets" \
     -H "Authorization: Bearer $TURNSTILE_TOKEN" \
@@ -248,7 +254,7 @@ if [ -n "$MATCHING_WIDGETS" ]; then
     # Count how many widgets match
     WIDGET_COUNT=$(echo "$MATCHING_WIDGETS" | wc -l | xargs)
 
-    echo -e "${YELLOW}⚠️  Found $WIDGET_COUNT widget(s) for domain $DOMAIN${NC}"
+    msg "$MSG_TS_FOUND_WIDGETS" "$WIDGET_COUNT" "$DOMAIN"
     echo ""
 
     # Display all found widgets
@@ -266,24 +272,24 @@ if [ -n "$MATCHING_WIDGETS" ]; then
         KEYS_FILE="$CONFIG_DIR/turnstile_keys_${WIDGET_SITEKEY}"
         HAS_KEYS=""
         if [ -f "$KEYS_FILE" ]; then
-            HAS_KEYS=" ${GREEN}✓ Keys saved${NC}"
+            HAS_KEYS=" $(msg_n "$MSG_TS_KEYS_SAVED")"
         fi
 
-        echo -e "  ${WIDGET_NUM}) Name: $WIDGET_NAME"
+        echo "  ${WIDGET_NUM}) Name: $WIDGET_NAME"
         echo "     Site Key: $WIDGET_SITEKEY"
-        echo "     Mode: $WIDGET_MODE$HAS_KEYS"
+        echo -e "     Mode: $WIDGET_MODE$HAS_KEYS"
         echo ""
 
         WIDGET_NUM=$((WIDGET_NUM + 1))
     done <<< "$MATCHING_WIDGETS"
 
-    echo "Options:"
-    echo "  [1-$WIDGET_COUNT] Use existing widget"
-    echo "  [n] Create new widget"
-    echo "  [d] Delete selected widget and create new"
-    echo "  [q] Cancel"
+    msg "$MSG_TS_OPTIONS"
+    msg "$MSG_TS_OPT_USE" "$WIDGET_COUNT"
+    msg "$MSG_TS_OPT_NEW"
+    msg "$MSG_TS_OPT_DELETE"
+    msg "$MSG_TS_OPT_QUIT"
     echo ""
-    read -p "Choose an option: " WIDGET_CHOICE
+    read -p "$(msg_n "$MSG_TS_CHOOSE")" WIDGET_CHOICE
 
     case "$WIDGET_CHOICE" in
         [1-9]*)
@@ -294,12 +300,12 @@ if [ -n "$MATCHING_WIDGETS" ]; then
                 # Check if we have saved keys
                 KEYS_FILE="$CONFIG_DIR/turnstile_keys_${SITE_KEY}"
                 if [ -f "$KEYS_FILE" ]; then
-                    echo -e "${GREEN}✅ Using widget with Site Key: $SITE_KEY${NC}"
+                    msg "$MSG_TS_USING_WIDGET" "$SITE_KEY"
                     source "$KEYS_FILE"
                     echo "   Site Key: $CLOUDFLARE_TURNSTILE_SITE_KEY"
                     echo "   Secret Key: ${CLOUDFLARE_TURNSTILE_SECRET_KEY:0:20}..."
                     echo ""
-                    echo -e "${GREEN}🎉 Turnstile configured!${NC}"
+                    msg "$MSG_TS_DONE"
 
                     # Also save under domain name for compatibility
                     DOMAIN_KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
@@ -308,17 +314,17 @@ if [ -n "$MATCHING_WIDGETS" ]; then
                     exit 0
                 else
                     echo ""
-                    echo -e "${YELLOW}⚠️  No saved Secret Key for this widget.${NC}"
+                    msg "$MSG_TS_NO_SECRET"
                     echo ""
-                    echo "Secret Key is only visible when creating the widget."
-                    echo "You can:"
-                    echo "  1. Enter Secret Key manually (if you have it)"
-                    echo "  2. Delete the widget and create a new one"
+                    msg "$MSG_TS_SECRET_VISIBLE"
+                    msg "$MSG_TS_SECRET_OPTIONS"
+                    msg "$MSG_TS_SECRET_OPT1"
+                    msg "$MSG_TS_SECRET_OPT2"
                     echo ""
-                    read -p "Enter Secret Key manually? [y/N]: " MANUAL_KEY
+                    read -p "$(msg_n "$MSG_TS_MANUAL_KEY")" MANUAL_KEY
 
                     if [[ "$MANUAL_KEY" =~ ^[TtYy]$ ]]; then
-                        read -p "Paste Secret Key: " SECRET_KEY
+                        read -p "$(msg_n "$MSG_TS_PASTE_SECRET")" SECRET_KEY
                         if [ -n "$SECRET_KEY" ]; then
                             # Save keys
                             echo "CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY" > "$KEYS_FILE"
@@ -329,70 +335,70 @@ if [ -n "$MATCHING_WIDGETS" ]; then
                             DOMAIN_KEYS_FILE="$CONFIG_DIR/turnstile_keys_$DOMAIN"
                             cp "$KEYS_FILE" "$DOMAIN_KEYS_FILE"
 
-                            echo -e "${GREEN}✅ Keys saved!${NC}"
-                            echo -e "${GREEN}🎉 Turnstile configured!${NC}"
+                            msg "$MSG_TS_KEYS_SAVED_OK"
+                            msg "$MSG_TS_DONE"
                             exit 0
                         fi
                     fi
 
                     echo ""
-                    echo "Run this script again and choose option [d] to delete the widget and create a new one."
+                    msg "$MSG_TS_RETRY_HINT"
                     exit 0
                 fi
             else
-                echo -e "${RED}❌ Invalid choice${NC}"
+                msg "$MSG_TS_INVALID"
                 exit 1
             fi
             ;;
         [dD])
             echo ""
-            echo "Which widget to delete?"
-            read -p "Number [1-$WIDGET_COUNT]: " DELETE_NUM
+            msg "$MSG_TS_DELETE_WHICH"
+            read -p "$(msg_n "$MSG_TS_DELETE_NUM" "$WIDGET_COUNT")" DELETE_NUM
 
             if [ "$DELETE_NUM" -ge 1 ] && [ "$DELETE_NUM" -le "$WIDGET_COUNT" ]; then
                 SITE_KEY="${SITEKEYS[$DELETE_NUM]}"
 
                 echo ""
-                echo -e "${YELLOW}⚠️  WARNING: Deleting a widget will cause all applications using this Site Key to stop working!${NC}"
+                msg "$MSG_TS_DELETE_WARN"
                 echo ""
-                read -p "Are you sure you want to delete widget $SITE_KEY? [y/N]: " CONFIRM_DELETE
+                read -p "$(msg_n "$MSG_TS_DELETE_CONFIRM" "$SITE_KEY")" CONFIRM_DELETE
 
                 if [[ "$CONFIRM_DELETE" =~ ^[TtYy]$ ]]; then
-                    echo "🗑️  Deleting widget..."
+                    msg "$MSG_TS_DELETING"
                     DELETE_RESPONSE=$(curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widgets/$SITE_KEY" \
                         -H "Authorization: Bearer $TURNSTILE_TOKEN" \
                         -H "Content-Type: application/json")
 
                     if echo "$DELETE_RESPONSE" | grep -q '"success":true'; then
-                        echo -e "${GREEN}✅ Widget deleted${NC}"
+                        msg "$MSG_TS_DELETED"
 
                         # Remove saved keys
                         rm -f "$CONFIG_DIR/turnstile_keys_${SITE_KEY}" "$CONFIG_DIR/turnstile_keys_$DOMAIN"
 
                         # Continue to creating a new widget (no exit)
                     else
-                        echo -e "${RED}❌ Failed to delete widget${NC}"
+                        msg "$MSG_TS_DELETE_FAIL"
                         exit 1
                     fi
                 else
                     exit 0
                 fi
             else
-                echo -e "${RED}❌ Invalid choice${NC}"
+                msg "$MSG_TS_INVALID"
                 exit 1
             fi
             ;;
         [nN])
             echo ""
-            echo "Creating new widget..."
+            msg "$MSG_TS_NEW_WIDGET"
             # Continue to widget creation section
             ;;
         [qQ])
-            echo "Cancelled."
+            msg "$MSG_TS_CANCELLED"
             exit 0
             ;;
         *)
-            echo -e "${RED}❌ Invalid choice${NC}"
+            msg "$MSG_TS_INVALID"
             exit 1
             ;;
     esac
@@ -403,7 +409,7 @@ fi
 # =============================================================================
 
 echo ""
-echo "🔧 Creating Turnstile widget for $DOMAIN..."
+msg "$MSG_TS_CREATING" "$DOMAIN"
 
 CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widgets" \
     -H "Authorization: Bearer $TURNSTILE_TOKEN" \
@@ -420,12 +426,12 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
     SITE_KEY=$(echo "$CREATE_RESPONSE" | grep -o '"sitekey":"[^"]*"' | cut -d'"' -f4)
     SECRET_KEY=$(echo "$CREATE_RESPONSE" | grep -o '"secret":"[^"]*"' | cut -d'"' -f4)
 
-    echo -e "${GREEN}✅ Widget created!${NC}"
+    msg "$MSG_TS_WIDGET_CREATED"
     echo ""
-    echo "════════════════════════════════════════════════════════════════"
+    msg "$MSG_TS_SEPARATOR"
     echo "   CLOUDFLARE_TURNSTILE_SITE_KEY=$SITE_KEY"
     echo "   CLOUDFLARE_TURNSTILE_SECRET_KEY=$SECRET_KEY"
-    echo "════════════════════════════════════════════════════════════════"
+    msg "$MSG_TS_SEPARATOR"
     echo ""
 
     # Save keys to file (for deploy.sh)
@@ -441,12 +447,12 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
     cp "$KEYS_FILE_DOMAIN" "$KEYS_FILE_SITEKEY"
     chmod 600 "$KEYS_FILE_SITEKEY"
 
-    echo "💾 Keys saved in: $KEYS_FILE_DOMAIN"
+    msg "$MSG_TS_KEYS_FILE" "$KEYS_FILE_DOMAIN"
 
     # Add to .env.local on the server (if SSH_ALIAS was provided)
     if [ -n "$SSH_ALIAS" ]; then
         echo ""
-        echo "📤 Adding keys to server $SSH_ALIAS..."
+        msg "$MSG_TS_UPLOAD_KEYS" "$SSH_ALIAS"
 
         # Determine paths based on domain (multi-instance support)
         # New location: /opt/stacks/sellf*
@@ -480,22 +486,22 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
             # Copy to standalone
             server_exec "cp $ENV_FILE $STANDALONE_ENV 2>/dev/null || true"
 
-            echo -e "${GREEN}   ✅ Keys added${NC}"
+            msg "$MSG_TS_KEYS_ADDED"
 
             # Restart PM2 with environment variable reload
-            echo "🔄 Restarting Sellf..."
+            msg "$MSG_TS_RESTARTING"
 
             STANDALONE_DIR="$SELLF_DIR/admin-panel/.next/standalone/admin-panel"
             # IMPORTANT: use --interpreter node, NOT 'node server.js' in quotes (bash doesn't inherit env)
             RESTART_CMD="export PATH=\"\$HOME/.bun/bin:\$PATH\" && pm2 delete $PM2_NAME 2>/dev/null; cd $STANDALONE_DIR && unset HOSTNAME && set -a && source .env.local && set +a && export PORT=\${PORT:-3333} && export HOSTNAME=\${HOSTNAME:-::} && pm2 start server.js --name $PM2_NAME --interpreter node && pm2 save"
 
             if server_exec "$RESTART_CMD" 2>/dev/null; then
-                echo -e "${GREEN}   ✅ Application restarted${NC}"
+                msg "$MSG_TS_RESTART_OK"
             else
-                echo -e "${YELLOW}   ⚠️  Restart failed - do it manually: pm2 restart $PM2_NAME${NC}"
+                msg "$MSG_TS_RESTART_FAIL" "$PM2_NAME"
             fi
         else
-            echo -e "${YELLOW}   ⚠️  .env.local not found - is Sellf installed?${NC}"
+            msg "$MSG_TS_NO_ENV"
         fi
     fi
 
@@ -509,7 +515,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
 
     if [ -f "$SUPABASE_TOKEN_FILE" ] && [ -f "$SELLF_CONFIG" ]; then
         echo ""
-        echo "🔧 Configuring CAPTCHA in Supabase Auth..."
+        msg "$MSG_TS_SUPABASE_CONFIG"
 
         SUPABASE_TOKEN=$(cat "$SUPABASE_TOKEN_FILE")
         source "$SELLF_CONFIG"  # Loads PROJECT_REF
@@ -529,24 +535,24 @@ EOF
                 -d "$CAPTCHA_CONFIG")
 
             if echo "$RESPONSE" | grep -q '"error"'; then
-                echo -e "${YELLOW}   ⚠️  Failed to configure CAPTCHA in Supabase${NC}"
+                msg "$MSG_TS_SUPABASE_FAIL"
             else
-                echo -e "${GREEN}   ✅ CAPTCHA enabled in Supabase Auth${NC}"
+                msg "$MSG_TS_SUPABASE_OK"
             fi
         fi
     else
         echo ""
-        echo -e "${YELLOW}ℹ️  To enable CAPTCHA in Supabase, run deploy.sh again${NC}"
-        echo "   or configure manually in Supabase Dashboard → Authentication → Captcha"
+        msg "$MSG_TS_SUPABASE_MANUAL"
+        msg "$MSG_TS_SUPABASE_ALT"
     fi
 
     echo ""
-    echo -e "${GREEN}🎉 Turnstile configured!${NC}"
+    msg "$MSG_TS_DONE"
 else
     ERROR=$(echo "$CREATE_RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
-    echo -e "${RED}❌ Error: $ERROR${NC}"
+    msg "$MSG_TS_CREATE_FAIL" "$ERROR"
     echo ""
-    echo "Full response:"
+    msg "$MSG_TS_FULL_RESPONSE"
     echo "$CREATE_RESPONSE" | head -c 500
     exit 1
 fi

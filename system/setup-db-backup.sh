@@ -13,6 +13,18 @@
 
 set -e
 
+_DBBU_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    if [ -n "$_DBBU_DIR" ] && [ -f "$_DBBU_DIR/../lib/i18n.sh" ]; then
+        source "$_DBBU_DIR/../lib/i18n.sh"
+    elif [ -f /opt/stackpilot/lib/i18n.sh ]; then
+        source /opt/stackpilot/lib/i18n.sh
+    else
+        msg() { printf "%s\n" "$1"; }
+        msg_n() { printf "%s" "$1"; }
+    fi
+fi
+
 BACKUP_DIR="/opt/backups/db"
 BACKUP_SCRIPT="/opt/stackpilot/scripts/db-backup.sh"
 CREDENTIALS_DIR="/opt/stackpilot/config"
@@ -20,14 +32,14 @@ CREDENTIALS_FILE="$CREDENTIALS_DIR/db-credentials.conf"
 CRON_FILE="/etc/cron.d/stackpilot-db-backup"
 STACKS_DIR="/opt/stacks"
 
-echo "--- 🗄️ Database Backup Configuration ---"
+msg "$MSG_DB_HEADER"
 echo ""
 
 # =============================================================================
 # PHASE 1: Auto-detect bundled databases from docker-compose files
 # =============================================================================
 
-echo "🔍 Scanning for bundled databases in $STACKS_DIR..."
+msg "$MSG_DB_SCAN" "$STACKS_DIR"
 
 BUNDLED_DATABASES=()
 
@@ -54,7 +66,7 @@ if [ -d "$STACKS_DIR" ]; then
 
                 # For bundled DBs we exec into the container, so use internal port
                 BUNDLED_DATABASES+=("${STACK_NAME}-pg:postgres:${STACK_NAME}:5432:${local_db_name}:${local_db_user}:${local_db_pass}")
-                echo "   ✅ PostgreSQL (bundled): $STACK_NAME / $local_db_name"
+                msg "$MSG_DB_PG_FOUND" "$STACK_NAME" "$local_db_name"
             fi
         fi
 
@@ -76,14 +88,14 @@ if [ -d "$STACKS_DIR" ]; then
 
             if [ -n "$local_db_pass" ]; then
                 BUNDLED_DATABASES+=("${STACK_NAME}-mysql:mysql:${STACK_NAME}:3306:${local_db_name}:${local_db_user}:${local_db_pass}")
-                echo "   ✅ MySQL (bundled): $STACK_NAME / $local_db_name"
+                msg "$MSG_DB_MYSQL_FOUND" "$STACK_NAME" "$local_db_name"
             fi
         fi
     done
 fi
 
 if [ ${#BUNDLED_DATABASES[@]} -eq 0 ]; then
-    echo "   No bundled databases found"
+    msg "$MSG_DB_NONE_FOUND"
 fi
 
 # =============================================================================
@@ -91,58 +103,58 @@ fi
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  Do you have external/dedicated databases to back up?          ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_DB_EXT_HDR1"
+msg "$MSG_DB_EXT_HDR2"
+msg "$MSG_DB_EXT_HDR3"
 echo ""
 
 # Load existing credentials if available
 CUSTOM_DATABASES=()
 if [ -f "$CREDENTIALS_FILE" ]; then
-    echo "📂 Found existing credentials file"
+    msg "$MSG_DB_CRED_FOUND"
     source "$CREDENTIALS_FILE"
     if [ ${#CUSTOM_DATABASES[@]} -gt 0 ]; then
-        echo "   Configured databases: ${#CUSTOM_DATABASES[@]}"
+        msg "$MSG_DB_CRED_COUNT" "${#CUSTOM_DATABASES[@]}"
     fi
 fi
 
-read -p "Do you want to add/edit an external database? (y/N): " ADD_CUSTOM || true
+read -p "$(msg "$MSG_DB_ADD_PROMPT")" ADD_CUSTOM || true
 if [[ "$ADD_CUSTOM" =~ ^[yYtT] ]]; then
 
     while true; do
         echo ""
-        echo "Database type:"
-        echo "  1) PostgreSQL"
-        echo "  2) MySQL"
-        read -p "Choose [1-2]: " DB_TYPE_CHOICE
+        msg "$MSG_DB_TYPE_HDR"
+        msg "$MSG_DB_TYPE_PG"
+        msg "$MSG_DB_TYPE_MYSQL"
+        read -p "$(msg "$MSG_DB_TYPE_PROMPT")" DB_TYPE_CHOICE
 
         case $DB_TYPE_CHOICE in
             1) CUSTOM_DB_TYPE="postgres" ;;
             2) CUSTOM_DB_TYPE="mysql" ;;
-            *) echo "❌ Invalid choice"; continue ;;
+            *) msg "$MSG_DB_TYPE_INVALID"; continue ;;
         esac
 
-        read -p "Name (identifier, e.g. 'n8n-db'): " CUSTOM_DB_ID
-        read -p "Host: " CUSTOM_DB_HOST
-        read -p "Port [5432/3306]: " CUSTOM_DB_PORT
+        read -p "$(msg "$MSG_DB_ID_PROMPT")" CUSTOM_DB_ID
+        read -p "$(msg "$MSG_DB_HOST_PROMPT")" CUSTOM_DB_HOST
+        read -p "$(msg "$MSG_DB_PORT_PROMPT")" CUSTOM_DB_PORT
         CUSTOM_DB_PORT=${CUSTOM_DB_PORT:-$([ "$CUSTOM_DB_TYPE" = "postgres" ] && echo "5432" || echo "3306")}
-        read -p "Database name: " CUSTOM_DB_NAME
-        read -p "User: " CUSTOM_DB_USER
-        read -sp "Password: " CUSTOM_DB_PASS
+        read -p "$(msg "$MSG_DB_NAME_PROMPT")" CUSTOM_DB_NAME
+        read -p "$(msg "$MSG_DB_USER_PROMPT")" CUSTOM_DB_USER
+        read -sp "$(msg "$MSG_DB_PASS_PROMPT")" CUSTOM_DB_PASS
         echo ""
 
         # Add to array
         CUSTOM_DATABASES+=("$CUSTOM_DB_ID:$CUSTOM_DB_TYPE:$CUSTOM_DB_HOST:$CUSTOM_DB_PORT:$CUSTOM_DB_NAME:$CUSTOM_DB_USER:$CUSTOM_DB_PASS")
 
-        echo "✅ Added: $CUSTOM_DB_ID ($CUSTOM_DB_TYPE)"
+        msg "$MSG_DB_ADDED" "$CUSTOM_DB_ID" "$CUSTOM_DB_TYPE"
 
-        read -p "Add another database? (y/N): " ADD_MORE
+        read -p "$(msg "$MSG_DB_ADD_MORE")" ADD_MORE
         [[ ! "$ADD_MORE" =~ ^[yYtT] ]] && break
     done
 
     # Save credentials to file
     echo ""
-    echo "💾 Saving credentials to $CREDENTIALS_FILE..."
+    msg "$MSG_DB_SAVING" "$CREDENTIALS_FILE"
 
     mkdir -p "$CREDENTIALS_DIR"
 
@@ -166,7 +178,7 @@ EOF
     chmod 600 "$CREDENTIALS_FILE"
     chown root:root "$CREDENTIALS_FILE"
 
-    echo "✅ Credentials saved (permissions: 600, owner: root)"
+    msg "$MSG_DB_CRED_SAVED"
 fi
 
 # =============================================================================
@@ -175,17 +187,17 @@ fi
 
 if [ ${#BUNDLED_DATABASES[@]} -eq 0 ] && [ ${#CUSTOM_DATABASES[@]} -eq 0 ]; then
     echo ""
-    echo "❌ No databases found to back up!"
-    echo "   - Deploy an application with a bundled database"
-    echo "   - Or add an external database by running this script again"
+    msg "$MSG_DB_NO_DBS"
+    msg "$MSG_DB_NO_DBS_HINT1"
+    msg "$MSG_DB_NO_DBS_HINT2"
     exit 1
 fi
 
 echo ""
-echo "📁 Creating backup directory: $BACKUP_DIR"
+msg "$MSG_DB_MKDIR" "$BACKUP_DIR"
 mkdir -p "$BACKUP_DIR"
 
-echo "📝 Generating backup script..."
+msg "$MSG_DB_GENERATING"
 mkdir -p "$(dirname "$BACKUP_SCRIPT")"
 
 cat > "$BACKUP_SCRIPT" << 'BACKUP_HEADER'
@@ -331,7 +343,7 @@ chmod +x "$BACKUP_SCRIPT"
 # PHASE 4: Configure cron
 # =============================================================================
 
-echo "⏰ Configuring automatic backup (daily at 3:00 AM)..."
+msg "$MSG_DB_CRON"
 
 cat > "$CRON_FILE" << EOF
 # StackPilot - Automatic database backup
@@ -346,40 +358,40 @@ chmod 644 "$CRON_FILE"
 # =============================================================================
 
 echo ""
-echo "🧪 Running test backup..."
+msg "$MSG_DB_TEST"
 if $BACKUP_SCRIPT 2>&1 | tail -5; then
     echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ✅ Backup configured successfully!                            ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
+    msg "$MSG_DB_SUCCESS1"
+    msg "$MSG_DB_SUCCESS2"
+    msg "$MSG_DB_SUCCESS3"
     echo ""
-    echo "📋 Configuration:"
-    echo "   Backup directory:  $BACKUP_DIR"
-    echo "   Script:            $BACKUP_SCRIPT"
-    echo "   Cron:              daily at 3:00 AM"
-    echo "   Retention:         7 days"
+    msg "$MSG_DB_CFG_HDR"
+    msg "$MSG_DB_CFG_DIR" "$BACKUP_DIR"
+    msg "$MSG_DB_CFG_SCRIPT" "$BACKUP_SCRIPT"
+    msg "$MSG_DB_CFG_CRON"
+    msg "$MSG_DB_CFG_RETAIN"
     if [ -f "$CREDENTIALS_FILE" ]; then
-        echo "   Credentials:       $CREDENTIALS_FILE (chmod 600)"
+        msg "$MSG_DB_CFG_CRED" "$CREDENTIALS_FILE"
     fi
     echo ""
-    echo "📦 Created backups:"
-    ls -lh "$BACKUP_DIR"/*.sql.gz 2>/dev/null || echo "   (no files)"
+    msg "$MSG_DB_BACKUPS_HDR"
+    ls -lh "$BACKUP_DIR"/*.sql.gz 2>/dev/null || msg "$MSG_DB_BACKUPS_NONE"
     echo ""
-    echo "💡 Commands:"
-    echo "   Manual backup:     $BACKUP_SCRIPT"
-    echo "   Logs:              tail -f /var/log/db-backup.log"
+    msg "$MSG_DB_CMDS_HDR"
+    msg "$MSG_DB_CMD_MANUAL" "$BACKUP_SCRIPT"
+    msg "$MSG_DB_CMD_LOGS"
     echo ""
-    echo "💡 Restore:"
-    echo "   PostgreSQL: gunzip -c backup.sql.gz | psql -h HOST -U USER DB"
-    echo "   MySQL:      gunzip -c backup.sql.gz | mysql -h HOST -u USER -p DB"
+    msg "$MSG_DB_RESTORE_HDR"
+    msg "$MSG_DB_RESTORE_PG"
+    msg "$MSG_DB_RESTORE_MYSQL"
 else
     echo ""
-    echo "⚠️  Test backup may not have worked correctly."
-    echo "   Check logs: /var/log/db-backup.log"
+    msg "$MSG_DB_TEST_WARN"
+    msg "$MSG_DB_TEST_WARN2"
 fi
 
 echo ""
-echo "⚠️  NOTE: Backups are stored locally on the server."
-echo "   For full safety, consider copying to external storage:"
-echo "   - Google Drive/Dropbox: rclone"
+msg "$MSG_DB_NOTE1"
+msg "$MSG_DB_NOTE2"
+msg "$MSG_DB_NOTE3"
 echo ""

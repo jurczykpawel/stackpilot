@@ -7,45 +7,53 @@
 
 set -e
 
+_CF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_CF_DIR/../lib/i18n.sh"
+RED="${RED:-\033[0;31m}"
+GREEN="${GREEN:-\033[0;32m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+BLUE="${BLUE:-\033[0;34m}"
+NC="${NC:-\033[0m}"
+
 CONFIG_DIR="$HOME/.config/cloudflare"
 CONFIG_FILE="$CONFIG_DIR/config"
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  ☁️  Cloudflare DNS Setup                                       ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_CF_HEADER_TOP"
+msg "$MSG_CF_HEADER_TITLE"
+msg "$MSG_CF_HEADER_BOT"
 echo ""
-echo "This script will configure Cloudflare API access."
-echo "You will be able to automatically add DNS records for your applications."
+msg "$MSG_CF_INTRO"
+msg "$MSG_CF_INTRO2"
 echo ""
 
 # 1. Check if already configured
 if [ -f "$CONFIG_FILE" ]; then
-    echo "⚠️  Found existing configuration: $CONFIG_FILE"
-    read -p "Overwrite? (y/N) " -n 1 -r
+    msg "$MSG_CF_EXISTING" "$CONFIG_FILE"
+    read -p "$(msg_n "$MSG_CF_OVERWRITE")" -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-        echo "Cancelled."
+        msg "$MSG_CF_CANCELLED"
         exit 0
     fi
 fi
 
 # 2. Open browser with instructions
-echo "📋 Opening Cloudflare page to create a token..."
+msg "$MSG_CF_OPENING"
 echo ""
-echo "   In the browser:"
-echo "   1. Click 'Create Token'"
-echo "   2. Click 'Create Custom Token' (at the bottom)"
-echo "   3. Add permissions:"
-echo "      • Zone → DNS → Edit           (required - DNS records)"
-echo "      • Zone → Zone Settings → Edit (optional - SSL, compression)"
-echo "      • Zone → Cache Rules → Edit   (optional - Next.js cache)"
-echo "   4. In 'Zone Resources' select 'All zones' or specific domains"
-echo "   5. Click 'Continue to summary' → 'Create Token'"
-echo "   6. Copy the token (shown only once!)"
+msg "$MSG_CF_BROWSER_STEP1"
+msg "$MSG_CF_BROWSER_STEP2"
+msg "$MSG_CF_BROWSER_STEP3"
+msg "$MSG_CF_BROWSER_STEP4"
+msg "$MSG_CF_BROWSER_STEP5"
+msg "$MSG_CF_BROWSER_STEP6"
+msg "$MSG_CF_BROWSER_STEP7"
+msg "$MSG_CF_BROWSER_STEP8"
+msg "$MSG_CF_BROWSER_STEP9"
+msg "$MSG_CF_BROWSER_STEP10"
 echo ""
-echo "   💡 Zone Settings and Cache Rules permissions are needed for"
-echo "      automatic optimization (SSL Flexible, Brotli, cache)."
+msg "$MSG_CF_BROWSER_TIP"
+msg "$MSG_CF_BROWSER_TIP2"
 echo ""
 
 # Open browser (different commands for different systems)
@@ -57,39 +65,39 @@ elif command -v xdg-open &> /dev/null; then
 elif command -v start &> /dev/null; then
     start "$URL"  # Windows (Git Bash)
 else
-    echo "   Open manually: $URL"
+    msg "$MSG_CF_MANUAL_OPEN" "$URL"
 fi
 
-read -p "Press Enter when you've copied the token..."
+read -p "$(msg_n "$MSG_CF_PRESS_ENTER")"
 
 echo ""
-read -s -p "🔑 Paste API Token: " API_TOKEN
+read -s -p "$(msg_n "$MSG_CF_PASTE_TOKEN")" API_TOKEN
 echo ""
 
 if [ -z "$API_TOKEN" ]; then
-    echo "❌ Token cannot be empty!"
+    msg "$MSG_CF_TOKEN_EMPTY"
     exit 1
 fi
 
 # 3. Verify token
 echo ""
-echo "Verifying token..."
+msg "$MSG_CF_VERIFYING"
 
 VERIFY_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
     -H "Authorization: Bearer $API_TOKEN" \
     -H "Content-Type: application/json")
 
 if echo "$VERIFY_RESPONSE" | grep -q '"success":true'; then
-    echo "✅ Token works!"
+    msg "$MSG_CF_TOKEN_OK"
 else
-    echo "❌ Token is invalid or lacks permissions!"
-    echo "   Response: $VERIFY_RESPONSE"
+    msg "$MSG_CF_TOKEN_FAIL"
+    msg "$MSG_CF_TOKEN_RESP" "$VERIFY_RESPONSE"
     exit 1
 fi
 
 # 4. Fetch Zone IDs
 echo ""
-echo "Fetching domain list..."
+msg "$MSG_CF_FETCHING"
 
 ZONES_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones" \
     -H "Authorization: Bearer $API_TOKEN" \
@@ -117,13 +125,13 @@ else
 fi
 
 if [ -z "$ZONE_PAIRS" ]; then
-    echo "❌ No domains found!"
-    echo "   Make sure the token has access to at least one domain."
+    msg "$MSG_CF_NO_DOMAINS"
+    msg "$MSG_CF_NO_DOMAINS_HINT"
     exit 1
 fi
 
 echo ""
-echo "Found domains:"
+msg "$MSG_CF_FOUND_DOMAINS"
 echo "$ZONE_PAIRS" | cut -d= -f1 | nl
 echo ""
 
@@ -146,11 +154,11 @@ echo "$ZONE_PAIRS" >> "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 
 echo ""
-echo "✅ Configuration saved: $CONFIG_FILE"
+msg "$MSG_CF_SAVED" "$CONFIG_FILE"
 echo ""
-echo "🚀 Now you can use:"
-echo "   ./local/dns-add.sh subdomain.yourdomain.com SERVER_IP"
+msg "$MSG_CF_NOW_USE"
+msg "$MSG_CF_NOW_CMD"
 echo ""
-echo "   Example:"
-echo "   ./local/dns-add.sh status.mycompany.com 185.181.10.50"
+msg "$MSG_CF_EXAMPLE"
+msg "$MSG_CF_EXAMPLE_CMD"
 echo ""

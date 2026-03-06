@@ -32,6 +32,8 @@ source "$REPO_ROOT/lib/db-setup.sh"
 source "$REPO_ROOT/lib/domain-setup.sh"
 source "$REPO_ROOT/lib/sellf-setup.sh" 2>/dev/null || true  # Optional for Sellf
 source "$REPO_ROOT/lib/port-utils.sh"
+source "$REPO_ROOT/lib/i18n.sh"
+source "$REPO_ROOT/lib/providers/detect.sh"
 
 # =============================================================================
 # CUSTOM HELP
@@ -118,7 +120,7 @@ parse_args "$@"
 SCRIPT_PATH="${POSITIONAL_ARGS[0]:-}"
 
 if [ -z "$SCRIPT_PATH" ]; then
-    echo "Error: No application name provided."
+    msg "$MSG_DEPLOY_NO_APP"
     echo ""
     show_deploy_help
     exit 1
@@ -126,6 +128,12 @@ fi
 
 # SSH_ALIAS from --ssh or default
 SSH_ALIAS="${SSH_ALIAS:-vps}"
+
+# Detect provider now that SSH_ALIAS is known
+if [ -z "${TOOLBOX_PROVIDER+x}" ] || [ "${TOOLBOX_PROVIDER:-}" = "" ]; then
+    detect_provider
+    load_provider_hooks
+fi
 
 # =============================================================================
 # SSH CONNECTION CHECK
@@ -138,55 +146,55 @@ if ! is_on_server; then
     if [ -z "$_SSH_RESOLVED_HOST" ] || [ "$_SSH_RESOLVED_HOST" = "$SSH_ALIAS" ]; then
         # Alias is not configured in ~/.ssh/config
         echo ""
-        echo -e "${RED}❌ SSH alias '$SSH_ALIAS' is not configured${NC}"
+        msg "$MSG_SSH_NOT_CONFIGURED" "$SSH_ALIAS"
         echo ""
-        echo "   You need the server connection details: host, port, and password."
+        msg "$MSG_SSH_NEED_DETAILS"
         echo ""
 
         SETUP_SCRIPT="$REPO_ROOT/local/setup-ssh.sh"
         if [[ "$IS_GITBASH" == "true" ]] || [[ "$YES_MODE" == "true" ]]; then
             # Windows (Git Bash) or --yes mode — show instructions
-            echo "   Run SSH configuration:"
+            msg "$MSG_SSH_RUN_SETUP"
             echo -e "   ${BLUE}bash local/setup-ssh.sh${NC}"
             exit 1
         elif [ -f "$SETUP_SCRIPT" ]; then
             # macOS/Linux — offer automatic setup
-            if confirm "   Configure SSH connection now?"; then
+            if confirm "$MSG_SSH_CONFIGURE_NOW"; then
                 echo ""
                 bash "$SETUP_SCRIPT"
                 # After configuration, check again
                 if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_ALIAS" "echo ok" &>/dev/null; then
                     echo ""
-                    echo -e "${RED}❌ Connection still not working. Check the details and try again.${NC}"
+                    msg "$MSG_SSH_STILL_FAILING"
                     exit 1
                 fi
             else
                 exit 1
             fi
         else
-            echo "   Configure SSH:"
+            msg "$MSG_SSH_CONFIGURE"
             echo -e "   ${BLUE}bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)${NC}"
             exit 1
         fi
     else
         # Alias configured — check if connection works
-        echo -n "🔗 Checking SSH connection ($SSH_ALIAS)... "
+        msg_n "$MSG_SSH_CHECKING" "$SSH_ALIAS"
         if ssh -o ConnectTimeout=5 -o BatchMode=yes "$SSH_ALIAS" "echo ok" &>/dev/null; then
             echo -e "${GREEN}✓${NC}"
         else
             echo -e "${RED}✗${NC}"
             echo ""
-            echo -e "${RED}❌ Cannot connect to server '$SSH_ALIAS' ($_SSH_RESOLVED_HOST)${NC}"
+            msg "$MSG_SSH_CANNOT_CONNECT" "$SSH_ALIAS" "$_SSH_RESOLVED_HOST"
             echo ""
-            echo "   Possible causes:"
-            echo "   - Server is down or not responding"
-            echo "   - SSH key is not authorized on the server"
-            echo "   - Invalid host or port in ~/.ssh/config"
+            msg "$MSG_SSH_POSSIBLE_CAUSES"
+            msg "$MSG_SSH_CAUSE_DOWN"
+            msg "$MSG_SSH_CAUSE_KEY"
+            msg "$MSG_SSH_CAUSE_CONFIG"
             echo ""
-            echo "   Diagnostics:"
+            msg "$MSG_SSH_DIAGNOSTICS"
             echo -e "   ${BLUE}ssh -v $SSH_ALIAS${NC}"
             echo ""
-            echo "   Reconfigure:"
+            msg "$MSG_SSH_RECONFIGURE"
             echo -e "   ${BLUE}bash local/setup-ssh.sh${NC}"
             exit 1
         fi
@@ -216,7 +224,7 @@ if [ -f "$SELLF_CONFIG" ] && [[ "$SCRIPT_PATH" == "sellf" ]]; then
 
     if [ "$YES_MODE" = true ]; then
         # --yes mode: use saved configuration (with CLI overrides)
-        echo "📂 Loading saved Sellf configuration (--yes mode)..."
+        msg "$MSG_SELLF_LOADING_CONFIG"
 
         # Supabase
         [ -n "$SUPABASE_URL" ] && export SUPABASE_URL
@@ -233,10 +241,10 @@ if [ -f "$SELLF_CONFIG" ] && [[ "$SCRIPT_PATH" == "sellf" ]]; then
         [ -n "$CLOUDFLARE_TURNSTILE_SITE_KEY" ] && export CLOUDFLARE_TURNSTILE_SITE_KEY
         [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ] && export CLOUDFLARE_TURNSTILE_SECRET_KEY
 
-        echo "   ✅ Configuration loaded"
+        msg "$MSG_SELLF_CONFIG_LOADED"
     else
         # Interactive mode: ask about everything, only keep Supabase token
-        echo "📂 Interactive mode - will ask about configuration"
+        msg "$MSG_SELLF_INTERACTIVE"
 
         # Clear everything except token (so you don't have to log in again)
         unset SUPABASE_URL PROJECT_REF SUPABASE_ANON_KEY SUPABASE_SERVICE_KEY
@@ -256,26 +264,26 @@ if [ "$UPDATE_MODE" = true ]; then
     # Check if the application has an update.sh script
     UPDATE_SCRIPT="$REPO_ROOT/apps/$APP_NAME/update.sh"
     if [ ! -f "$UPDATE_SCRIPT" ]; then
-        echo -e "${RED}❌ Application '$APP_NAME' does not have an update script${NC}"
-        echo "   Missing: apps/$APP_NAME/update.sh"
+        msg "$MSG_UPDATE_NO_SCRIPT" "$APP_NAME"
+        msg "$MSG_UPDATE_MISSING" "$APP_NAME"
         exit 1
     fi
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  🔄 UPDATE: $APP_NAME"
+    printf "║  %s\n" "$(printf "$MSG_UPDATE_HEADER" "$APP_NAME")"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Server: $SSH_ALIAS"
+    printf "║  %s\n" "$(printf "$MSG_UPDATE_SERVER" "$SSH_ALIAS")"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
-    if ! confirm "Update $APP_NAME on server $SSH_ALIAS?"; then
-        echo "Cancelled."
+    if ! confirm "$(printf "$MSG_UPDATE_CONFIRM" "$APP_NAME" "$SSH_ALIAS")"; then
+        msg "$MSG_CANCELLED"
         exit 0
     fi
 
     echo ""
-    echo "🚀 Starting update..."
+    msg "$MSG_UPDATE_STARTING"
 
     # Copy script to server
     REMOTE_SCRIPT="/tmp/sp-update-$$.sh"
@@ -288,14 +296,14 @@ if [ "$UPDATE_MODE" = true ]; then
         BUILD_FILE="${BUILD_FILE/#\~/$HOME}"
 
         if [ ! -f "$BUILD_FILE" ]; then
-            echo -e "${RED}❌ File does not exist: $BUILD_FILE${NC}"
+            msg "$MSG_UPDATE_FILE_MISSING" "$BUILD_FILE"
             exit 1
         fi
 
-        echo "📤 Copying build file to server..."
+        msg "$MSG_UPDATE_COPYING"
         REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
         server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
-        echo "   ✅ Copied"
+        msg "$MSG_UPDATE_COPIED"
     fi
 
     # Pass environment variables
@@ -328,20 +336,20 @@ if [ "$UPDATE_MODE" = true ]; then
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
         echo ""
         if [ "$RESTART_ONLY" = true ]; then
-            echo -e "${GREEN}✅ Sellf restarted!${NC}"
+            msg "$MSG_UPDATE_SELLF_RESTARTED"
         else
-            echo -e "${GREEN}✅ Files updated${NC}"
+            msg "$MSG_UPDATE_FILES_UPDATED"
         fi
     else
         echo ""
-        echo -e "${RED}❌ Update failed${NC}"
+        msg "$MSG_UPDATE_FAILED"
         exit 1
     fi
 
     # For Sellf - run migrations via API (locally) - only in update mode, not restart
     if [ "$APP_NAME" = "sellf" ] && [ "$RESTART_ONLY" = false ]; then
         echo ""
-        echo "🗄️  Updating database..."
+        msg "$MSG_UPDATE_DB"
 
         if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
             SSH_ALIAS="$SSH_ALIAS" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
@@ -350,9 +358,9 @@ if [ "$UPDATE_MODE" = true ]; then
 
     echo ""
     if [ "$RESTART_ONLY" = true ]; then
-        echo -e "${GREEN}✅ Restart completed!${NC}"
+        msg "$MSG_UPDATE_RESTART_DONE"
     else
-        echo -e "${GREEN}✅ Update completed!${NC}"
+        msg "$MSG_UPDATE_DONE"
     fi
 
     exit 0
@@ -364,7 +372,7 @@ fi
 
 APP_NAME=""
 if [ -f "$REPO_ROOT/apps/$SCRIPT_PATH/install.sh" ]; then
-    echo "💡 Detected application: '$SCRIPT_PATH'"
+    msg "$MSG_APP_DETECTED" "$SCRIPT_PATH"
     APP_NAME="$SCRIPT_PATH"
     SCRIPT_PATH="$REPO_ROOT/apps/$SCRIPT_PATH/install.sh"
 elif [ -f "$SCRIPT_PATH" ]; then
@@ -372,8 +380,8 @@ elif [ -f "$SCRIPT_PATH" ]; then
 elif [ -f "$REPO_ROOT/$SCRIPT_PATH" ]; then
     SCRIPT_PATH="$REPO_ROOT/$SCRIPT_PATH"
 else
-    echo "Error: Script or application '$SCRIPT_PATH' not found."
-    echo "   Searched:"
+    msg "$MSG_APP_NOT_FOUND" "$SCRIPT_PATH"
+    msg "$MSG_APP_SEARCHED"
     echo "   - apps/$SCRIPT_PATH/install.sh"
     echo "   - $SCRIPT_PATH"
     exit 1
@@ -390,21 +398,21 @@ SCRIPT_DISPLAY="${SCRIPT_PATH#$REPO_ROOT/}"
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 if is_on_server; then
-echo "║  ⚠️   WARNING: INSTALLING ON THIS SERVER!                        ║"
+echo "║  $MSG_WARN_LOCAL                        ║"
 else
-echo "║  ⚠️   WARNING: INSTALLING ON REMOTE SERVER!                    ║"
+echo "║  $MSG_WARN_REMOTE                    ║"
 fi
 echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║  Server:  $REMOTE_USER@$REMOTE_HOST"
-echo "║  Script:  $SCRIPT_DISPLAY"
+printf "║  %s\n" "$(printf "$MSG_CONFIRM_SERVER" "$REMOTE_USER" "$REMOTE_HOST")"
+printf "║  %s\n" "$(printf "$MSG_CONFIRM_SCRIPT" "$SCRIPT_DISPLAY")"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
 # Warning for Git Bash + MinTTY (before interactive prompts)
 warn_gitbash_mintty
 
-if ! confirm "Are you sure you want to run this script on the REMOTE server?"; then
-    echo "Cancelled."
+if ! confirm "$MSG_CONFIRM_RUN"; then
+    msg "$MSG_CANCELLED"
     exit 1
 fi
 
@@ -475,7 +483,7 @@ fi
 # Check server resources
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  📊 Checking server resources...                                ║"
+printf "║  %s                                ║\n" "$MSG_RES_CHECKING"
 echo "╚════════════════════════════════════════════════════════════════╝"
 
 RESOURCES=$(server_exec_timeout 10 "free -m | awk '/^Mem:/ {print \$7}'; df -m / | awk 'NR==2 {print \$4}'; free -m | awk '/^Mem:/ {print \$2}'" 2>/dev/null)
@@ -485,43 +493,43 @@ TOTAL_RAM=$(echo "$RESOURCES" | sed -n '3p')
 
 if [ -n "$AVAILABLE_RAM" ] && [ -n "$AVAILABLE_DISK" ]; then
     echo ""
-    echo -n "   RAM: ${AVAILABLE_RAM}MB available (of ${TOTAL_RAM}MB)"
+    msg_n "$MSG_RES_RAM" "$AVAILABLE_RAM" "$TOTAL_RAM"
     if [ "$AVAILABLE_RAM" -lt "$REQUIRED_RAM" ]; then
-        echo -e " ${RED}✗ required: ${REQUIRED_RAM}MB${NC}"
+        msg "$MSG_RES_RAM_FAIL" "$REQUIRED_RAM"
         if [ "$YES_MODE" != "true" ]; then
             echo ""
-            echo -e "${RED}   ❌ Not enough RAM! Installation may freeze the server.${NC}"
-            if ! confirm "   Continue anyway?"; then
-                echo "Cancelled."
+            msg "$MSG_RES_RAM_LOW"
+            if ! confirm "$MSG_RES_CONTINUE"; then
+                msg "$MSG_CANCELLED"
                 exit 1
             fi
         fi
     elif [ "$AVAILABLE_RAM" -lt $((REQUIRED_RAM + 100)) ]; then
-        echo -e " ${YELLOW}⚠ tight${NC}"
+        msg "$MSG_RES_RAM_TIGHT"
     else
         echo -e " ${GREEN}✓${NC}"
     fi
 
-    echo -n "   Disk: ${AVAILABLE_DISK}MB free"
+    msg_n "$MSG_RES_DISK" "$AVAILABLE_DISK"
     if [ "$AVAILABLE_DISK" -lt "$REQUIRED_DISK" ]; then
-        echo -e " ${RED}✗ required: ~${REQUIRED_DISK}MB${NC}"
+        msg "$MSG_RES_DISK_FAIL" "$REQUIRED_DISK"
         echo ""
-        echo -e "${RED}   ❌ Not enough disk space!${NC}"
+        msg "$MSG_RES_DISK_LOW"
         if [ -n "$IMAGE_SIZE_SOURCE" ]; then
-            echo -e "${RED}   Docker image: ~${IMAGE_SIZE}MB (${IMAGE_SIZE_SOURCE}) + temp files${NC}"
+            msg "$MSG_RES_DISK_IMAGE" "$IMAGE_SIZE" "$IMAGE_SIZE_SOURCE"
         else
-            echo -e "${RED}   Docker image will use ~500MB + temp files.${NC}"
+            msg "$MSG_RES_DISK_DEFAULT"
         fi
         if [ "$YES_MODE" == "true" ]; then
-            echo -e "${RED}   Aborting installation (--yes mode).${NC}"
+            msg "$MSG_RES_DISK_ABORT"
             exit 1
         fi
-        if ! confirm "   Continue anyway?"; then
-            echo "Cancelled."
+        if ! confirm "$MSG_RES_CONTINUE"; then
+            msg "$MSG_CANCELLED"
             exit 1
         fi
     elif [ "$AVAILABLE_DISK" -lt $((REQUIRED_DISK + 500)) ]; then
-        echo -e " ${YELLOW}⚠ low space (need ~${REQUIRED_DISK}MB)${NC}"
+        msg "$MSG_RES_DISK_TIGHT" "$REQUIRED_DISK"
     else
         echo -e " ${GREEN}✓${NC}"
     fi
@@ -529,11 +537,11 @@ if [ -n "$AVAILABLE_RAM" ] && [ -n "$AVAILABLE_DISK" ]; then
     # Warning for heavy applications on low RAM
     if [ "$REQUIRED_RAM" -ge 400 ] && [ "$TOTAL_RAM" -lt 2000 ]; then
         echo ""
-        echo -e "   ${YELLOW}⚠ This application requires a lot of RAM (${REQUIRED_RAM}MB).${NC}"
-        echo -e "   ${YELLOW}  Recommended: a VPS plan with 2GB+ RAM${NC}"
+        msg "$MSG_RES_HEAVY_APP" "$REQUIRED_RAM"
+        msg "$MSG_RES_UPGRADE_REC"
     fi
 else
-    echo -e "   ${YELLOW}⚠ Could not check resources${NC}"
+    msg "$MSG_RES_CHECK_FAILED"
 fi
 
 # =============================================================================
@@ -551,12 +559,12 @@ if [ -n "$DEFAULT_PORT" ]; then
 
     if [ "$PORT_IN_USE" == "yes" ]; then
         echo ""
-        echo -e "   ${YELLOW}⚠ Port $DEFAULT_PORT is in use!${NC}"
+        msg "$MSG_PORT_IN_USE" "$DEFAULT_PORT"
 
         # Single SSH call → port list, search in memory (no retry limit)
         PORT_OVERRIDE=$(find_free_port_remote "$SSH_ALIAS" $((DEFAULT_PORT + 1)))
         if [ -n "$PORT_OVERRIDE" ]; then
-            echo -e "   ${GREEN}✓ Using port $PORT_OVERRIDE instead of $DEFAULT_PORT${NC}"
+            msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
         fi
     fi
 fi
@@ -578,13 +586,13 @@ APP_PORT=""
 if grep -qiE "DB_HOST|DATABASE_URL" "$SCRIPT_PATH" 2>/dev/null; then
     if [ "$APP_NAME" = "wordpress" ] && [ "$WP_DB_MODE" = "sqlite" ]; then
         echo ""
-        echo -e "${GREEN}✅ WordPress in SQLite mode — MySQL database is not required${NC}"
+        msg "$MSG_DB_WP_SQLITE"
     elif grep -q '# DB_BUNDLED=true' "$SCRIPT_PATH" 2>/dev/null; then
         echo ""
-        echo -e "${GREEN}✅ Application has a built-in database — no configuration needed${NC}"
+        msg "$MSG_DB_BUNDLED"
     elif grep -q '# DB_OPTIONAL=true' "$SCRIPT_PATH" 2>/dev/null; then
         echo ""
-        echo -e "${GREEN}✅ Database is optional — app will use built-in SQLite${NC}"
+        msg "$MSG_DB_OPTIONAL"
     else
         NEEDS_DB=true
 
@@ -599,11 +607,11 @@ if grep -qiE "DB_HOST|DATABASE_URL" "$SCRIPT_PATH" 2>/dev/null; then
 
         echo ""
         echo "╔════════════════════════════════════════════════════════════════╗"
-        echo "║  🗄️  This application requires a database ($DB_TYPE)             ║"
+        printf "║  %s             ║\n" "$(printf "$MSG_DB_REQUIRED" "$DB_TYPE")"
         echo "╚════════════════════════════════════════════════════════════════╝"
 
         if ! ask_database "$DB_TYPE" "$APP_NAME"; then
-            echo "Error: Database configuration failed."
+            msg "$MSG_DB_SETUP_FAILED"
             exit 1
         fi
     fi
@@ -625,12 +633,12 @@ if [[ "$SCRIPT_DISPLAY" == apps/* ]]; then
 
         echo ""
         echo "╔════════════════════════════════════════════════════════════════╗"
-        echo "║  🌐 Domain configuration for: $APP_NAME                         ║"
+        printf "║  %s                         ║\n" "$(printf "$MSG_DOMAIN_CONFIG" "$APP_NAME")"
         echo "╚════════════════════════════════════════════════════════════════╝"
 
         if ! ask_domain "$APP_NAME" "$APP_PORT" "$SSH_ALIAS"; then
             echo ""
-            echo "Error: Domain configuration failed."
+            msg "$MSG_DOMAIN_FAILED"
             exit 1
         fi
     fi
@@ -657,32 +665,32 @@ if [ "$APP_NAME" = "sellf" ]; then
     elif [ -n "$SUPABASE_PROJECT" ] && [ "$SUPABASE_PROJECT" != "$PROJECT_REF" ]; then
         # Different project than saved - need to fetch new keys
         NEED_SUPABASE_FETCH=true
-        echo "📦 Changing Supabase project: $PROJECT_REF → $SUPABASE_PROJECT"
+        msg "$MSG_SELLF_CHANGING_PROJECT" "$PROJECT_REF" "$SUPABASE_PROJECT"
     fi
 
     if [ "$NEED_SUPABASE_FETCH" = true ]; then
         if [ -n "$SUPABASE_PROJECT" ]; then
             # --supabase-project provided - fetch keys automatically
             echo ""
-            echo "📦 Supabase configuration (project: $SUPABASE_PROJECT)"
+            msg "$MSG_SELLF_SUPABASE_CONFIG" "$SUPABASE_PROJECT"
 
             # Make sure we have a token
             if ! check_saved_supabase_token; then
                 if ! supabase_manual_token_flow; then
-                    echo "❌ Missing Supabase token"
+                    msg "$MSG_SELLF_NO_TOKEN"
                     exit 1
                 fi
                 save_supabase_token "$SUPABASE_TOKEN"
             fi
 
             if ! fetch_supabase_keys_by_ref "$SUPABASE_PROJECT"; then
-                echo "❌ Failed to fetch keys for project: $SUPABASE_PROJECT"
+                msg "$MSG_SELLF_KEYS_FAILED" "$SUPABASE_PROJECT"
                 exit 1
             fi
         else
             # Interactive project selection
             if ! sellf_collect_config "$DOMAIN"; then
-                echo "❌ Supabase configuration failed"
+                msg "$MSG_SELLF_CONFIG_FAILED"
                 exit 1
             fi
         fi
@@ -698,7 +706,7 @@ fi
 if [ "$APP_NAME" = "sellf" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" ]; then
     TURNSTILE_OFFERED=true
     echo ""
-    echo "🔒 Turnstile Configuration (CAPTCHA)"
+    msg "$MSG_TURNSTILE_HEADER"
     echo ""
 
     if [ "$YES_MODE" = true ]; then
@@ -708,17 +716,17 @@ if [ "$APP_NAME" = "sellf" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" 
             source "$KEYS_FILE"
             if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                 SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
-                echo "   ✅ Using saved Turnstile keys"
+                msg "$MSG_TURNSTILE_SAVED"
             fi
         fi
         if [ -z "$SELLF_TURNSTILE_SECRET" ]; then
-            echo -e "${YELLOW}   ⚠️  No saved Turnstile keys${NC}"
-            echo "   Configure after installation: ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
+            msg "$MSG_TURNSTILE_NO_KEYS"
+            msg "$MSG_TURNSTILE_LATER" "$DOMAIN" "$SSH_ALIAS"
             SETUP_TURNSTILE_LATER=true
         fi
     else
         # Interactive mode - ask
-        read -p "Configure Turnstile now? [Y/n]: " SETUP_TURNSTILE
+        read -p "$MSG_TURNSTILE_PROMPT" SETUP_TURNSTILE
         if [[ ! "$SETUP_TURNSTILE" =~ ^[Nn]$ ]]; then
             if [ -f "$REPO_ROOT/local/setup-turnstile.sh" ]; then
                 "$REPO_ROOT/local/setup-turnstile.sh" "$DOMAIN"
@@ -730,15 +738,15 @@ if [ "$APP_NAME" = "sellf" ] && [ "$DOMAIN_TYPE" != "local" ] && [ -n "$DOMAIN" 
                     if [ -n "$CLOUDFLARE_TURNSTILE_SECRET_KEY" ]; then
                         SELLF_TURNSTILE_SECRET="$CLOUDFLARE_TURNSTILE_SECRET_KEY"
                         EXTRA_ENV="$EXTRA_ENV CLOUDFLARE_TURNSTILE_SITE_KEY='$CLOUDFLARE_TURNSTILE_SITE_KEY' CLOUDFLARE_TURNSTILE_SECRET_KEY='$CLOUDFLARE_TURNSTILE_SECRET_KEY'"
-                        echo -e "${GREEN}✅ Turnstile keys will be passed to the installation${NC}"
+                        msg "$MSG_TURNSTILE_KEYS_PASSED"
                     fi
                 fi
             else
-                echo -e "${YELLOW}⚠️  Missing setup-turnstile.sh script${NC}"
+                msg "$MSG_TURNSTILE_MISSING_SCRIPT"
             fi
         else
             echo ""
-            echo "⏭️  Skipped. You can configure later:"
+            msg "$MSG_TURNSTILE_SKIPPED"
             echo "   ./local/setup-turnstile.sh $DOMAIN $SSH_ALIAS"
             SETUP_TURNSTILE_LATER=true
         fi
@@ -752,21 +760,21 @@ fi
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  ☕ Now sit back and relax - working...                         ║"
+printf "║  %s\n" "$MSG_EXEC_RELAX"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
 # Set up database (bundled generates credentials, custom already has them)
 if [ "$NEEDS_DB" = true ]; then
     if ! fetch_database "$DB_TYPE" "$SSH_ALIAS"; then
-        echo "Error: Failed to set up database."
+        msg "$MSG_DB_FETCH_FAILED"
         exit 1
     fi
 
     # Check if schema already exists (warning for user) - only for custom/external DBs
     if [ "$DB_TYPE" = "postgres" ] && [ "$DB_SOURCE" = "custom" ]; then
         if ! warn_if_schema_exists "$SSH_ALIAS" "$APP_NAME"; then
-            echo "Installation cancelled by user."
+            msg "$MSG_DB_CANCELLED"
             exit 1
         fi
     fi
@@ -779,11 +787,11 @@ if [ "$NEEDS_DB" = true ]; then
     [ -n "$BUNDLED_DB_TYPE" ] && DB_ENV_VARS="$DB_ENV_VARS BUNDLED_DB_TYPE='$BUNDLED_DB_TYPE'"
 
     echo ""
-    echo "📋 Database ($DB_SOURCE):"
-    echo "   Host: $DB_HOST"
-    echo "   Database: $DB_NAME"
+    msg "$MSG_DB_SUMMARY" "$DB_SOURCE"
+    msg "$MSG_DB_HOST" "$DB_HOST"
+    msg "$MSG_DB_NAME" "$DB_NAME"
     if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
-        echo "   Schema: $DB_SCHEMA"
+        msg "$MSG_DB_SCHEMA" "$DB_SCHEMA"
     fi
     echo ""
 fi
@@ -839,7 +847,7 @@ fi
 
 # Dry-run mode
 if [ "$DRY_RUN" = true ]; then
-    echo -e "${BLUE}[dry-run] Execution simulation:${NC}"
+    echo -e "$MSG_EXEC_DRYRUN_SIM"
     if is_on_server; then
         echo "  bash $SCRIPT_PATH"
         echo "  env: DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV"
@@ -848,17 +856,17 @@ if [ "$DRY_RUN" = true ]; then
         echo "  ssh -t $SSH_ALIAS \"export DEPLOY_SSH_ALIAS='$SSH_ALIAS' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '/tmp/sp-deploy-$$.sh'\""
     fi
     echo ""
-    echo -e "${BLUE}[dry-run] After installation:${NC}"
+    echo -e "$MSG_EXEC_DRYRUN_AFTER"
     if [ "$NEEDS_DOMAIN" = true ]; then
         echo "  configure_domain $APP_PORT $SSH_ALIAS"
     fi
     echo ""
-    echo -e "${GREEN}[dry-run] Simulation completed.${NC}"
+    echo -e "$MSG_EXEC_DRYRUN_DONE"
     exit 0
 fi
 
 # Upload script to server and execute
-echo "🚀 Starting installation on server..."
+msg "$MSG_EXEC_STARTING"
 echo ""
 
 # =============================================================================
@@ -871,14 +879,14 @@ if [ -n "$BUILD_FILE" ]; then
     BUILD_FILE="${BUILD_FILE/#\~/$HOME}"
 
     if [ ! -f "$BUILD_FILE" ]; then
-        echo -e "${RED}❌ File does not exist: $BUILD_FILE${NC}"
+        msg "$MSG_UPDATE_FILE_MISSING" "$BUILD_FILE"
         exit 1
     fi
 
-    echo "📦 Uploading installation file to server..."
+    msg "$MSG_EXEC_UPLOADING"
     REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
     server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
-    echo "   ✅ File uploaded"
+    msg "$MSG_EXEC_UPLOADED"
 
     EXTRA_ENV="$EXTRA_ENV BUILD_FILE='$REMOTE_BUILD_FILE'"
 fi
@@ -909,7 +917,7 @@ if [ "$DEPLOY_SUCCESS" = true ]; then
     : # Success - continue to database preparation and domain configuration
 else
     echo ""
-    echo -e "${RED}❌ Installation FAILED! Check errors above.${NC}"
+    msg "$MSG_EXEC_FAILED"
     exit 1
 fi
 
@@ -920,15 +928,15 @@ fi
 if [ "$APP_NAME" = "sellf" ]; then
     # 1. Database migrations
     echo ""
-    echo "🗄️  Preparing database..."
+    msg "$MSG_SELLF_DB_PREP"
 
     if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
         SSH_ALIAS="$SSH_ALIAS" PROJECT_REF="$PROJECT_REF" SUPABASE_URL="$SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || {
-            echo -e "${YELLOW}⚠️  Failed to prepare database - you can run later:${NC}"
+            msg "$MSG_SELLF_DB_PREP_FAILED"
             echo "   SSH_ALIAS=$SSH_ALIAS ./local/setup-supabase-migrations.sh"
         }
     else
-        echo -e "${YELLOW}⚠️  Missing database preparation script${NC}"
+        msg "$MSG_SELLF_DB_SCRIPT_MISSING"
     fi
 
     # 2. Consolidated Supabase configuration (Site URL, CAPTCHA, email templates)
@@ -936,7 +944,7 @@ if [ "$APP_NAME" = "sellf" ]; then
         # Use function from lib/sellf-setup.sh
         # Passes: domain, turnstile secret, SSH alias (for fetching email templates)
         configure_supabase_settings "$DOMAIN" "$SELLF_TURNSTILE_SECRET" "$SSH_ALIAS" || {
-            echo -e "${YELLOW}⚠️  Partial Supabase configuration${NC}"
+            msg "$MSG_SELLF_PARTIAL_CONFIG"
         }
     fi
     # Reminders (Stripe, Turnstile, SMTP) will be displayed at the end
@@ -963,15 +971,15 @@ if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
         wait_for_domain 90
     else
         echo ""
-        echo -e "${YELLOW}Service is running, but domain configuration failed.${NC}"
-        echo "   You can configure the domain manually later."
+        msg "$MSG_DOMAIN_SERVICE_OK_BUT"
+        msg "$MSG_DOMAIN_MANUAL_LATER"
     fi
 fi
 
 # DOMAIN_PUBLIC configuration (for FileBrowser and similar)
 if [ -n "$DOMAIN_PUBLIC" ]; then
     echo ""
-    echo "Configuring public domain: $DOMAIN_PUBLIC"
+    msg "$MSG_DOMAIN_PUBLIC_CONFIG" "$DOMAIN_PUBLIC"
 
     WEBROOT=$(server_exec "cat /tmp/domain_public_webroot 2>/dev/null || echo /var/www/public")
 
@@ -982,9 +990,9 @@ if [ -n "$DOMAIN_PUBLIC" ]; then
 
     # Configure Caddy file_server
     if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
-        echo -e "   ${GREEN}Static hosting configured: https://$DOMAIN_PUBLIC${NC}"
+        msg "$MSG_DOMAIN_STATIC_OK" "$DOMAIN_PUBLIC"
     else
-        echo -e "   ${YELLOW}Failed to configure Caddy for $DOMAIN_PUBLIC${NC}"
+        msg "$MSG_DOMAIN_CADDY_FAIL" "$DOMAIN_PUBLIC"
     fi
     # Cleanup
     server_exec "rm -f /tmp/domain_public_webroot" 2>/dev/null
@@ -996,26 +1004,26 @@ fi
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🎉 DONE!                                                      ║"
+printf "║  %s\n" "$MSG_SUMMARY_DONE"
 echo "╚════════════════════════════════════════════════════════════════╝"
 
 if [ "$DOMAIN_TYPE" = "local" ]; then
     echo ""
-    echo "📋 Access via SSH tunnel:"
+    msg "$MSG_SUMMARY_TUNNEL"
     echo -e "   ${BLUE}ssh -L $APP_PORT:localhost:$APP_PORT $SSH_ALIAS${NC}"
-    echo "   Then open: http://localhost:$APP_PORT"
+    msg "$MSG_SUMMARY_THEN_OPEN" "$APP_PORT"
 elif [ -n "$DOMAIN" ]; then
     echo ""
-    echo -e "🌐 Application available at: ${BLUE}https://$DOMAIN${NC}"
+    msg "$MSG_SUMMARY_AVAILABLE" "$DOMAIN"
 fi
 
 # Backup suggestion for database applications
 if [ "$NEEDS_DB" = true ]; then
     echo ""
-    echo -e "${YELLOW}💾 IMPORTANT: Your data is stored in a database!${NC}"
-    echo "   If you don't have database backups configured, consider:"
+    msg "$MSG_SUMMARY_BACKUP"
+    msg "$MSG_SUMMARY_BACKUP_HINT"
     echo ""
-    echo "   Configure automatic backup:"
+    msg "$MSG_SUMMARY_BACKUP_CMD"
     echo -e "      ${BLUE}ssh $SSH_ALIAS \"bash /opt/stackpilot/system/setup-db-backup.sh\"${NC}"
     echo ""
 fi
@@ -1027,7 +1035,7 @@ if [ "$APP_NAME" = "sellf" ]; then
     [ -n "$SELLF_TURNSTILE_SECRET" ] && TURNSTILE_CONFIGURED=true
 
     echo ""
-    echo -e "${YELLOW}📋 Next steps:${NC}"
+    msg "$MSG_SUMMARY_NEXT_STEPS"
     sellf_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$SELLF_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
 fi
 
@@ -1054,25 +1062,25 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 
     # RAM label
     if [ "$RAM_USED_PCT" -gt 80 ]; then
-        RAM_LABEL="${RED}CRITICAL${NC}"
+        RAM_LABEL="$MSG_HEALTH_LABEL_CRITICAL"
         RAM_LEVEL=2
     elif [ "$RAM_USED_PCT" -gt 60 ]; then
-        RAM_LABEL="${YELLOW}TIGHT${NC}"
+        RAM_LABEL="$MSG_HEALTH_LABEL_TIGHT"
         RAM_LEVEL=1
     else
-        RAM_LABEL="${GREEN}OK${NC}"
+        RAM_LABEL="$MSG_HEALTH_LABEL_OK"
         RAM_LEVEL=0
     fi
 
     # Disk label
     if [ "$DISK_USED_PCT" -gt 85 ]; then
-        DISK_LABEL="${RED}CRITICAL${NC}"
+        DISK_LABEL="$MSG_HEALTH_LABEL_CRITICAL"
         DISK_LEVEL=2
     elif [ "$DISK_USED_PCT" -gt 60 ]; then
-        DISK_LABEL="${YELLOW}TIGHT${NC}"
+        DISK_LABEL="$MSG_HEALTH_LABEL_TIGHT"
         DISK_LEVEL=1
     else
-        DISK_LABEL="${GREEN}OK${NC}"
+        DISK_LABEL="$MSG_HEALTH_LABEL_OK"
         DISK_LEVEL=0
     fi
 
@@ -1082,35 +1090,35 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  📊 Server health after installation                            ║"
+    printf "║  %s\n" "$MSG_HEALTH_HEADER"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    echo -e "   RAM:  ${POST_RAM_AVAIL}MB / ${POST_RAM_TOTAL}MB free (${RAM_USED_PCT}% used) — $RAM_LABEL"
-    echo -e "   Disk: ${DISK_AVAIL_GB}GB / ${DISK_TOTAL_GB}GB free (${DISK_USED_PCT}% used) — $DISK_LABEL"
+    msg "$MSG_HEALTH_RAM" "$POST_RAM_AVAIL" "$POST_RAM_TOTAL" "$RAM_USED_PCT" "$RAM_LABEL"
+    msg "$MSG_HEALTH_DISK" "$DISK_AVAIL_GB" "$DISK_TOTAL_GB" "$DISK_USED_PCT" "$DISK_LABEL"
     echo ""
 
     if [ "$HEALTH_LEVEL" -eq 0 ]; then
-        echo -e "   ${GREEN}✅ Server is in good shape. You can safely add more services.${NC}"
+        msg "$MSG_HEALTH_OK"
     elif [ "$HEALTH_LEVEL" -eq 1 ]; then
-        echo -e "   ${YELLOW}⚠️  Getting tight. Consider upgrading before adding heavy services.${NC}"
+        msg "$MSG_HEALTH_TIGHT"
     else
-        echo -e "   ${RED}❌ Server is heavily loaded! Consider upgrading or removing unused services.${NC}"
+        msg "$MSG_HEALTH_CRITICAL"
     fi
 
     # Upgrade suggestion
     if [ "$HEALTH_LEVEL" -ge 1 ]; then
         UPGRADE=""
         if [ "$POST_RAM_TOTAL" -le 1024 ]; then
-            UPGRADE="a VPS plan with 2GB RAM"
+            UPGRADE="$MSG_HEALTH_UPGRADE_2GB"
         elif [ "$POST_RAM_TOTAL" -le 2048 ]; then
-            UPGRADE="a VPS plan with 4GB RAM"
+            UPGRADE="$MSG_HEALTH_UPGRADE_4GB"
         elif [ "$POST_RAM_TOTAL" -le 4096 ]; then
-            UPGRADE="a VPS plan with 8GB RAM"
+            UPGRADE="$MSG_HEALTH_UPGRADE_8GB"
         elif [ "$POST_RAM_TOTAL" -le 8192 ]; then
-            UPGRADE="a VPS plan with 16GB RAM"
+            UPGRADE="$MSG_HEALTH_UPGRADE_16GB"
         fi
         if [ -n "$UPGRADE" ]; then
-            echo -e "   ${YELLOW}📦 Suggested upgrade: $UPGRADE${NC}"
+            msg "$MSG_HEALTH_UPGRADE" "$UPGRADE"
         fi
     fi
 fi

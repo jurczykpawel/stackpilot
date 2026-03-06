@@ -9,6 +9,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
 
+_BKP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_BKP_DIR/../lib/i18n.sh"
+fi
+
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     echo "Usage: $0 [ssh_alias]"
     echo ""
@@ -29,45 +34,45 @@ REMOTE_HOST=$(server_hostname)
 REMOTE_USER=$(server_user)
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  🛡️  Backup Setup Wizard                                       ║"
-echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║  Server:  $REMOTE_USER@$REMOTE_HOST"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_BKP_HEADER_TOP"
+msg "$MSG_BKP_HEADER_TITLE"
+msg "$MSG_BKP_HEADER_MID"
+msg "$MSG_BKP_HEADER_SERVER" "$REMOTE_USER" "$REMOTE_HOST"
+msg "$MSG_BKP_HEADER_BOT"
 echo ""
-echo "This tool will configure automatic backups to a cloud provider."
-read -p "Continue with this server? (y/N) " -n 1 -r
+msg "$MSG_BKP_INTRO"
+read -p "$(msg_n "$MSG_BKP_CONFIRM")" -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-    echo "Cancelled."
+    msg "$MSG_BKP_CANCELLED"
     exit 1
 fi
 
 # 1. Check Local Prerequisites
 if ! command -v rclone &> /dev/null; then
-    echo "❌ Rclone is not installed on this computer."
+    msg "$MSG_BKP_NO_RCLONE"
     echo ""
-    echo "   Rclone is needed LOCALLY for OAuth authorization - Google/Dropbox"
-    echo "   require browser login, and the server has no GUI."
+    msg "$MSG_BKP_NO_RCLONE_WHY"
+    msg "$MSG_BKP_NO_RCLONE_WHY2"
     echo ""
-    echo "   Install:"
-    echo "   - Mac:     brew install rclone"
-    echo "   - Linux:   curl https://rclone.org/install.sh | sudo bash"
-    echo "   - Windows: https://rclone.org/downloads/ (or winget install rclone)"
+    msg "$MSG_BKP_NO_RCLONE_INSTALL"
+    msg "$MSG_BKP_NO_RCLONE_MAC"
+    msg "$MSG_BKP_NO_RCLONE_LINUX"
+    msg "$MSG_BKP_NO_RCLONE_WIN"
     echo ""
-    echo "   After installation, run this script again."
+    msg "$MSG_BKP_NO_RCLONE_RETRY"
     exit 1
 fi
 
 # 2. Select Provider
 echo ""
-echo "Choose your backup provider:"
-echo "1) Google Drive (Recommended)"
-echo "2) Dropbox"
-echo "3) Microsoft OneDrive"
-echo "4) Mega"
-echo "5) S3 Compatible (AWS, Wasabi, MinIO, etc.)"
-read -p "Select [1-5]: " CHOICE
+msg "$MSG_BKP_CHOOSE_PROVIDER"
+msg "$MSG_BKP_PROVIDER_GDRIVE"
+msg "$MSG_BKP_PROVIDER_DROPBOX"
+msg "$MSG_BKP_PROVIDER_ONEDRIVE"
+msg "$MSG_BKP_PROVIDER_MEGA"
+msg "$MSG_BKP_PROVIDER_S3"
+read -p "$(msg_n "$MSG_BKP_PROVIDER_PROMPT")" CHOICE
 
 case $CHOICE in
     1) TYPE="drive"; CONF_ARGS="scope=drive.file" ;;
@@ -75,21 +80,21 @@ case $CHOICE in
     3) TYPE="onedrive"; CONF_ARGS="" ;;
     4) TYPE="mega"; CONF_ARGS="" ;;
     5) TYPE="s3"; CONF_ARGS="provider=AWS env_auth=false" ;;
-    *) echo "Invalid choice."; exit 1 ;;
+    *) msg "$MSG_BKP_INVALID_CHOICE"; exit 1 ;;
 esac
 
 echo ""
-echo "--- 🔐 Authenticating with $TYPE ---"
-echo "We will now generate a configuration token."
+msg "$MSG_BKP_AUTH_HEADER" "$TYPE"
+msg "$MSG_BKP_AUTH_GENERATE"
 if [[ "$TYPE" == "mega" || "$TYPE" == "s3" ]]; then
-    echo "You will be asked for credentials in the terminal."
+    msg "$MSG_BKP_AUTH_CREDS"
 else
     if is_on_server; then
-        echo "⚠️  NOTE: This provider requires browser login."
-        echo "   The server has no GUI - use rclone authorize on a local machine"
-        echo "   or choose a provider without OAuth (S3, Mega)."
+        msg "$MSG_BKP_AUTH_BROWSER_WARN"
+        msg "$MSG_BKP_AUTH_BROWSER_HINT"
+        msg "$MSG_BKP_AUTH_BROWSER_ALT"
     fi
-    echo "A browser window will open for you to log in."
+    msg "$MSG_BKP_AUTH_BROWSER"
 fi
 echo ""
 
@@ -103,62 +108,62 @@ touch "$TEMP_CONF"
 # If Encrypt = YES: raw_cloud -> Provider, backup_remote (crypt) -> raw_cloud
 
 echo ""
-read -p "🔒 Do you want to ENCRYPT your backups? (Recommended) [y/N]: " ENCRYPT_CHOICE
+read -p "$(msg_n "$MSG_BKP_ENCRYPT_PROMPT")" ENCRYPT_CHOICE
 
 if [[ "$ENCRYPT_CHOICE" =~ ^[Yy]$ ]]; then
-    echo "--- Setting up Encryption ---"
-    echo "Please enter a strong password. You will need this to restore files!"
-    read -s -p "Password: " PASS1
+    msg "$MSG_BKP_ENCRYPT_HEADER"
+    msg "$MSG_BKP_ENCRYPT_INFO"
+    read -s -p "$(msg_n "$MSG_BKP_ENCRYPT_PASS")" PASS1
     echo ""
-    read -s -p "Confirm Password: " PASS2
+    read -s -p "$(msg_n "$MSG_BKP_ENCRYPT_CONFIRM")" PASS2
     echo ""
 
     if [ "$PASS1" != "$PASS2" ]; then
-        echo "❌ Passwords do not match. Aborting."
+        msg "$MSG_BKP_ENCRYPT_MISMATCH"
         exit 1
     fi
 
     # Create the raw backend first
-    echo "Authenticating with provider..."
+    msg "$MSG_BKP_ENCRYPT_AUTH"
     rclone config create "raw_cloud" "$TYPE" $CONF_ARGS --config "$TEMP_CONF" >/dev/null
 
     # Create the crypt wrapper named 'backup_remote'
     # remote needs to point to the raw remote + bucket/folder path if needed
     # usually: raw_cloud:/
-    echo "Configuring encryption layer..."
+    msg "$MSG_BKP_ENCRYPT_LAYER"
     rclone config create "$REMOTE_NAME" crypt remote="raw_cloud:/" password="$PASS1" --config "$TEMP_CONF" >/dev/null
 
-    echo "✅ Encryption configured."
+    msg "$MSG_BKP_ENCRYPT_OK"
 else
     # Direct setup
-    echo "Authenticating with provider..."
+    msg "$MSG_BKP_DIRECT_AUTH"
     rclone config create "$REMOTE_NAME" "$TYPE" $CONF_ARGS --config "$TEMP_CONF"
 fi
 
 echo ""
-echo "✅ Authentication successful! Config generated."
+msg "$MSG_BKP_AUTH_OK"
 
 # 4. Deploy to Server
 echo ""
-echo "--- 🚀 Deploying to server ---"
+msg "$MSG_BKP_DEPLOY_HEADER"
 
 # 4a. Install Rclone on server if missing
-echo "Checking Rclone on server..."
+msg "$MSG_BKP_CHECK_RCLONE"
 server_exec "command -v rclone >/dev/null || (curl https://rclone.org/install.sh | sudo bash)"
 
 # 4b. Upload Config
-echo "Uploading configuration..."
+msg "$MSG_BKP_UPLOAD_CONFIG"
 # We read the config content and write it to the server securely
 CONF_CONTENT=$(cat "$TEMP_CONF")
 server_exec "mkdir -p ~/.config/rclone && echo '$CONF_CONTENT' > ~/.config/rclone/rclone.conf && chmod 600 ~/.config/rclone/rclone.conf"
 
 # 4c. Upload Backup Script
-echo "Installing backup script..."
+msg "$MSG_BKP_INSTALL_SCRIPT"
 REPO_ROOT="$SCRIPT_DIR/.."
 server_pipe_to "$REPO_ROOT/system/backup-core.sh" ~/backup-core.sh
 
 # 4d. Setup Cron
-echo "Setting up Cron job (Daily at 3:00 AM)..."
+msg "$MSG_BKP_SETUP_CRON"
 CRON_CMD="0 3 * * * /root/backup-core.sh >> /var/log/stackpilot-backup.log 2>&1"
 # Check if job exists, if not append
 server_exec "crontab -l | grep -v 'backup-core.sh' | { cat; echo '$CRON_CMD'; } | crontab -"
@@ -167,22 +172,22 @@ server_exec "crontab -l | grep -v 'backup-core.sh' | { cat; echo '$CRON_CMD'; } 
 rm -f "$TEMP_CONF"
 
 echo ""
-echo "✅ Cloud backup configured!"
+msg "$MSG_BKP_DONE"
 echo ""
-echo "📋 What happens automatically:"
-echo "   - Daily at 3:00 AM a backup is sent to $TYPE"
-echo "   - Backed up directories: /opt/stacks, /opt/dockge"
+msg "$MSG_BKP_WHAT_HAPPENS"
+msg "$MSG_BKP_SCHEDULE" "$TYPE"
+msg "$MSG_BKP_DIRS"
 echo ""
-echo "🚀 Run the first backup NOW:"
-echo "   ssh $VPS_HOST '~/backup-core.sh'"
+msg "$MSG_BKP_RUN_NOW"
+msg "$MSG_BKP_RUN_CMD" "$VPS_HOST"
 echo ""
-echo "🔍 How to check if it works?"
-echo "   ssh $VPS_HOST 'tail -20 /var/log/stackpilot-backup.log'"
+msg "$MSG_BKP_VERIFY"
+msg "$MSG_BKP_VERIFY_CMD" "$VPS_HOST"
 echo ""
-echo "🔄 How to restore data?"
-echo "   ./local/restore.sh $VPS_HOST"
+msg "$MSG_BKP_RESTORE"
+msg "$MSG_BKP_RESTORE_CMD" "$VPS_HOST"
 echo ""
 if [[ "$ENCRYPT_CHOICE" =~ ^[Yy]$ ]]; then
-    echo "🔐 Encryption enabled - folder names in the cloud will be encrypted."
-    echo "   This is normal! Data is safe and gets decrypted during restore."
+    msg "$MSG_BKP_ENCRYPT_NOTE"
+    msg "$MSG_BKP_ENCRYPT_NOTE2"
 fi

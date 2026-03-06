@@ -13,11 +13,11 @@
 #   1 = WARN, low resources but can continue
 #   2 = FAIL, not enough resources
 
-# Colors
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+# i18n
+_RC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_RC_DIR/i18n.sh"
+fi
 
 # Get available resources
 get_available_ram_mb() {
@@ -47,39 +47,39 @@ check_resources() {
 
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  📊 Checking server resources                                  ║"
+    printf "║  %s\n" "$(msg "$MSG_RC_HEADER")                                  ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
 
     # RAM check
-    echo -n "   RAM: ${AVAILABLE_RAM}MB available"
+    printf "$(msg "$MSG_RC_RAM_AVAILABLE")" "$AVAILABLE_RAM"
     if [ "$AVAILABLE_RAM" -lt "$REQUIRED_RAM" ]; then
-        echo -e " ${RED}✗ (required: ${REQUIRED_RAM}MB)${NC}"
+        msg "$MSG_RC_RAM_FAIL" "$REQUIRED_RAM"
         STATUS=2
     elif [ "$AVAILABLE_RAM" -lt $((REQUIRED_RAM * 2)) ]; then
-        echo -e " ${YELLOW}⚠ (recommended: ${REQUIRED_RAM}MB+)${NC}"
+        msg "$MSG_RC_RAM_WARN" "$REQUIRED_RAM"
         [ "$STATUS" -lt 1 ] && STATUS=1
     else
-        echo -e " ${GREEN}✓${NC}"
+        msg "$MSG_RC_RAM_OK"
     fi
 
     # Disk check
-    echo -n "   Disk: ${AVAILABLE_DISK}MB free"
+    printf "$(msg "$MSG_RC_DISK_FREE")" "$AVAILABLE_DISK"
     if [ "$AVAILABLE_DISK" -lt "$REQUIRED_DISK" ]; then
-        echo -e " ${RED}✗ (required: ${REQUIRED_DISK}MB)${NC}"
+        msg "$MSG_RC_DISK_FAIL" "$REQUIRED_DISK"
         STATUS=2
     elif [ "$AVAILABLE_DISK" -lt $((REQUIRED_DISK * 2)) ]; then
-        echo -e " ${YELLOW}⚠ (recommended: ${REQUIRED_DISK}MB+)${NC}"
+        msg "$MSG_RC_DISK_WARN" "$REQUIRED_DISK"
         [ "$STATUS" -lt 1 ] && STATUS=1
     else
-        echo -e " ${GREEN}✓${NC}"
+        msg "$MSG_RC_DISK_OK"
     fi
 
     # Total RAM warning for heavy apps
     if [ "$REQUIRED_RAM" -ge 400 ] && [ "$TOTAL_RAM" -lt 2000 ]; then
         echo ""
-        echo -e "   ${YELLOW}⚠ This application requires a lot of RAM.${NC}"
-        echo -e "   ${YELLOW}  Recommended: a VPS plan with 2GB+ RAM${NC}"
+        msg "$MSG_RC_HEAVY_APP"
+        msg "$MSG_RC_HEAVY_APP_REC"
         [ "$STATUS" -lt 1 ] && STATUS=1
     fi
 
@@ -88,16 +88,21 @@ check_resources() {
     # Summary
     case $STATUS in
         0)
-            echo -e "   ${GREEN}✅ Resources sufficient to install $APP_NAME${NC}"
+            msg "$MSG_RC_OK" "$APP_NAME"
             ;;
         1)
-            echo -e "   ${YELLOW}⚠️  Low resources - installation possible, but it may be tight${NC}"
+            msg "$MSG_RC_WARN"
             ;;
         2)
-            echo -e "   ${RED}❌ Not enough resources! Installing $APP_NAME may crash the server.${NC}"
-            echo -e "   ${RED}   Free up space or upgrade your plan.${NC}"
+            msg "$MSG_RC_FAIL" "$APP_NAME"
+            msg "$MSG_RC_FAIL_HINT"
             ;;
     esac
+
+    # Provider-specific upgrade suggestion (e.g. Mikrus plan recommendations)
+    if [ "$STATUS" -gt 0 ] && type provider_upgrade_suggestion &>/dev/null; then
+        provider_upgrade_suggestion "$STATUS" "$REQUIRED_RAM"
+    fi
 
     echo ""
     return $STATUS

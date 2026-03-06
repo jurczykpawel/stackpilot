@@ -6,7 +6,20 @@
 
 set -e
 
-echo "--- 1. Installing Caddy (Official Repo) ---"
+_CADDY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    # When piped via ssh (bash -s), paths won't resolve — define fallbacks
+    if [ -n "$_CADDY_DIR" ] && [ -f "$_CADDY_DIR/../lib/i18n.sh" ]; then
+        source "$_CADDY_DIR/../lib/i18n.sh"
+    elif [ -f /opt/stackpilot/lib/i18n.sh ]; then
+        source /opt/stackpilot/lib/i18n.sh
+    else
+        msg() { printf "%s\n" "$1"; }
+        msg_n() { printf "%s" "$1"; }
+    fi
+fi
+
+msg "$MSG_CADDY_STEP1"
 
 # Prerequisites
 sudo apt install -y -q debian-keyring debian-archive-keyring apt-transport-https curl
@@ -19,7 +32,7 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt update
 sudo apt install caddy -y
 
-echo "--- 2. Installing 'sp-expose' Helper Tool ---"
+msg "$MSG_CADDY_STEP2"
 
 # Creating a lazy wrapper script to add domains easily
 cat <<'EOF' | sudo tee /usr/local/bin/sp-expose > /dev/null
@@ -153,7 +166,7 @@ EOF
 # Make it executable
 sudo chmod +x /usr/local/bin/sp-expose
 
-echo "--- Setup Complete ---"
-echo "✅ Caddy is running."
-echo "✅ 'sp-expose' tool installed."
-echo "   Usage: sp-expose app.domain.com 5000"
+msg "$MSG_CADDY_DONE_HDR"
+msg "$MSG_CADDY_DONE_CADDY"
+msg "$MSG_CADDY_DONE_EXPOSE"
+msg "$MSG_CADDY_DONE_USAGE"

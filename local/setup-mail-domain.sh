@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Mail Domain Setup
-# Konfiguruje domeny do wysyłki maili: SPF audit, DKIM, DMARC, bounce handling.
-# Działa z dowolnym mailerem (Listmonk, Mautic, WordPress, własny).
+# StackPilot - Mail Domain Setup
+# Configures sending domains: SPF audit, DKIM, DMARC, bounce handling.
+# Works with any mailer (Listmonk, Mautic, WordPress, custom).
 # Author: Paweł (Lazy Engineer)
 #
-# Użycie:
-#   ./local/setup-mail-domain.sh [DOMENY...] [--webhook-url=URL] [--dry-run]
+# Usage:
+#   ./local/setup-mail-domain.sh [DOMAINS...] [--webhook-url=URL] [--dry-run]
 #
-# Przykłady:
-#   ./local/setup-mail-domain.sh mojafirma.pl sklep.mojafirma.pl
-#   ./local/setup-mail-domain.sh mojafirma.pl --dry-run
+# Examples:
+#   ./local/setup-mail-domain.sh mycompany.com shop.mycompany.com
+#   ./local/setup-mail-domain.sh mycompany.com --dry-run
 #   ./local/setup-mail-domain.sh --webhook-url=https://mail.example.com/webhooks/service/ses
 
 set -e
@@ -18,15 +18,22 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CF_CONFIG="$HOME/.config/cloudflare/config"
 
-# Kolory
+# Colors (before i18n so they are available in MSG_ strings)
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
+BLUE='\033[0;34m'
 
-# Stan
+# i18n
+_MD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_MD_DIR/../lib/i18n.sh"
+fi
+
+# State
 DOMAINS=()
 WEBHOOK_URL=""
 DRY_RUN=false
@@ -37,46 +44,45 @@ DMARC_ADDED=false
 DMARC_REPORT_EMAIL=""
 SPF_RAW=()
 
-# ─── Parsowanie argumentów ──────────────────────────────────
+# ─── Argument parsing ──────────────────────────────────────────
 
 for arg in "$@"; do
     case "$arg" in
         --webhook-url=*) WEBHOOK_URL="${arg#*=}" ;;
         --dry-run) DRY_RUN=true ;;
         --help|-h)
-            echo "Użycie: $0 [DOMENY...] [--webhook-url=URL]"
+            msg "$MSG_MD_HELP_USAGE" "$0"
             echo ""
-            echo "Konfiguruje domeny do wysyłki maili (SPF, DKIM, DMARC)."
-            echo "Działa z dowolnym mailerem — Listmonk, Mautic, WordPress, własny."
+            msg "$MSG_MD_HELP_DESC"
+            msg "$MSG_MD_HELP_MAILERS"
             echo ""
-            echo "Co robi:"
-            echo "  0. Audyt DNS — sprawdza SPF, DKIM (via Cloudflare API), DMARC"
-            echo "  1. SPF — proponuje include'y na podstawie dostawcy SMTP"
-            echo "  2. DKIM — prowadzi przez dodanie rekordów z SES/EmailLabs/innego"
-            echo "  3. DMARC — dodaje politykę ochrony + cross-domain auth records"
-            echo "  4. Bounce handling — instrukcje SNS (jeśli --webhook-url)"
-            echo "  5. Weryfikacja DNS — sprawdza propagację"
+            msg "$MSG_MD_HELP_WHAT"
+            msg "$MSG_MD_HELP_0"
+            msg "$MSG_MD_HELP_1"
+            msg "$MSG_MD_HELP_2"
+            msg "$MSG_MD_HELP_3"
+            msg "$MSG_MD_HELP_4"
+            msg "$MSG_MD_HELP_5"
             echo ""
-            echo "Opcje:"
-            echo "  --webhook-url=URL   URL webhooka bounce (np. .../webhooks/service/ses)"
-            echo "  --dry-run           Tylko audyt DNS — nie modyfikuje nic"
+            msg "$MSG_MD_HELP_OPTS"
+            msg "$MSG_MD_HELP_OPT_WEBHOOK"
+            msg "$MSG_MD_HELP_OPT_DRYRUN"
             echo ""
-            echo "Wymaga wcześniejszej konfiguracji Cloudflare: ./local/setup-cloudflare.sh"
+            msg "$MSG_MD_HELP_REQ"
             echo ""
-            echo "Przykłady:"
-            echo "  $0 mojafirma.pl sklep.mojafirma.pl"
-            echo "  $0 --webhook-url=https://mail.example.com/webhooks/service/ses"
+            msg "$MSG_MD_HELP_EX_1" "$0"
+            msg "$MSG_MD_HELP_EX_2" "$0"
             echo ""
-            echo "Wrapper per mailer:"
-            echo "  ./local/setup-listmonk-mail.sh  — dodaje konfigurację Listmonk API"
+            msg "$MSG_MD_HELP_WRAPPER"
+            msg "$MSG_MD_HELP_WRAPPER_LM"
             exit 0
             ;;
-        -*) echo -e "${RED}❌ Nieznana opcja: $arg${NC}"; exit 1 ;;
+        -*) msg "$MSG_MD_UNKNOWN_OPT" "$arg"; exit 1 ;;
         *) DOMAINS+=("$arg") ;;
     esac
 done
 
-# ─── Funkcje pomocnicze ─────────────────────────────────────
+# ─── Helper functions ──────────────────────────────────────────
 
 ok()   { echo -e "  ${GREEN}✅ $1${NC}"; }
 fail() { echo -e "  ${RED}❌ $1${NC}"; }
@@ -104,7 +110,7 @@ get_spf_raw() {
     dig TXT "$domain" +short 2>/dev/null | tr -d '"' | grep -i 'v=spf1' || true
 }
 
-# Mapa: provider → include do SPF
+# Map: provider → SPF include
 spf_include_for_provider() {
     case "$1" in
         ses)       echo "include:amazonses.com" ;;
@@ -129,7 +135,7 @@ check_dmarc() {
     fi
 }
 
-# Sprawdź DKIM przez Cloudflare API (szuka rekordów *._domainkey.domain)
+# Check DKIM via Cloudflare API (looks for *._domainkey.domain records)
 check_dkim_cf() {
     local domain="$1"
     local zone_id
@@ -166,7 +172,7 @@ cf_add_record() {
     local domain="$1" type="$2" name="$3" content="$4"
 
     if $DRY_RUN; then
-        info "[DRY-RUN] Dodałbym: $type $name → $content"
+        msg "$MSG_MD_DKIM_DRYRUN_SKIP" "$type" "$name" "$content"
         return 0
     fi
 
@@ -174,7 +180,7 @@ cf_add_record() {
     zone_id=$(get_zone_id "$domain")
 
     if [ -z "$zone_id" ]; then
-        fail "Brak Zone ID dla $domain — uruchom ./local/setup-cloudflare.sh"
+        fail "$(printf "$MSG_MD_CF_WARN")"
         return 1
     fi
 
@@ -224,7 +230,7 @@ open_url() {
     fi
 }
 
-# Dodaje rekordy DKIM dla jednego dostawcy
+# Add DKIM records for one provider
 add_dkim_for_provider() {
     local domain="$1"
     local provider="$2"  # ses | emaillabs | custom
@@ -232,70 +238,70 @@ add_dkim_for_provider() {
 
     case "$provider" in
     ses)
-        echo "  📋 W konsoli AWS SES:"
-        echo "     Verified Identities → $domain → Authentication → DKIM"
-        echo "     Skopiuj 3 rekordy CNAME (Name + Value)"
+        msg "$MSG_MD_DKIM_SES_INFO1"
+        msg "$MSG_MD_DKIM_SES_INFO2" "$domain"
+        msg "$MSG_MD_DKIM_SES_INFO3"
         echo ""
         open_url "https://console.aws.amazon.com/ses/home#/verified-identities"
-        echo "  Wklej 3 rekordy (format: NAZWA WARTOŚĆ, oddzielone spacją):"
-        echo "  Przykład: abc123._domainkey.$domain abc123.dkim.amazonses.com"
+        msg "$MSG_MD_DKIM_SES_PASTE"
+        msg "$MSG_MD_DKIM_SES_EXAMPLE" "$domain"
         echo ""
 
         for n in 1 2 3; do
-            read -p "  Rekord $n: " rec_line
+            read -p "$(msg_n "$MSG_MD_DKIM_SES_REC" "$n")" rec_line
             [ -z "$rec_line" ] && continue
 
             rec_line=$(echo "$rec_line" | sed 's/^[[:space:]]*CNAME[[:space:]]*//' | sed 's/[[:space:]]\{1,\}/ /g' | sed 's/\.$//')
             rec_name=$(echo "$rec_line" | awk '{print $1}')
             rec_value=$(echo "$rec_line" | awk '{print $2}')
 
-            # Auto-derive wartość z nazwy (wzorzec SES)
+            # Auto-derive value from name (SES pattern)
             if [ -z "$rec_value" ] && echo "$rec_name" | grep -q '_domainkey'; then
                 token=$(echo "$rec_name" | sed "s/\._domainkey\..*//")
                 rec_value="${token}.dkim.amazonses.com"
-                echo "     → Wartość (auto): $rec_value"
+                msg "$MSG_MD_DKIM_SES_AUTO_VAL" "$rec_value"
             fi
 
             rec_name="${rec_name%.}"
             rec_value="${rec_value%.}"
 
             if [ -z "$rec_name" ] || [ -z "$rec_value" ]; then
-                warn "Pominięto — nieprawidłowy format"
+                msg "$MSG_MD_DKIM_SKIP_INVALID"
                 continue
             fi
 
             if $HAS_CLOUDFLARE; then
                 if cf_add_record "$domain" "CNAME" "$rec_name" "$rec_value"; then
-                    ok "CNAME: $rec_name"
+                    msg "$MSG_MD_DKIM_CF_ADDED" "CNAME" "$rec_name"
                     DKIM_ADDED_NAMES+=("$rec_name")
                     added=$((added + 1))
                 else
-                    fail "Nie udało się dodać: $rec_name"
-                    echo "     Dodaj ręcznie: Typ=CNAME | Nazwa=$rec_name | Wartość=$rec_value | Proxy=OFF"
+                    msg "$MSG_MD_DKIM_CF_FAIL" "$rec_name"
+                    msg "$MSG_MD_DKIM_CF_MANUAL" "CNAME" "$rec_name" "$rec_value"
                 fi
             else
-                echo "     Dodaj w DNS: Typ=CNAME | Nazwa=$rec_name | Wartość=$rec_value | TTL=3600 | Proxy=OFF"
+                msg "$MSG_MD_DKIM_DNS_MANUAL" "CNAME" "$rec_name" "$rec_value"
                 added=$((added + 1))
             fi
         done
         ;;
 
     emaillabs)
-        echo "  📋 W panelu EmailLabs:"
-        echo "     Ustawienia → Domeny → $domain → DKIM"
+        msg "$MSG_MD_DKIM_EL_INFO1"
+        msg "$MSG_MD_DKIM_EL_INFO2" "$domain"
         echo ""
 
-        echo "  Typ rekordu DKIM?"
-        echo "  1) CNAME (częstsze)"
-        echo "  2) TXT"
-        read -p "  Typ (1/2): " dtype_choice
+        msg "$MSG_MD_DKIM_EL_TYPE"
+        msg "$MSG_MD_DKIM_EL_TYPE_1"
+        msg "$MSG_MD_DKIM_EL_TYPE_2"
+        read -p "$(msg_n "$MSG_MD_DKIM_EL_TYPE_CHOOSE")" dtype_choice
 
         dtype="CNAME"
         [ "$dtype_choice" = "2" ] && dtype="TXT"
 
         echo ""
-        read -p "  Nazwa rekordu (np. emaillabs._domainkey.$domain): " el_name
-        read -p "  Wartość: " el_value
+        read -p "$(msg_n "$MSG_MD_DKIM_EL_NAME" "$domain")" el_name
+        read -p "$(msg_n "$MSG_MD_DKIM_EL_VALUE")" el_value
         echo ""
 
         el_name="${el_name%.}"
@@ -304,34 +310,34 @@ add_dkim_for_provider() {
         if [ -n "$el_name" ] && [ -n "$el_value" ]; then
             if $HAS_CLOUDFLARE; then
                 if cf_add_record "$domain" "$dtype" "$el_name" "$el_value"; then
-                    ok "$dtype: $el_name"
+                    msg "$MSG_MD_DKIM_CF_ADDED" "$dtype" "$el_name"
                     DKIM_ADDED_NAMES+=("$el_name")
                     added=$((added + 1))
                 else
-                    fail "Nie udało się dodać"
-                    echo "     Dodaj ręcznie: Typ=$dtype | Nazwa=$el_name | Wartość=$el_value"
+                    msg "$MSG_MD_DKIM_EL_CF_FAIL"
+                    msg "$MSG_MD_DKIM_EL_MANUAL" "$dtype" "$el_name" "$el_value"
                 fi
             else
-                echo "     Dodaj w DNS: Typ=$dtype | Nazwa=$el_name | Wartość=$el_value | TTL=3600"
+                msg "$MSG_MD_DKIM_EL_DNS" "$dtype" "$el_name" "$el_value"
                 added=$((added + 1))
             fi
         fi
         ;;
 
     custom)
-        echo "  Podaj rekord DKIM od swojego dostawcy SMTP."
+        msg "$MSG_MD_DKIM_CUSTOM_INFO"
         echo ""
-        echo "  Typ rekordu?"
-        echo "  1) CNAME"
-        echo "  2) TXT"
-        read -p "  Typ (1/2): " ctype_choice
+        msg "$MSG_MD_DKIM_CUSTOM_TYPE"
+        msg "$MSG_MD_DKIM_CUSTOM_TYPE_1"
+        msg "$MSG_MD_DKIM_CUSTOM_TYPE_2"
+        read -p "$(msg_n "$MSG_MD_DKIM_CUSTOM_TYPE_CHOOSE")" ctype_choice
 
         ctype="CNAME"
         [ "$ctype_choice" = "2" ] && ctype="TXT"
 
         echo ""
-        read -p "  Nazwa rekordu (np. selector._domainkey.$domain): " c_name
-        read -p "  Wartość: " c_value
+        read -p "$(msg_n "$MSG_MD_DKIM_CUSTOM_NAME" "$domain")" c_name
+        read -p "$(msg_n "$MSG_MD_DKIM_CUSTOM_VALUE")" c_value
         echo ""
 
         c_name="${c_name%.}"
@@ -340,15 +346,15 @@ add_dkim_for_provider() {
         if [ -n "$c_name" ] && [ -n "$c_value" ]; then
             if $HAS_CLOUDFLARE; then
                 if cf_add_record "$domain" "$ctype" "$c_name" "$c_value"; then
-                    ok "$ctype: $c_name"
+                    msg "$MSG_MD_DKIM_CF_ADDED" "$ctype" "$c_name"
                     DKIM_ADDED_NAMES+=("$c_name")
                     added=$((added + 1))
                 else
-                    fail "Nie udało się dodać"
-                    echo "     Dodaj ręcznie: Typ=$ctype | Nazwa=$c_name | Wartość=$c_value"
+                    msg "$MSG_MD_DKIM_CUSTOM_CF_FAIL"
+                    msg "$MSG_MD_DKIM_CUSTOM_MANUAL" "$ctype" "$c_name" "$c_value"
                 fi
             else
-                echo "     Dodaj w DNS: Typ=$ctype | Nazwa=$c_name | Wartość=$c_value | TTL=3600"
+                msg "$MSG_MD_DKIM_CUSTOM_DNS" "$ctype" "$c_name" "$c_value"
                 added=$((added + 1))
             fi
         fi
@@ -363,54 +369,54 @@ add_dkim_for_provider() {
 # ═══════════════════════════════════════════════════════════════
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  📧 Konfiguracja domen wysyłkowych                            ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+msg "$MSG_MD_HEADER_LINE1"
+msg "$MSG_MD_HEADER_LINE2"
+msg "$MSG_MD_HEADER_LINE3"
 echo ""
 if $DRY_RUN; then
-    echo -e "${YELLOW}${BOLD}  🔍 TRYB DRY-RUN — tylko audyt, nic nie zmieniam${NC}"
+    msg "$MSG_MD_DRY_RUN_NOTICE"
     echo ""
 fi
-echo "Skonfiguruję domeny żeby maile trafiały do Inbox, nie do Spamu."
+msg "$MSG_MD_INTRO"
 echo ""
-echo "  SPF   — kto może wysyłać maile z Twojej domeny"
-echo "  DKIM  — podpis cyfrowy (dowód autentyczności maila)"
-echo "  DMARC — polityka: co robić z niepodpisanymi mailami"
+msg "$MSG_MD_INTRO_SPF"
+msg "$MSG_MD_INTRO_DKIM"
+msg "$MSG_MD_INTRO_DMARC"
 echo ""
 
 if load_cf_config; then
     HAS_CLOUDFLARE=true
-    ok "Cloudflare API — rekordy DNS dodam automatycznie"
+    msg "$MSG_MD_CF_OK"
 else
-    warn "Brak konfiguracji Cloudflare — pokażę rekordy do ręcznego dodania"
-    info "Żeby zautomatyzować: ./local/setup-cloudflare.sh"
+    msg "$MSG_MD_CF_WARN"
+    msg "$MSG_MD_CF_INFO"
 fi
 echo ""
 
-# Domeny
+# Domains
 if [ ${#DOMAINS[@]} -eq 0 ]; then
     if $DRY_RUN; then
-        fail "Dry-run wymaga podania domen jako argumentów!"
-        echo "  Użycie: $0 mojafirma.pl --dry-run"
+        msg "$MSG_MD_NO_DOMAINS_DRYRUN"
+        msg "$MSG_MD_NO_DOMAINS_USAGE" "$0"
         exit 1
     fi
-    echo "Podaj domeny wysyłkowe (oddziel spacją)."
-    echo "Np: mojafirma.pl sklep.example.com"
+    msg "$MSG_MD_PROMPT_DOMAINS"
+    msg "$MSG_MD_PROMPT_DOMAINS_EX"
     echo ""
-    read -p "Domeny: " -a DOMAINS
+    read -p "$(msg_n "$MSG_MD_PROMPT_DOMAINS_READ")" -a DOMAINS
     echo ""
 fi
 
 if [ ${#DOMAINS[@]} -eq 0 ]; then
-    fail "Nie podano żadnych domen!"
+    msg "$MSG_MD_NO_DOMAINS_ERR"
     exit 1
 fi
 
-# ─── Audyt DNS ───────────────────────────────────────────────
+# ─── DNS Audit ────────────────────────────────────────────────
 
-step "Audyt DNS"
+step "$(msg_n "$MSG_MD_AUDIT_HEADER")"
 
-echo "Sprawdzam rekordy dla ${#DOMAINS[@]} domen..."
+msg "$MSG_MD_AUDIT_CHECKING" "${#DOMAINS[@]}"
 echo ""
 
 SPF_RESULTS=()
@@ -439,38 +445,38 @@ for i in "${!DOMAINS[@]}"; do
     echo -e "  ${BOLD}$domain${NC}"
 
     case "${SPF_RESULTS[$i]}" in
-        OK)       ok "SPF: OK (-all)" ;;
-        SOFTFAIL) warn "SPF: ~all (softfail) — zalecane -all" ;;
-        MISSING)  fail "SPF: brak — maile będą odrzucane!" ;;
-        *)        warn "SPF: niestandardowe" ;;
+        OK)       msg "$MSG_MD_SPF_OK" ;;
+        SOFTFAIL) msg "$MSG_MD_SPF_SOFTFAIL" ;;
+        MISSING)  msg "$MSG_MD_SPF_MISSING" ;;
+        *)        msg "$MSG_MD_SPF_WEAK" ;;
     esac
     [ -n "${SPF_RAW[$i]}" ] && echo "    ${SPF_RAW[$i]}"
 
     if [ "${DKIM_EXISTING[$i]}" = "yes" ]; then
-        ok "DKIM: znalezione rekordy _domainkey w Cloudflare"
+        msg "$MSG_MD_DKIM_CF_OK"
         check_dkim_cf "$domain" 2>/dev/null || true
     else
         if $HAS_CLOUDFLARE; then
-            fail "DKIM: brak rekordów _domainkey w Cloudflare"
+            msg "$MSG_MD_DKIM_CF_MISSING"
         else
-            info "DKIM: wymaga ręcznej weryfikacji"
+            msg "$MSG_MD_DKIM_MANUAL"
         fi
     fi
 
     case "${DMARC_RESULTS[$i]}" in
-        OK) ok "DMARC: OK" ;;
-        *)  fail "DMARC: brak" ;;
+        OK) msg "$MSG_MD_DMARC_OK" ;;
+        *)  msg "$MSG_MD_DMARC_MISSING" ;;
     esac
 
     echo ""
 done
 
-# ─── SPF ─────────────────────────────────────────────────────
+# ─── SPF ──────────────────────────────────────────────────────
 
-step "Krok 1: SPF — kto może wysyłać maile z Twojej domeny"
+step "$(msg_n "$MSG_MD_SPF_STEP")"
 
-echo "SPF to rekord TXT na domenie. Mówi serwerom pocztowym:"
-echo "\"tylko te serwery mogą wysyłać maile z mojej domeny\"."
+msg "$MSG_MD_SPF_EXPLAIN"
+msg "$MSG_MD_SPF_EXPLAIN2"
 echo ""
 
 for i in "${!DOMAINS[@]}"; do
@@ -481,39 +487,38 @@ for i in "${!DOMAINS[@]}"; do
     echo -e "  ${BOLD}$domain${NC}"
 
     if [ "$spf_status" = "OK" ]; then
-        ok "SPF wygląda dobrze: $spf_current"
+        ok "$(printf "$MSG_MD_SPF_OK"): $spf_current"
         echo ""
         continue
     fi
 
-    # Zbierz include'y do dodania
     echo ""
-    echo "  Jaki SMTP wysyła maile z $domain? (zaznacz wszystkie)"
-    echo "  1) Amazon SES"
-    echo "  2) EmailLabs"
-    echo "  3) Google Workspace"
-    echo "  4) Mailgun"
-    echo "  5) Resend"
-    echo "  6) Brevo (Sendinblue)"
-    echo "  7) Postmark"
-    echo "  8) Inny (podam ręcznie)"
-    echo "  9) Pomiń"
+    msg "$MSG_MD_SPF_PROMPT_SMTP" "$domain"
+    msg "$MSG_MD_SPF_OPT_1"
+    msg "$MSG_MD_SPF_OPT_2"
+    msg "$MSG_MD_SPF_OPT_3"
+    msg "$MSG_MD_SPF_OPT_4"
+    msg "$MSG_MD_SPF_OPT_5"
+    msg "$MSG_MD_SPF_OPT_6"
+    msg "$MSG_MD_SPF_OPT_7"
+    msg "$MSG_MD_SPF_OPT_8"
+    msg "$MSG_MD_SPF_OPT_9"
     echo ""
 
     if $DRY_RUN; then
         if [ "$spf_status" = "MISSING" ]; then
-            warn "Brak SPF — trzeba utworzyć rekord"
+            msg "$MSG_MD_SPF_DRYRUN_MISSING"
         elif [ "$spf_status" = "SOFTFAIL" ]; then
-            warn "SPF używa ~all — zalecane -all"
+            msg "$MSG_MD_SPF_DRYRUN_SOFTFAIL"
         fi
-        echo "     Uruchom bez --dry-run żeby skonfigurować"
+        msg "$MSG_MD_SPF_DRYRUN_HINT"
         echo ""
         continue
     fi
 
     NEW_INCLUDES=()
     while true; do
-        read -p "  Wybierz (1-9, można wiele np. '1 2'): " -a choices
+        read -p "$(msg_n "$MSG_MD_SPF_CHOOSE")" -a choices
         echo ""
         for choice in "${choices[@]}"; do
             case "$choice" in
@@ -525,7 +530,7 @@ for i in "${!DOMAINS[@]}"; do
                 6) NEW_INCLUDES+=("include:sendinblue.com") ;;
                 7) NEW_INCLUDES+=("include:spf.mtasv.net") ;;
                 8)
-                    read -p "  Podaj include (np. include:smtp.example.com): " custom_inc
+                    read -p "$(msg_n "$MSG_MD_SPF_CUSTOM_INC")" custom_inc
                     [ -n "$custom_inc" ] && NEW_INCLUDES+=("$custom_inc")
                     ;;
                 9) ;;
@@ -539,100 +544,100 @@ for i in "${!DOMAINS[@]}"; do
         continue
     fi
 
-    # Odfiltruj już istniejące include'y
+    # Filter out already-present includes
     FILTERED_INCLUDES=()
     for inc in "${NEW_INCLUDES[@]}"; do
         if [ -n "$spf_current" ] && echo "$spf_current" | grep -q "$inc"; then
-            info "$inc — już w rekordzie"
+            msg "$MSG_MD_SPF_ALREADY" "$inc"
         else
             FILTERED_INCLUDES+=("$inc")
         fi
     done
 
     if [ ${#FILTERED_INCLUDES[@]} -eq 0 ]; then
-        ok "Wszystkie include już są w rekordzie SPF"
+        msg "$MSG_MD_SPF_ALL_OK"
         echo ""
         continue
     fi
 
-    # Zbuduj nowy rekord
+    # Build new record
     if [ -z "$spf_current" ]; then
-        # Brak SPF — stwórz od zera
         new_spf="v=spf1 ${FILTERED_INCLUDES[*]} -all"
     else
-        # Istniejący SPF — wstaw include'y przed ~all/-all/?all
         base=$(echo "$spf_current" | sed 's/[~\?\+\-]all$//')
         new_spf="${base}${FILTERED_INCLUDES[*]} -all"
     fi
 
-    # Normalizuj spacje
+    # Normalize spaces
     new_spf=$(echo "$new_spf" | tr -s ' ')
 
     echo ""
-    echo -e "  ${BOLD}Propozycja zmiany SPF:${NC}"
+    msg "$MSG_MD_SPF_PROPOSAL"
     echo ""
     if [ -n "$spf_current" ]; then
-        echo -e "  ${RED}BYŁO:  $spf_current${NC}"
+        msg "$MSG_MD_SPF_OLD" "$spf_current"
     else
-        echo -e "  ${RED}BYŁO:  (brak rekordu)${NC}"
+        msg "$MSG_MD_SPF_OLD_NONE"
     fi
-    echo -e "  ${GREEN}NOWY:  $new_spf${NC}"
+    msg "$MSG_MD_SPF_NEW" "$new_spf"
     echo ""
 
-    # Ostrzeżenie o liczbie DNS lookups (limit 10)
+    # Warn about DNS lookup count (limit 10)
     lookup_count=$(echo "$new_spf" | grep -o 'include:' | wc -l | tr -d ' ')
     if [ "$lookup_count" -gt 8 ]; then
-        warn "Uwaga: $lookup_count include'ów — limit SPF to 10 DNS lookups!"
+        msg "$MSG_MD_SPF_WARN_LOOKUPS" "$lookup_count"
     fi
 
-    echo -e "  ${YELLOW}⚠️  SPF to krytyczny rekord — błąd może zablokować WSZYSTKIE maile z domeny!${NC}"
+    msg "$MSG_MD_SPF_CRITICAL"
     echo ""
-    read -p "  Zmienić rekord SPF? (t/N) " -n 1 -r
+    read -p "$(msg_n "$MSG_MD_SPF_CONFIRM")" -n 1 -r
     echo ""
 
+    # Accept y/Y/t/T
     if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
-        info "Pominięto. Zmień ręcznie w DNS:"
-        echo "     $domain  TXT  \"$new_spf\""
+        msg "$MSG_MD_SPF_SKIP"
+        msg "$MSG_MD_SPF_SKIP_HINT" "$domain" "$new_spf"
         echo ""
         continue
     fi
 
-    # Drugie potwierdzenie
+    # Second confirmation
     echo ""
-    echo -e "  ${BOLD}${RED}Potwierdzenie — nowy rekord SPF dla $domain:${NC}"
+    msg "$MSG_MD_SPF_CONFIRM2" "$domain"
     echo "  $new_spf"
     echo ""
-    read -p "  Czy na pewno? Wpisuję TAK żeby potwierdzić: " confirm
+    read -p "$(msg_n "$MSG_MD_SPF_CONFIRM2_PROMPT")" confirm
     echo ""
 
-    if [ "$confirm" != "TAK" ]; then
-        info "Anulowano. Zmień ręcznie w DNS:"
-        echo "     $domain  TXT  \"$new_spf\""
+    confirm_word=$(msg_n "$MSG_MD_SPF_CONFIRM2_YES")
+    if [ "$confirm" != "$confirm_word" ]; then
+        msg "$MSG_MD_SPF_CANCEL"
+        msg "$MSG_MD_SPF_SKIP_HINT" "$domain" "$new_spf"
         echo ""
         continue
     fi
 
     if $HAS_CLOUDFLARE; then
         if cf_add_record "$domain" "TXT" "$domain" "$new_spf"; then
-            ok "SPF zaktualizowany dla $domain"
+            msg "$MSG_MD_SPF_CF_OK" "$domain"
         else
-            fail "Nie udało się — zmień ręcznie:"
-            echo "     $domain  TXT  \"$new_spf\""
+            msg "$MSG_MD_SPF_CF_FAIL"
+            msg "$MSG_MD_SPF_CF_HINT" "$domain" "$new_spf"
         fi
     else
-        echo "  Zmień w DNS:"
-        echo "  Typ: TXT | Nazwa: $domain | Wartość: $new_spf"
+        msg "$MSG_MD_SPF_MANUAL"
+        msg "$MSG_MD_SPF_MANUAL_HINT" "$domain" "$new_spf"
     fi
     echo ""
 done
 
-# ─── DKIM ────────────────────────────────────────────────────
+# ─── DKIM ─────────────────────────────────────────────────────
 
-step "Krok 2: DKIM — podpis cyfrowy maili"
+step "$(msg_n "$MSG_MD_DKIM_STEP")"
 
-echo "Każdy dostawca SMTP generuje unikalne rekordy DKIM."
-echo "Trzeba je pobrać z panelu dostawcy i dodać w DNS."
-echo "Domena może mieć wielu dostawców (np. SES + EmailLabs)."
+msg "$MSG_MD_DKIM_EXPLAIN"
+msg "$MSG_MD_DKIM_EXPLAIN2"
+msg "$MSG_MD_DKIM_EXPLAIN3"
 echo ""
 
 for i in "${!DOMAINS[@]}"; do
@@ -640,12 +645,12 @@ for i in "${!DOMAINS[@]}"; do
     echo -e "  ${BOLD}📧 $domain${NC}"
 
     if [ "${DKIM_EXISTING[$i]}" = "yes" ]; then
-        ok "DKIM już skonfigurowany w Cloudflare"
+        msg "$MSG_MD_DKIM_CF_ALREADY"
         if $DRY_RUN; then
             echo ""
             continue
         fi
-        read -p "  Dodać kolejne rekordy DKIM (np. dla drugiego SMTP)? (t/N) " -n 1 -r
+        read -p "$(msg_n "$MSG_MD_DKIM_ADD_MORE")" -n 1 -r
         echo ""
         if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
             echo ""
@@ -655,8 +660,8 @@ for i in "${!DOMAINS[@]}"; do
 
     if $DRY_RUN; then
         if [ "${DKIM_EXISTING[$i]}" != "yes" ]; then
-            warn "Brak DKIM — potrzebne rekordy CNAME/TXT od dostawcy SMTP"
-            echo "     Uruchom bez --dry-run żeby dodać interaktywnie"
+            msg "$MSG_MD_DKIM_DRYRUN_MISSING"
+            msg "$MSG_MD_DKIM_DRYRUN_HINT"
         fi
         echo ""
         continue
@@ -664,13 +669,13 @@ for i in "${!DOMAINS[@]}"; do
 
     while true; do
         echo ""
-        echo "  Jaki SMTP wysyła maile z $domain?"
-        echo "  1) Amazon SES"
-        echo "  2) EmailLabs"
-        echo "  3) Inny dostawca (Mailgun, Resend, Brevo, ...)"
-        echo "  4) Gotowe / pomiń"
+        msg "$MSG_MD_DKIM_PROMPT_SMTP" "$domain"
+        msg "$MSG_MD_DKIM_OPT_1"
+        msg "$MSG_MD_DKIM_OPT_2"
+        msg "$MSG_MD_DKIM_OPT_3"
+        msg "$MSG_MD_DKIM_OPT_4"
         echo ""
-        read -p "  Wybierz (1/2/3/4): " provider_choice
+        read -p "$(msg_n "$MSG_MD_DKIM_CHOOSE")" provider_choice
         echo ""
 
         case "$provider_choice" in
@@ -681,7 +686,7 @@ for i in "${!DOMAINS[@]}"; do
         esac
 
         echo ""
-        read -p "  Dodać DKIM dla kolejnego dostawcy na $domain? (t/N) " -n 1 -r
+        read -p "$(msg_n "$MSG_MD_DKIM_ADD_ANOTHER" "$domain")" -n 1 -r
         echo ""
         [[ ! $REPLY =~ ^[TtYy]$ ]] && break
     done
@@ -689,21 +694,21 @@ for i in "${!DOMAINS[@]}"; do
     echo ""
 done
 
-# ─── DMARC ──────────────────────────────────────────────────
+# ─── DMARC ────────────────────────────────────────────────────
 
-step "Krok 3: DMARC — polityka ochrony domeny"
+step "$(msg_n "$MSG_MD_DMARC_STEP")"
 
-echo "DMARC mówi serwerom co robić z mailami bez podpisu."
-echo "Zaczynamy od p=none (monitoring) — zbiera raporty, nic nie blokuje."
-echo "Po 2-4 tygodniach zaostrzysz do p=quarantine (spam)."
+msg "$MSG_MD_DMARC_EXPLAIN"
+msg "$MSG_MD_DMARC_EXPLAIN2"
+msg "$MSG_MD_DMARC_EXPLAIN3"
 echo ""
 
-# Skonsolidowany email do raportów
+# Consolidated report email
 if [ ${#DOMAINS[@]} -gt 1 ] && ! $DRY_RUN; then
-    echo "Masz ${#DOMAINS[@]} domeny. Raporty DMARC mogą trafiać na jeden adres."
-    echo "Np. dmarc@mojafirma.pl zamiast osobnego na każdej domenie."
+    msg "$MSG_MD_DMARC_CONSOLIDATED_PROMPT" "${#DOMAINS[@]}"
+    msg "$MSG_MD_DMARC_CONSOLIDATED_EX"
     echo ""
-    read -p "Email do raportów DMARC (Enter = osobny per domena): " DMARC_REPORT_EMAIL
+    read -p "$(msg_n "$MSG_MD_DMARC_CONSOLIDATED_READ")" DMARC_REPORT_EMAIL
     echo ""
 fi
 
@@ -711,7 +716,7 @@ for i in "${!DOMAINS[@]}"; do
     domain="${DOMAINS[$i]}"
 
     if [ "${DMARC_RESULTS[$i]}" = "OK" ]; then
-        ok "$domain — DMARC już skonfigurowany"
+        msg "$MSG_MD_DMARC_ALREADY" "$domain"
         continue
     fi
 
@@ -725,12 +730,12 @@ for i in "${!DOMAINS[@]}"; do
     dmarc_value="v=DMARC1; p=none; rua=mailto:$rua_email"
 
     echo -e "  ${BOLD}$domain${NC}"
-    echo "  Rekord: $dmarc_name  TXT  \"$dmarc_value\""
+    msg "$MSG_MD_DMARC_RECORD" "$dmarc_name" "$dmarc_value"
     echo ""
 
     if $HAS_CLOUDFLARE; then
         if ! $DRY_RUN; then
-            read -p "  Dodać automatycznie przez Cloudflare? (T/n) " -n 1 -r
+            read -p "$(msg_n "$MSG_MD_DMARC_CF_CONFIRM")" -n 1 -r
             echo ""
             if [[ $REPLY =~ ^[Nn]$ ]]; then
                 echo ""
@@ -739,19 +744,19 @@ for i in "${!DOMAINS[@]}"; do
         fi
         if cf_add_record "$domain" "TXT" "$dmarc_name" "$dmarc_value"; then
             if $DRY_RUN; then
-                info "DMARC: zostanie dodany dla $domain"
+                msg "$MSG_MD_DMARC_CF_WILL_ADD" "$domain"
             else
-                ok "DMARC dodany dla $domain"
+                msg "$MSG_MD_DMARC_CF_OK" "$domain"
             fi
             DMARC_ADDED=true
         else
-            fail "Nie udało się — dodaj ręcznie:"
-            echo "     Typ: TXT | Nazwa: $dmarc_name | Wartość: $dmarc_value"
+            msg "$MSG_MD_DMARC_CF_FAIL"
+            msg "$MSG_MD_DMARC_CF_HINT" "$dmarc_name" "$dmarc_value"
         fi
     else
-        echo "  Dodaj w DNS (Cloudflare):"
-        echo "  Typ: TXT | Nazwa: $dmarc_name"
-        echo "  Wartość: $dmarc_value"
+        msg "$MSG_MD_DMARC_MANUAL"
+        msg "$MSG_MD_DMARC_MANUAL_NAME" "$dmarc_name"
+        msg "$MSG_MD_DMARC_MANUAL_VALUE" "$dmarc_value"
     fi
     echo ""
 done
@@ -760,10 +765,10 @@ done
 if [ -n "$DMARC_REPORT_EMAIL" ]; then
     report_domain="${DMARC_REPORT_EMAIL#*@}"
 
-    echo -e "  ${BOLD}Cross-domain DMARC reporting:${NC}"
+    msg "$MSG_MD_DMARC_CROSS_HEADER"
     echo ""
-    echo "  Raporty z wielu domen trafiają do $DMARC_REPORT_EMAIL."
-    echo "  Każda domena (poza $report_domain) potrzebuje rekordu autoryzacji."
+    msg "$MSG_MD_DMARC_CROSS_EXPLAIN" "$DMARC_REPORT_EMAIL"
+    msg "$MSG_MD_DMARC_CROSS_EXPLAIN2" "$report_domain"
     echo ""
 
     for domain in "${DOMAINS[@]}"; do
@@ -776,26 +781,26 @@ if [ -n "$DMARC_REPORT_EMAIL" ]; then
 
         if $HAS_CLOUDFLARE; then
             if cf_add_record "$domain" "TXT" "$auth_name" "$auth_value"; then
-                ok "Auth record: $domain → $report_domain"
+                msg "$MSG_MD_DMARC_CROSS_CF_OK" "$domain" "$report_domain"
             else
-                fail "Nie udało się dodać auth record"
-                echo "     Dodaj ręcznie w strefie $domain:"
-                echo "     Typ: TXT | Nazwa: $auth_name | Wartość: $auth_value"
+                msg "$MSG_MD_DMARC_CROSS_CF_FAIL"
+                msg "$MSG_MD_DMARC_CROSS_MANUAL" "$domain"
+                msg "$MSG_MD_DMARC_CROSS_MANUAL_HINT" "$auth_name" "$auth_value"
             fi
         else
-            echo "     Dodaj w strefie DNS $domain:"
-            echo "     Typ: TXT | Nazwa: $auth_name | Wartość: $auth_value"
+            msg "$MSG_MD_DMARC_CROSS_MANUAL" "$domain"
+            msg "$MSG_MD_DMARC_CROSS_MANUAL_HINT" "$auth_name" "$auth_value"
         fi
     done
     echo ""
 fi
 
-# ─── Weryfikacja DNS ─────────────────────────────────────────
+# ─── DNS Verification ─────────────────────────────────────────
 
 if $HAS_CLOUDFLARE && { [ ${#DKIM_ADDED_NAMES[@]} -gt 0 ] || $DMARC_ADDED; }; then
-    step "Weryfikacja DNS"
+    step "$(msg_n "$MSG_MD_VERIFY_STEP")"
 
-    echo "Sprawdzam propagację (Cloudflare = zwykle natychmiastowa)..."
+    msg "$MSG_MD_VERIFY_CHECKING"
     echo ""
     $DRY_RUN || sleep 2
 
@@ -803,113 +808,113 @@ if $HAS_CLOUDFLARE && { [ ${#DKIM_ADDED_NAMES[@]} -gt 0 ] || $DMARC_ADDED; }; th
         result=$(dig CNAME "$name" +short 2>/dev/null || true)
         [ -z "$result" ] && result=$(dig TXT "$name" +short 2>/dev/null | tr -d '"' || true)
         if [ -n "$result" ]; then
-            ok "DKIM: $name → $(echo "$result" | head -1)"
+            msg "$MSG_MD_VERIFY_DKIM_OK" "$name" "$(echo "$result" | head -1)"
         else
-            warn "DKIM: $name — jeszcze nie widoczny (poczekaj 1-5 min)"
+            msg "$MSG_MD_VERIFY_DKIM_WAIT" "$name"
         fi
     done
 
     for domain in "${DOMAINS[@]}"; do
         dmarc=$(dig TXT "_dmarc.$domain" +short 2>/dev/null | tr -d '"' || true)
         if echo "$dmarc" | grep -qi 'DMARC1'; then
-            ok "DMARC: _dmarc.$domain"
+            msg "$MSG_MD_DMARC_OK"
         fi
     done
     echo ""
 fi
 
-# ─── Bounce handling (SES) ───────────────────────────────────
+# ─── Bounce handling (SES) ────────────────────────────────────
 
-step "Krok 4: Bounce handling — ochrona reputacji"
+step "$(msg_n "$MSG_MD_BOUNCE_STEP")"
 
-echo "Bounce handling automatycznie blokuje nieistniejące adresy email."
-echo "Bez tego Amazon SES może zawiesić konto po zbyt wielu bounce'ach."
+msg "$MSG_MD_BOUNCE_EXPLAIN"
+msg "$MSG_MD_BOUNCE_EXPLAIN2"
 echo ""
 
 if [ -n "$WEBHOOK_URL" ]; then
-    echo -e "${BOLD}Konfiguracja AWS SNS → webhook:${NC}"
+    msg "$MSG_MD_BOUNCE_SNS_HEADER"
     echo ""
-    echo "  Dla każdej domeny potrzebujesz osobne SNS topics (bounce + complaint)."
+    msg "$MSG_MD_BOUNCE_SNS_EXPLAIN"
     echo ""
-    echo "  1. AWS SNS Console → Create topic (dla każdej domeny × 2):"
+    msg "$MSG_MD_BOUNCE_SNS_STEP1"
     for domain in "${DOMAINS[@]}"; do
         prefix=$(echo "$domain" | cut -d. -f1 | head -c10)
-        echo "     • ${prefix}-ses-bounces    (Standard)"
-        echo "     • ${prefix}-ses-complaints (Standard)"
+        msg "$MSG_MD_BOUNCE_SNS_BOUNCE" "$prefix"
+        msg "$MSG_MD_BOUNCE_SNS_COMPLAINT" "$prefix"
     done
     echo ""
-    echo "  2. W każdym topiku → Create subscription:"
-    echo "     • Protocol: HTTPS"
-    echo "     • Endpoint: $WEBHOOK_URL"
-    echo "     Mailer automatycznie potwierdzi subskrypcję."
+    msg "$MSG_MD_BOUNCE_SNS_STEP2"
+    msg "$MSG_MD_BOUNCE_SNS_PROTO"
+    msg "$MSG_MD_BOUNCE_SNS_ENDPOINT" "$WEBHOOK_URL"
+    msg "$MSG_MD_BOUNCE_SNS_AUTO"
     echo ""
-    echo "  3. AWS SES Console → Verified Identities → każda domena:"
-    echo "     • Notifications → Edit"
-    echo "     • Bounce: wybierz odpowiedni topic *-bounces"
-    echo "     • Complaint: wybierz odpowiedni topic *-complaints"
+    msg "$MSG_MD_BOUNCE_SNS_STEP3"
+    msg "$MSG_MD_BOUNCE_SNS_NOTIF"
+    msg "$MSG_MD_BOUNCE_SNS_BOUNCE_ASSIGN"
+    msg "$MSG_MD_BOUNCE_SNS_COMP_ASSIGN"
     echo ""
 
     open_url "https://console.aws.amazon.com/sns/v3/home#/topics"
 
     if ! $DRY_RUN; then
-        read -p "Naciśnij Enter gdy skonfigurujesz SNS (lub 's' żeby pominąć): " _skip
+        read -p "$(msg_n "$MSG_MD_BOUNCE_SNS_PRESS_ENTER")" _skip
         echo ""
     fi
 else
-    echo "  Jeśli używasz Amazon SES, skonfiguruj bounce handling:"
-    echo "  • Utwórz SNS topics (bounce + complaint) per domena"
-    echo "  • Dodaj subscription HTTPS → webhook URL Twojego mailera"
-    echo "  • W SES → domena → Notifications → podepnij topics"
+    msg "$MSG_MD_BOUNCE_NO_URL"
+    msg "$MSG_MD_BOUNCE_NO_URL_SNS"
+    msg "$MSG_MD_BOUNCE_NO_URL_SUB"
+    msg "$MSG_MD_BOUNCE_NO_URL_SES"
     echo ""
-    echo "  Użyj --webhook-url=URL żeby zobaczyć pełne instrukcje."
+    msg "$MSG_MD_BOUNCE_NO_URL_TIP"
     echo ""
 fi
 
-# ─── Podsumowanie ────────────────────────────────────────────
+# ─── Summary ──────────────────────────────────────────────────
 
-step "Podsumowanie — konfiguracja DNS"
+step "$(msg_n "$MSG_MD_SUMMARY_STEP")"
 
-echo "┌──────────────────────────────────────────────────────────┐"
-echo "│  Co zostało zrobione:                                    │"
-echo "├──────────────────────────────────────────────────────────┤"
+msg "$MSG_MD_SUMMARY_BOX1"
+msg "$MSG_MD_SUMMARY_BOX2"
+msg "$MSG_MD_SUMMARY_BOX3"
 if [ ${#DKIM_ADDED_NAMES[@]} -gt 0 ]; then
-echo "│  ✅ DKIM — rekordy DNS dodane                            │"
+msg "$MSG_MD_SUMMARY_DKIM_ADDED"
 elif [ -n "$(printf '%s' "${DKIM_EXISTING[@]}" | grep yes)" ]; then
-echo "│  ✅ DKIM — rekordy już istniały                          │"
+msg "$MSG_MD_SUMMARY_DKIM_EXISTED"
 else
-echo "│  ⚠️  DKIM — sprawdź czy rekordy zostały dodane            │"
+msg "$MSG_MD_SUMMARY_DKIM_CHECK"
 fi
 DMARC_ALL_OK=true
 for i in "${!DOMAINS[@]}"; do
     [ "${DMARC_RESULTS[$i]}" != "OK" ] && ! $DMARC_ADDED && DMARC_ALL_OK=false
 done
 if $DMARC_ADDED; then
-echo "│  ✅ DMARC — polityka p=none (monitoring)                 │"
+msg "$MSG_MD_SUMMARY_DMARC_ADDED"
 elif $DMARC_ALL_OK; then
-echo "│  ✅ DMARC — rekordy już istniały                          │"
+msg "$MSG_MD_SUMMARY_DMARC_EXISTED"
 else
-echo "│  ⚠️  DMARC — sprawdź czy rekord został dodany             │"
+msg "$MSG_MD_SUMMARY_DMARC_CHECK"
 fi
 if [ -n "$DMARC_REPORT_EMAIL" ]; then
-echo "│  ✅ DMARC auth — cross-domain reporting                  │"
+msg "$MSG_MD_SUMMARY_DMARC_AUTH"
 fi
-echo "└──────────────────────────────────────────────────────────┘"
+msg "$MSG_MD_SUMMARY_BOX4"
 echo ""
-echo -e "${BOLD}📋 Następne kroki:${NC}"
+msg "$MSG_MD_NEXT_STEPS"
 echo ""
-echo "  1. Wyślij testowego maila i sprawdź nagłówki:"
-echo "     Szukaj: dkim=pass, spf=pass, dmarc=pass"
-echo "     Narzędzie: https://www.mail-tester.com"
+msg "$MSG_MD_NEXT_1"
+msg "$MSG_MD_NEXT_1B"
+msg "$MSG_MD_NEXT_1C"
 echo ""
-echo "  2. Za 2-4 tygodnie zaaostrzyj DMARC:"
+msg "$MSG_MD_NEXT_2"
 for domain in "${DOMAINS[@]}"; do
     rua_email="${DMARC_REPORT_EMAIL:-dmarc-reports@$domain}"
-    echo "     _dmarc.$domain → \"v=DMARC1; p=quarantine; rua=mailto:$rua_email\""
+    msg "$MSG_MD_NEXT_2B" "$domain" "$rua_email"
 done
 echo ""
 if [ -n "$DMARC_REPORT_EMAIL" ]; then
-echo "  3. Utwórz alias $DMARC_REPORT_EMAIL — inaczej raporty nie mają gdzie trafiać"
+msg "$MSG_MD_NEXT_3" "$DMARC_REPORT_EMAIL"
 echo ""
 fi
-echo "  4. Upewnij się że wszystkie domeny mają SPF -all (nie ~all)"
+msg "$MSG_MD_NEXT_4"
 echo ""

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Mock df — returns configurable disk output
+# Set MOCK_DF_AVAILABLE (in MB)
+
+TOTAL="${MOCK_DF_TOTAL:-20480}"
+USED="${MOCK_DF_USED:-10240}"
+AVAILABLE="${MOCK_DF_AVAILABLE:-10240}"
+USE_PCT="${MOCK_DF_USE_PCT:-50%}"
+
+if [ "$1" = "-m" ]; then
+    echo "Filesystem     1M-blocks  Used Available Use% Mounted on"
+    echo "/dev/sda1          $TOTAL  $USED     $AVAILABLE  $USE_PCT /"
+fi

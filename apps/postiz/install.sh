@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mikrus Toolbox - Postiz
+# StackPilot - Postiz
 # AI-powered social media scheduling tool. Alternative to Buffer/Hootsuite.
 # https://github.com/gitroomhq/postiz-app
 # Author: Paweł (Lazy Engineer)
@@ -8,7 +8,7 @@
 # IMAGE_SIZE_MB=3500  # Postiz + Temporal + PostgreSQL + Redis (bez ES)
 # DB_BUNDLED=true
 #
-# ⚠️  UWAGA: Postiz wymaga DEDYKOWANEGO serwera (Mikrus 3.5+, min. 4GB RAM)!
+# ⚠️  WARNING: Postiz requires a dedicated server (min. 4GB RAM)!
 #     Postiz (Next.js + Nest.js + nginx + workers + cron) = ~3GB (webpack build peak ~2.2GB)
 #     Temporal + PostgreSQL = ~0.5-0.7GB
 #     Razem: ~3.5-4GB RAM
@@ -107,7 +107,7 @@ if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 3500 ]; then
     echo "║  ⚠️  UWAGA: Postiz + Temporal zaleca minimum 4GB RAM!        ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
     echo "║  Twój serwer: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Zalecane:    4096MB RAM (Mikrus 3.5+)                       ║"
+    echo "║  Zalecane:    4096MB RAM                                     ║"
     echo "║                                                              ║"
     echo "║  Postiz (~3GB) + Temporal + PG + Redis = ~3.5-4GB RAM       ║"
     echo "║  Na serwerze <4GB mogą być problemy ze stabilnością.         ║"
@@ -138,7 +138,7 @@ fi
 # =============================================================================
 # REDIS — BUNDLED vs EXTERNAL (auto-detekcja)
 # =============================================================================
-source /opt/mikrus-toolbox/lib/redis-detect.sh 2>/dev/null || true
+source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
     detect_redis "${POSTIZ_REDIS:-auto}" "postiz-redis"
 else
@@ -420,7 +420,7 @@ sudo docker compose up -d
 
 # Health check - Temporal + Postiz potrzebują więcej czasu na start
 echo "⏳ Czekam na uruchomienie Postiz (~90-120s, Temporal + Next.js)..."
-source /opt/mikrus-toolbox/lib/health-check.sh 2>/dev/null || true
+source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 120 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else
@@ -485,10 +485,10 @@ echo "   1. Utwórz konto administratora w przeglądarce"
 echo "   2. Wyłącz rejestrację (komenda poniżej!)"
 echo "   3. Uzupełnij klucze API w pliku .env:"
 echo ""
-echo "      ssh ${SSH_ALIAS:-mikrus} 'nano $STACK_DIR/.env'"
+echo "      ssh ${SSH_ALIAS:-vps} 'nano $STACK_DIR/.env'"
 echo ""
 echo "      Uzupełnij pary KEY/SECRET tylko dla platform, z których korzystasz."
-echo "      Po zapisaniu: ssh ${SSH_ALIAS:-mikrus} 'cd $STACK_DIR && docker compose up -d'"
+echo "      Po zapisaniu: ssh ${SSH_ALIAS:-vps} 'cd $STACK_DIR && docker compose up -d'"
 echo "      Docs: https://docs.postiz.com/providers"
 echo ""
 echo "   ⚠️  Ważne uwagi przy konfiguracji providerów:"
@@ -500,4 +500,4 @@ echo "   • Threads: złożona konfiguracja — przeczytaj docs.postiz.com/prov
 echo "   • Discord/Slack: ikona aplikacji jest wymagana (bez niej błąd 404)"
 echo ""
 echo "🔒 WAŻNE — wyłącz rejestrację po utworzeniu konta:"
-echo "   ssh ${SSH_ALIAS:-mikrus} 'cd $STACK_DIR && sed -i \"/IS_GENERAL/a\\\\      - DISABLE_REGISTRATION=true\" docker-compose.yaml && docker compose up -d'"
+echo "   ssh ${SSH_ALIAS:-vps} 'cd $STACK_DIR && sed -i \"/IS_GENERAL/a\\\\      - DISABLE_REGISTRATION=true\" docker-compose.yaml && docker compose up -d'"

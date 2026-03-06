@@ -19,6 +19,12 @@
 #   $1 - mode: auto|external|bundled
 #   $2 - bundled Redis service name (default: "redis")
 
+# i18n
+_RD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${TOOLBOX_LANG+x}" ]; then
+    source "$_RD_DIR/i18n.sh"
+fi
+
 detect_redis() {
     local MODE="${1:-auto}"
     local BUNDLED_NAME="${2:-redis}"
@@ -34,20 +40,20 @@ detect_redis() {
     if [ "$MODE" = "external" ]; then
         if _redis_listening; then
             REDIS_HOST="host-gateway"
-            echo "✅ Redis: external (host, forced)"
+            msg "$MSG_REDIS_EXTERNAL_FORCED"
         else
-            echo "⚠️  Redis external: nothing listening on localhost:6379"
-            echo "   Using bundled Redis instead."
+            msg "$MSG_REDIS_EXTERNAL_FALLBACK"
+            msg "$MSG_REDIS_EXTERNAL_FALLBACK_HINT"
             REDIS_HOST="$BUNDLED_NAME"
         fi
     elif [ "$MODE" = "bundled" ]; then
         REDIS_HOST="$BUNDLED_NAME"
-        echo "✅ Redis: bundled (forced)"
+        msg "$MSG_REDIS_BUNDLED_FORCED"
     elif _redis_listening; then
         REDIS_HOST="host-gateway"
-        echo "✅ Redis: external (detected on localhost:6379)"
+        msg "$MSG_REDIS_EXTERNAL_DETECTED"
     else
         REDIS_HOST="$BUNDLED_NAME"
-        echo "✅ Redis: bundled (no existing instance found)"
+        msg "$MSG_REDIS_BUNDLED_DEFAULT"
     fi
 }

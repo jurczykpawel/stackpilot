@@ -8,40 +8,43 @@
 #   bash local/setup-ssh.sh
 #   bash <(curl -s https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/setup-ssh.sh)
 
+# Load i18n (standalone — no lib sourced)
+_SSHC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_SSHC_DIR/../lib/i18n.sh"
+GREEN="${GREEN:-\033[0;32m}"
+BLUE="${BLUE:-\033[0;34m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+RED="${RED:-\033[0;31m}"
+NC="${NC:-\033[0m}"
+
 # This script only runs on the local machine (configures SSH TO the server)
 if [ -f /opt/stackpilot/.server-marker ]; then
-    echo "This script only runs on the local machine (not on the server)."
+    msg "$MSG_SSHC_LOCAL_ONLY"
     exit 1
 fi
 
-GREEN='\x1b[0;32m'
-BLUE='\x1b[0;34m'
-YELLOW='\x1b[1;33m'
-RED='\x1b[0;31m'
-NC='\x1b[0m'
-
 clear
-echo -e "${BLUE}=================================================${NC}"
-echo -e "${BLUE}   🚀 SSH CONFIGURATOR                           ${NC}"
-echo -e "${BLUE}=================================================${NC}"
+msg "$MSG_SSHC_HEADER_LINE"
+msg "$MSG_SSHC_HEADER_TITLE"
+msg "$MSG_SSHC_HEADER_LINE"
 echo ""
-echo -e "This script will configure the SSH connection to your server,"
-echo -e "so you can connect by simply typing: ${GREEN}ssh vps${NC}"
-echo -e "(no password needed each time!)"
+msg "$MSG_SSHC_INTRO"
+msg "$MSG_SSHC_INTRO2"
+msg "$MSG_SSHC_INTRO3"
 echo ""
-echo -e "${YELLOW}Prepare the server details (Host, Port, Password).${NC}"
+msg "$MSG_SSHC_PREPARE"
 echo ""
 
 # 1. Collect data
-read -p "Enter hostname (e.g. srv20.example.com): " HOST
-read -p "Enter SSH port number (e.g. 10107): " PORT
-read -p "Enter username (default: root): " USER
+read -p "$(msg_n "$MSG_SSHC_PROMPT_HOST")" HOST
+read -p "$(msg_n "$MSG_SSHC_PROMPT_PORT")" PORT
+read -p "$(msg_n "$MSG_SSHC_PROMPT_USER")" USER
 USER=${USER:-root}
-read -p "SSH alias - what do you want to call this server? (default: vps): " ALIAS
+read -p "$(msg_n "$MSG_SSHC_PROMPT_ALIAS")" ALIAS
 ALIAS=${ALIAS:-vps}
 
 if [[ -z "$HOST" || -z "$PORT" ]]; then
-    echo -e "${RED}Error: Host and Port are required!${NC}"
+    msg "$MSG_SSHC_MISSING"
     exit 1
 fi
 
@@ -50,23 +53,23 @@ echo ""
 # 2. Generate SSH key (if it doesn't exist)
 KEY_PATH="$HOME/.ssh/id_ed25519"
 if [ ! -f "$KEY_PATH" ]; then
-    echo -e "${YELLOW}Generating new SSH key (Ed25519)...${NC}"
+    msg "$MSG_SSHC_KEY_GENERATING"
     mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
     ssh-keygen -t ed25519 -f "$KEY_PATH" -N "" -C "vps_key"
-    echo -e "${GREEN}✅ Key generated.${NC}"
+    msg "$MSG_SSHC_KEY_GENERATED"
 else
-    echo -e "${GREEN}✅ SSH key already exists.${NC}"
+    msg "$MSG_SSHC_KEY_EXISTS"
 fi
 
 # 3. Copy key to server
 echo ""
-echo -e "${YELLOW}Now enter the server password (one-time):${NC}"
+msg "$MSG_SSHC_COPY_KEY"
 echo ""
 
 ssh-copy-id -i "$KEY_PATH.pub" -p "$PORT" "$USER@$HOST"
 
 if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Error sending key. Check the password and try again.${NC}"
+    msg "$MSG_SSHC_COPY_FAIL"
     exit 1
 fi
 
@@ -75,7 +78,7 @@ CONFIG_FILE="$HOME/.ssh/config"
 [ ! -f "$CONFIG_FILE" ] && touch "$CONFIG_FILE" && chmod 600 "$CONFIG_FILE"
 
 if grep -q "^Host $ALIAS$" "$CONFIG_FILE"; then
-    echo -e "${YELLOW}Alias '$ALIAS' already exists in ~/.ssh/config. Skipping.${NC}"
+    msg "$MSG_SSHC_ALIAS_EXISTS" "$ALIAS"
 else
     cat >> "$CONFIG_FILE" <<EOF
 
@@ -86,11 +89,11 @@ Host $ALIAS
     IdentityFile $KEY_PATH
     ServerAliveInterval 60
 EOF
-    echo -e "${GREEN}✅ Added alias '$ALIAS' to ~/.ssh/config${NC}"
+    msg "$MSG_SSHC_ALIAS_ADDED" "$ALIAS"
 fi
 
 echo ""
-echo -e "${GREEN}✅ Done! Connect by typing:${NC}"
+msg "$MSG_SSHC_DONE"
 echo ""
-echo -e "   ${GREEN}ssh $ALIAS${NC}"
+msg "$MSG_SSHC_CONNECT" "$ALIAS"
 echo ""
