@@ -205,7 +205,11 @@ fi
 # LOAD SAVED CONFIGURATION (for Sellf)
 # =============================================================================
 
-SELLF_CONFIG="$HOME/.config/sellf/deploy-config.env"
+SELLF_CONFIG="$HOME/.config/stackpilot/sellf/deploy-config.env"
+# Fallback to legacy path for backwards compatibility
+if [ ! -f "$SELLF_CONFIG" ] && [ -f "$HOME/.config/sellf/deploy-config.env" ]; then
+    SELLF_CONFIG="$HOME/.config/sellf/deploy-config.env"
+fi
 if [ -f "$SELLF_CONFIG" ] && [[ "$SCRIPT_PATH" == "sellf" ]]; then
     # Preserve CLI values (they take priority over config)
     CLI_SSH_ALIAS="$SSH_ALIAS"

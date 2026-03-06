@@ -16,7 +16,7 @@ export const setupSellfTool = {
     "This is a multi-step tool:\n" +
     "  1. Call with no params → opens browser for Supabase login, returns instructions\n" +
     "  2. Call with verification_code → exchanges code for token, returns project list\n" +
-    "  3. Call with project_ref → fetches API keys and saves config to ~/.config/sellf/deploy-config.env\n\n" +
+    "  3. Call with project_ref → fetches API keys and saves config to ~/.config/stackpilot/sellf/deploy-config.env\n\n" +
     "After setup is complete, deploy_app(app_name='sellf') will use the saved config automatically.\n" +
     "The only user input needed in conversation is a one-time verification code (not a secret) and project selection.",
   inputSchema: {
@@ -243,7 +243,7 @@ export async function handleSetupSellf(
             `Fallback: Ask the user to create a Personal Access Token manually:\n` +
             `1. Open: https://supabase.com/dashboard/account/tokens\n` +
             `2. Click "Generate new token"\n` +
-            `3. Create the config file ~/.config/sellf/deploy-config.env manually\n` +
+            `3. Create the config file ~/.config/stackpilot/sellf/deploy-config.env manually\n` +
             `   (see deploy_app tool for the required format)`,
         }],
       };

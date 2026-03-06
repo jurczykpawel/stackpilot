@@ -20,8 +20,14 @@ NC="${NC:-\033[0m}"
 # Configuration paths
 SUPABASE_CONFIG_DIR="${SUPABASE_CONFIG_DIR:-$HOME/.config/supabase}"
 SUPABASE_TOKEN_FILE="${SUPABASE_TOKEN_FILE:-$HOME/.config/supabase/access_token}"
-SELLF_CONFIG_DIR="${SELLF_CONFIG_DIR:-$HOME/.config/sellf}"
-SELLF_SUPABASE_CONFIG="${SELLF_SUPABASE_CONFIG:-$HOME/.config/sellf/supabase.env}"
+SELLF_CONFIG_DIR="${SELLF_CONFIG_DIR:-$HOME/.config/stackpilot/sellf}"
+SELLF_SUPABASE_CONFIG="${SELLF_SUPABASE_CONFIG:-$HOME/.config/stackpilot/sellf/supabase.env}"
+
+# Migrate from legacy config path if needed
+if [ ! -d "$SELLF_CONFIG_DIR" ] && [ -d "$HOME/.config/sellf" ]; then
+    mkdir -p "$(dirname "$SELLF_CONFIG_DIR")"
+    cp -r "$HOME/.config/sellf" "$SELLF_CONFIG_DIR"
+fi
 
 # =============================================================================
 # SUPABASE TOKEN MANAGEMENT

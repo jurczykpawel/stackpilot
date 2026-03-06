@@ -79,7 +79,7 @@ if [ -n "$DOMAIN_TYPE" ]; then
 fi
 
 # Configuration
-CONFIG_FILE="$HOME/.config/sellf/deploy-config.env"
+CONFIG_FILE="$HOME/.config/stackpilot/sellf/deploy-config.env"
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"

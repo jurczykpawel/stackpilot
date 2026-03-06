@@ -511,7 +511,7 @@ if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
 
     # Check if we have Supabase configuration
     SUPABASE_TOKEN_FILE="$HOME/.config/supabase/access_token"
-    SELLF_CONFIG="$HOME/.config/sellf/supabase.env"
+    SELLF_CONFIG="$HOME/.config/stackpilot/sellf/supabase.env"
 
     if [ -f "$SUPABASE_TOKEN_FILE" ] && [ -f "$SELLF_CONFIG" ]; then
         echo ""

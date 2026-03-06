@@ -126,7 +126,7 @@ Automatic mode requires **pre-collected keys** using the configuration script.
 ./local/setup-sellf-config.sh
 ```
 
-The script collects and saves to `~/.config/sellf/deploy-config.env`:
+The script collects and saves to `~/.config/stackpilot/sellf/deploy-config.env`:
 - Supabase token + project keys
 - Stripe keys (optional)
 - Turnstile keys (optional)
@@ -313,7 +313,7 @@ The `--yes` flag means:
 **Situation:** You wiped the server but have saved configuration.
 
 ```bash
-# Configuration is in ~/.config/sellf/deploy-config.env
+# Configuration is in ~/.config/stackpilot/sellf/deploy-config.env
 # Just run:
 ./local/deploy.sh sellf --ssh=ALIAS --yes
 
@@ -419,7 +419,7 @@ ssh ALIAS "grep SUPABASE_URL /opt/stacks/sellf-*/admin-panel/.env.local"
 ### On the local machine
 
 ```
-~/.config/sellf/
+~/.config/stackpilot/sellf/
 +-- deploy-config.env    # Main configuration (setup-sellf-config.sh)
 +-- supabase.env         # Backup of Supabase keys
 

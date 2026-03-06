@@ -30,7 +30,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-CONFIG_DIR="$HOME/.config/sellf"
+CONFIG_DIR="$HOME/.config/stackpilot/sellf"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
 echo ""

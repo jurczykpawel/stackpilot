@@ -265,3 +265,16 @@ Phase 7 po wszystkim.
 - Nie ruszamy MCP server (mcp-server/) w tym refaktorze — ma swoje testy
 - Apps install.sh — minimalne zmiany (głównie health-check messages → i18n)
 - Stale mikrus references w stackpilot do wyczyszczenia: postiz, routepix, subtitle-burner
+
+## Post-Audyt Fixy (zrobione po zakończeniu refaktoru)
+
+Audyt porównawczy mikrus-toolbox → stackpilot wykrył i naprawił:
+
+1. **`apps/supabase/` przeniesiony** — self-hosted Supabase (10 kontenerów, ~4GB obrazów, 2GB+ RAM).
+   Przetłumaczony na angielski, `mikrus-expose` → `sp-expose`, config w `~/.config/stackpilot/supabase/`.
+
+2. **Ścieżka config sellf zmieniona** — `~/.config/sellf/` → `~/.config/stackpilot/sellf/`.
+   Backwards-compatible fallback w `deploy.sh` i `sellf-setup.sh` (auto-migracja jeśli stary katalog istnieje).
+   Pliki zaktualizowane: `lib/sellf-setup.sh`, `local/setup-gateflow-config.sh`, `local/setup-supabase-gateflow.sh`,
+   `local/setup-stripe-gateflow.sh`, `local/setup-supabase-migrations.sh`, `local/setup-turnstile.sh`,
+   `local/deploy.sh`, `locale/en.sh`, `locale/pl.sh`, `apps/gateflow/README.md`, `mcp-server/src/tools/setup-sellf.ts`.

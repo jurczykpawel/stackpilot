@@ -25,7 +25,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-CONFIG_DIR="$HOME/.config/sellf"
+CONFIG_DIR="$HOME/.config/stackpilot/sellf"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
 echo ""
@@ -237,7 +237,7 @@ echo ""
 echo "Configuration saved in: $CONFIG_FILE"
 echo ""
 echo "Usage with deploy.sh:"
-echo "   source ~/.config/sellf/supabase.env"
+echo "   source ~/.config/stackpilot/sellf/supabase.env"
 echo "   ./local/deploy.sh sellf --ssh=vps --domain=gf.example.com"
 echo ""
 echo "Or manually:"
