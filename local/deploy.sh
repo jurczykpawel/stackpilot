@@ -420,13 +420,13 @@ fi
 # PHASE 0: SERVER RESOURCE CHECK
 # =============================================================================
 
-# Detect RAM requirements from docker-compose (memory limit)
+# Detect RAM requirements from docker-compose (sum of all memory limits)
 REQUIRED_RAM=256  # default
 if grep -q "memory:" "$SCRIPT_PATH" 2>/dev/null; then
-    # Portable version (without grep -P which doesn't work on macOS)
-    MEM_LIMIT=$(grep "memory:" "$SCRIPT_PATH" | sed -E 's/[^0-9]*([0-9]+).*/\1/' | head -1)
-    if [ -n "$MEM_LIMIT" ]; then
-        REQUIRED_RAM=$MEM_LIMIT
+    # Sum all memory: limits across all containers in the script
+    MEM_TOTAL=$(grep "memory:" "$SCRIPT_PATH" | sed -E 's/[^0-9]*([0-9]+)[MmGg]?.*/\1/' | awk '{s+=$1} END {print s}')
+    if [ -n "$MEM_TOTAL" ] && [ "$MEM_TOTAL" -gt 0 ]; then
+        REQUIRED_RAM=$MEM_TOTAL
     fi
 fi
 
