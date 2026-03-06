@@ -112,7 +112,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 600M  # Prevent n8n from killing the server
+          memory: 800M  # n8n itself; bundled postgres adds ~256M on top
 
 EOF
 

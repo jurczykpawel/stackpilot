@@ -216,18 +216,7 @@ suite_deploy_postgres() {
 
     if [ "$QUICK" = false ]; then
         e2e_test "listmonk" "9000" "200 302"     "120" "--domain-type=local --db-source=bundled --yes"
-        # n8n needs ~800MB (600M app + 200M postgres bundled) — skip on small VPS
-        local n8n_ram
-        n8n_ram=$(get_server_ram)
-        if [ -n "$n8n_ram" ] && [ "$n8n_ram" -lt 800 ]; then
-            echo ""
-            echo -e "${E2E_BLUE}▸ $((E2E_PASS + E2E_FAIL + E2E_SKIP + 1)) n8n${E2E_NC} (port 5678)"
-            echo -e "  ${E2E_YELLOW}SKIP: n8n requires 800MB RAM (bundled postgres + 600M app limit), only ${n8n_ram}MB available${E2E_NC}"
-            E2E_RESULTS+=("SKIP|n8n|requires 800MB RAM (only ${n8n_ram}MB available)")
-            E2E_SKIP=$((E2E_SKIP + 1))
-        else
-            e2e_test "n8n" "5678" "200 302" "180" "--domain-type=local --db-source=bundled --yes"
-        fi
+        e2e_test "n8n"      "5678" "200 302"     "180" "--domain-type=local --db-source=bundled --yes"
     fi
 }
 
