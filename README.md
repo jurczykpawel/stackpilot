@@ -518,6 +518,13 @@ StackPilot includes a comprehensive test suite:
 # Run E2E integration tests on a real server
 ./tests/run.sh e2e --ssh=your-vps
 
+# Quick mode: ~3-4 apps per suite, ~10-15 minutes
+./tests/run.sh e2e --ssh=your-vps --quick
+
+# Single suite or single app
+./tests/run.sh e2e --ssh=your-vps --suite=deploy-no-db
+./tests/run.sh e2e --ssh=your-vps --app=ntfy
+
 # Run everything
 ./tests/run.sh all --ssh=your-vps
 ```
@@ -526,7 +533,29 @@ StackPilot includes a comprehensive test suite:
 | :--- | :--- | :--- | :--- |
 | Unit | 67 | <1s | CLI parser, i18n, DB setup, domain setup, ports, resources, providers |
 | Static | 4 | ~8s | ShellCheck (95 files), install.sh contract, compose syntax, locale coverage |
-| E2E | TBD | ~5min | Real deployments on a test server |
+| E2E (quick) | ~15 | ~15min | Core apps on a real server: deploy, health, cleanup |
+| E2E (full) | ~30 | ~45-60min | All 30 apps — auto-skips apps that exceed server resources |
+
+**E2E suites:**
+
+| Suite | Apps tested | Requirement |
+| :--- | :--- | :--- |
+| `deploy-no-db` | ntfy, uptime-kuma, filebrowser, minio, gotenberg, linkstack | SSH access |
+| `deploy-postgres` | umami, nocodb, listmonk, n8n, typebot, affine, postiz | SSH access |
+| `deploy-mysql` | wordpress | SSH access |
+| `deploy-tcp` | redis, mcp-docker | SSH access |
+| `domain-cloudflare` | ntfy, littlelink, cookie-hub | Cloudflare API token |
+| `domain-caddy` | ntfy | Public domain + IPv6 |
+| `provider-mikrus` | provider detection, shared DB | Mikrus VPS (`/klucz_api`) |
+| `cytrus-domain` | ntfy via auto-subdomain | Mikrus VPS |
+| `backup-flow` | umami + postgres backup | SSH access |
+| `static-hosting` | Caddy file_server + CF DNS | Cloudflare API token |
+| `php-hosting` | Caddy + PHP-FPM | Cloudflare API token |
+| `health-check` | static analysis + runtime | SSH access |
+| `update-flow` | deploy → stop → re-deploy | SSH access |
+| `i18n` | ntfy with `TOOLBOX_LANG=pl` | SSH access |
+
+Apps that require more RAM/disk than the server has are automatically **skipped** (not failed). On a 1GB VPS the heavy apps (typebot, affine, postiz, crawl4ai) skip; on a 2-4GB VPS they run.
 
 CI runs unit + static tests on every push and PR. E2E tests run nightly or on-demand.
 
