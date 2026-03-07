@@ -78,8 +78,8 @@ EOF
 
 # Append bundled database service if using bundled DB
 if [ -n "$BUNDLED_DB_TYPE" ]; then
-    # Add depends_on to main service
-    sudo sed -i '/restart: always/a\    depends_on:\n      - db' docker-compose.yaml
+    # Add depends_on with health condition to avoid race on DB init
+    sudo sed -i '/restart: always/a\    depends_on:\n      db:\n        condition: service_healthy' docker-compose.yaml
 
     if [ "$BUNDLED_DB_TYPE" = "postgres" ]; then
         cat <<DBEOF | sudo tee -a docker-compose.yaml > /dev/null
@@ -92,6 +92,11 @@ if [ -n "$BUNDLED_DB_TYPE" ]; then
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     deploy:
       resources:
         limits:
