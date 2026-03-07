@@ -21,6 +21,15 @@ cleanup_app() {
     # Prune only dangling (untagged) images — keep named images for reuse
     ssh "$E2E_SSH" "docker image prune -f" >/dev/null 2>&1
 
+    # Aggressive prune for large apps: if disk < 3GB after cleanup, remove all unused images
+    # This prevents disk exhaustion from accumulating large images (affine ~750MB, etc.)
+    local disk_after
+    disk_after=$(ssh "$E2E_SSH" "df -m / | awk 'NR==2 {print \$4}'" 2>/dev/null)
+    if [ -n "$disk_after" ] && [ "$disk_after" -lt 3000 ]; then
+        echo -e "  ${E2E_YELLOW}Disk low after cleanup (${disk_after}MB) — removing unused images...${E2E_NC}" >&2
+        ssh "$E2E_SSH" "docker image prune -af" >/dev/null 2>&1
+    fi
+
     sleep 2
 }
 

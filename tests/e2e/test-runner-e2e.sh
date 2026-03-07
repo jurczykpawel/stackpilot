@@ -57,7 +57,7 @@ e2e_test() {
     echo ""
     echo -e "${E2E_BLUE}▸ [$test_num] $app${E2E_NC} (port $port)"
 
-    # Resource pre-check
+    # Resource pre-check: RAM
     local avail_ram
     avail_ram=$(get_server_ram)
     if [ -n "$avail_ram" ] && [ "$avail_ram" -lt "$E2E_MIN_RAM" ]; then
@@ -65,6 +65,22 @@ e2e_test() {
         E2E_RESULTS+=("SKIP|$app|insufficient RAM (${avail_ram}MB)")
         E2E_SKIP=$((E2E_SKIP + 1))
         return 0
+    fi
+
+    # Resource pre-check: Disk — prune dangling images if low, skip if still too low
+    local avail_disk
+    avail_disk=$(get_server_disk)
+    if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$E2E_MIN_DISK" ]; then
+        echo -e "  ${E2E_YELLOW}Disk low (${avail_disk}MB) — pruning dangling images...${E2E_NC}"
+        ssh "$E2E_SSH" "docker image prune -f" >/dev/null 2>&1
+        avail_disk=$(get_server_disk)
+        if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$E2E_MIN_DISK" ]; then
+            echo -e "  ${E2E_YELLOW}SKIP: only ${avail_disk}MB disk available (need ${E2E_MIN_DISK}MB)${E2E_NC}"
+            E2E_RESULTS+=("SKIP|$app|insufficient disk (${avail_disk}MB)")
+            E2E_SKIP=$((E2E_SKIP + 1))
+            return 0
+        fi
+        echo -e "  ${E2E_GREEN}Disk after prune: ${avail_disk}MB — continuing${E2E_NC}"
     fi
 
     # Add language flag if testing i18n
@@ -238,11 +254,12 @@ suite_deploy_postgres() {
         e2e_test "n8n"                   "5678" "200 302"     "180" "--domain-type=local --db-source=bundled --yes"
         # typebot: builder on 8081, viewer on 8082 (not port 3000); 307 = redirect to login page (expected)
         e2e_test "typebot"                "8081" "200 302 301 307" "180" "--domain-type=local --db-source=bundled --yes"
-        e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
         # postiz: returns 307 redirect (to setup page) — expected
         e2e_test "postiz"                 "5000" "200 302 301 307" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "social-media-generator" "8000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "subtitle-burner"        "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
+        # affine last — large image (~750MB), may exhaust disk; disk-check will prune if needed
+        e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
     fi
 }
 
@@ -857,8 +874,7 @@ suite_backup_flow() {
     fi
 
     # Cleanup: remove umami and backup files
-    ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami '$backup_dir'" 2>/dev/null
-    docker image prune -f >/dev/null 2>&1
+    ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami '$backup_dir'; docker image prune -f" 2>/dev/null
 }
 
 suite_static_hosting() {

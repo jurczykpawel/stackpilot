@@ -166,9 +166,10 @@ services:
       POSTGRES_INITDB_ARGS: '--data-checksums'
     healthcheck:
       test: ['CMD', 'pg_isready', '-U', '$DB_USER', '-d', '$DB_NAME']
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 20
+      start_period: 10s
     deploy:
       resources:
         limits:
