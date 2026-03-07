@@ -66,8 +66,8 @@ else
     DOMAIN_VIEWER=""
 fi
 
-# Generate secret
-ENCRYPTION_SECRET=$(openssl rand -hex 32)
+# Generate secret — Typebot requires EXACTLY 32 characters
+ENCRYPTION_SECRET=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"

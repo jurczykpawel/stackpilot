@@ -216,10 +216,13 @@ suite_deploy_no_db() {
         e2e_test "vaultwarden"   "8088" "200 302"     "60"
         # gotenberg: /health returns 200, root returns 401 (basic auth required)
         e2e_test "gotenberg"     "3000" "200 401 302 301" "120" "--domain-type=local --yes" "/health"
-        e2e_test "routepix"      "3000" "200 302 301" "120"
+        # routepix: requires private GitHub repo access — skip in CI
+        # e2e_test "routepix"      "3000" "200 302 301" "120"
         e2e_test "convertx"      "3000" "200 302 301" "120"
-        e2e_test "stirling-pdf"  "8087" "200 302 301" "120"
-        e2e_test "crawl4ai"      "8000" "200 302 301" "120"
+        # stirling-pdf: returns 401 (login required) — expected
+        e2e_test "stirling-pdf"  "8087" "200 302 301 401" "120"
+        # crawl4ai: returns 307 redirect — expected
+        e2e_test "crawl4ai"      "8000" "200 302 301 307" "120"
     fi
 }
 
@@ -236,7 +239,8 @@ suite_deploy_postgres() {
         # typebot: builder on 8081, viewer on 8082 (not port 3000)
         e2e_test "typebot"                "8081" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
         e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
-        e2e_test "postiz"                 "5000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
+        # postiz: returns 307 redirect (to setup page) — expected
+        e2e_test "postiz"                 "5000" "200 302 301 307" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "social-media-generator" "8000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "subtitle-burner"        "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
     fi

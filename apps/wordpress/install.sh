@@ -276,6 +276,11 @@ DOCKERFILE_EOF
 # SQLite: download plugin
 if [ "$WP_DB_MODE" = "sqlite" ]; then
     sudo mkdir -p "$STACK_DIR/wp-content/database"
+    # Ensure unzip is available (needed to extract the plugin archive)
+    if ! command -v unzip &>/dev/null; then
+        echo "📦 Installing unzip..."
+        sudo apt-get install -y -qq unzip 2>/dev/null || sudo yum install -y -q unzip 2>/dev/null || true
+    fi
     echo "📥 Downloading WordPress SQLite Database Integration plugin..."
     SQLITE_PLUGIN_URL="https://github.com/WordPress/sqlite-database-integration/archive/refs/heads/main.zip"
     TEMP_ZIP=$(mktemp)
