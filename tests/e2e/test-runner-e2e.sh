@@ -1214,12 +1214,23 @@ if ! ssh "$E2E_SSH" "echo ok" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Show server resources
+# Show server resources + pre-run disk cleanup
 echo ""
 echo "  Server resources:"
 echo "    RAM:  $(get_server_ram) MB available"
-echo "    Disk: $(get_server_disk) MB available"
+disk_before=$(get_server_disk)
+echo "    Disk: ${disk_before} MB available"
 is_mikrus && echo "    Provider: Mikrus" || echo "    Provider: generic"
+
+# Pre-run cleanup: if disk < 5GB, prune unused images from previous runs
+# Cached images can accumulate (we don't use --rmi all to avoid rate limits)
+if [ -n "$disk_before" ] && [ "$disk_before" -lt 5000 ]; then
+    echo ""
+    echo -e "  ${E2E_YELLOW}Pre-run: disk ${disk_before}MB < 5GB — pruning unused images from previous runs...${E2E_NC}"
+    ssh "$E2E_SSH" "docker image prune -af 2>/dev/null; docker volume prune -f 2>/dev/null" >/dev/null 2>&1
+    disk_after=$(get_server_disk)
+    echo -e "  ${E2E_GREEN}Disk after prune: ${disk_after}MB${E2E_NC}"
+fi
 
 START_TIME=$(date +%s)
 
