@@ -37,21 +37,19 @@ else
     BIND_ADDR="127.0.0.1:"
 fi
 
-# Check RAM - requires minimum 2GB!
-TOTAL_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "0")
+# Check RAM - requires minimum 2GB free (build + runtime)!
+AVAILABLE_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $7}' || echo "0")
 
-if [ "$TOTAL_RAM" -gt 0 ] && [ "$TOTAL_RAM" -lt 1800 ]; then
+if [ "$AVAILABLE_RAM" -gt 0 ] && [ "$AVAILABLE_RAM" -lt 2000 ]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
-    echo "║  ❌ ERROR: Not enough RAM for Subtitle Burner!               ║"
+    echo "║  ❌ Not enough RAM for Subtitle Burner!                     ║"
     echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║  Your server: ${TOTAL_RAM}MB RAM                             ║"
-    echo "║  Requires:    2048MB RAM                                     ║"
-    echo "║                                                              ║"
-    echo "║  Containers: web, worker (FFmpeg), nginx, minio + PG/Redis. ║"
-    echo "║  Will not run properly on servers with less than 2GB RAM!   ║"
+    echo "║  Available:  ${AVAILABLE_RAM}MB free RAM                     ║"
+    echo "║  Requires:   2000MB+ free (build + web + worker + minio)    ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
+    echo "Requires 2000MB RAM free. Aborting installation (--yes mode)."
     exit 1
 fi
 

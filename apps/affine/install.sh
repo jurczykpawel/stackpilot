@@ -38,7 +38,18 @@ echo ""
 # =============================================================================
 AVAILABLE_RAM=$(free -m 2>/dev/null | awk '/^Mem:/ {print $7}' || echo "0")
 
-if [ "$AVAILABLE_RAM" -gt 0 ] && [ "$AVAILABLE_RAM" -lt 2000 ]; then
+if [ "$AVAILABLE_RAM" -gt 0 ] && [ "$AVAILABLE_RAM" -lt 1500 ]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║  ❌ Not enough RAM for AFFiNE!                              ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Available: ${AVAILABLE_RAM}MB                               ║"
+    echo "║  Required:  1500MB+ free (app 1GB + postgres 256MB + redis)  ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Requires 1500MB RAM free. Aborting installation (--yes mode)."
+    exit 1
+elif [ "$AVAILABLE_RAM" -gt 0 ] && [ "$AVAILABLE_RAM" -lt 2000 ]; then
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║  ⚠️  WARNING: AFFiNE recommends at least 2GB free RAM!      ║"
