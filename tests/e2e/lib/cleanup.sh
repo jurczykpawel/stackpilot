@@ -9,14 +9,16 @@ cleanup_app() {
     local app="$1"
 
     # Standard path: /opt/stacks/$app
-    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
+    # Note: --rmi all is intentionally omitted to preserve image cache between runs
+    # (avoids Docker Hub rate limits when running tests multiple times)
+    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
 
     # Dockge special case: /opt/dockge
     if [ "$app" = "dockge" ]; then
-        ssh "$E2E_SSH" "cd /opt/dockge 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/dockge" 2>/dev/null
+        ssh "$E2E_SSH" "cd /opt/dockge 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/dockge" 2>/dev/null
     fi
 
-    # Prune dangling images
+    # Prune only dangling (untagged) images — keep named images for reuse
     ssh "$E2E_SSH" "docker image prune -f" >/dev/null 2>&1
 
     sleep 2

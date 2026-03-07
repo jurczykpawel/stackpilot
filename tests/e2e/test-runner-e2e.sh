@@ -357,7 +357,7 @@ suite_domain_cloudflare() {
     echo "  Pre-cleanup: removing any leftover $test_domain records..."
     cf_dns_delete "$test_domain" 2>/dev/null
     caddy_cleanup "$test_domain" 2>/dev/null
-    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
+    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
     sleep 2
 
     echo ""
@@ -517,7 +517,7 @@ suite_domain_caddy() {
     echo "  Pre-cleanup..."
     cf_dns_delete "$test_domain" 2>/dev/null
     caddy_cleanup "$test_domain" 2>/dev/null
-    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
+    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
     sleep 2
 
     # Create DNS record pointing directly to server (no Cloudflare proxy)
@@ -707,7 +707,7 @@ suite_cytrus_domain() {
     fi
 
     # Clean up any previous test app
-    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
+    ssh "$E2E_SSH" "cd /opt/stacks/$app 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/$app" 2>/dev/null
     sleep 2
 
     echo ""
@@ -806,7 +806,7 @@ suite_backup_flow() {
         echo "$backup_output" | tail -10 | sed 's/^/    /'
         E2E_RESULTS+=("FAIL|backup-flow|setup-db-backup failed")
         E2E_FAIL=$((E2E_FAIL + 1))
-        ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/umami" 2>/dev/null
+        ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami" 2>/dev/null
         return 1
     fi
 
@@ -857,7 +857,7 @@ suite_backup_flow() {
     fi
 
     # Cleanup: remove umami and backup files
-    ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/umami '$backup_dir'" 2>/dev/null
+    ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami '$backup_dir'" 2>/dev/null
     docker image prune -f >/dev/null 2>&1
 }
 
@@ -1080,7 +1080,7 @@ suite_health_check() {
     fi
 
     # Pre-cleanup
-    ssh "$E2E_SSH" "cd /opt/stacks/ntfy 2>/dev/null && docker compose down -v --rmi all 2>/dev/null; rm -rf /opt/stacks/ntfy" 2>/dev/null
+    ssh "$E2E_SSH" "cd /opt/stacks/ntfy 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/ntfy" 2>/dev/null
 
     local deploy_output deploy_exit
     deploy_output=$("$E2E_REPO/local/deploy.sh" ntfy --ssh="$E2E_SSH" --domain-type=local --yes 2>&1) && deploy_exit=0 || deploy_exit=$?
