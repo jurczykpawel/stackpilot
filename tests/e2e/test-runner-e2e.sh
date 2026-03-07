@@ -236,8 +236,8 @@ suite_deploy_postgres() {
     if [ "$QUICK" = false ]; then
         e2e_test "listmonk"              "9000" "200 302"     "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "n8n"                   "5678" "200 302"     "180" "--domain-type=local --db-source=bundled --yes"
-        # typebot: builder on 8081, viewer on 8082 (not port 3000)
-        e2e_test "typebot"                "8081" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
+        # typebot: builder on 8081, viewer on 8082 (not port 3000); 307 = redirect to login page (expected)
+        e2e_test "typebot"                "8081" "200 302 301 307" "180" "--domain-type=local --db-source=bundled --yes"
         e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
         # postiz: returns 307 redirect (to setup page) — expected
         e2e_test "postiz"                 "5000" "200 302 301 307" "120" "--domain-type=local --db-source=bundled --yes"

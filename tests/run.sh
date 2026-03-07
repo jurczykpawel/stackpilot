@@ -189,7 +189,7 @@ run_e2e() {
     local tap_file="$TESTS_DIR/e2e/results/results.tap"
     if [ -f "$tap_file" ]; then
         local tap_pass tap_fail
-        tap_pass=$(grep -c "^ok " "$tap_file" | grep -v SKIP || echo 0)
+        tap_pass=$(grep "^ok " "$tap_file" | grep -cv SKIP || echo 0)
         tap_fail=$(grep -c "^not ok " "$tap_file" || echo 0)
         TOTAL_PASS=$((TOTAL_PASS + tap_pass))
         TOTAL_FAIL=$((TOTAL_FAIL + tap_fail))
