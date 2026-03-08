@@ -122,7 +122,7 @@ Goal: Automatyczna walidacja konwencji i poprawności bez uruchamiania czegokolw
   - 95 files checked, all pass
 - [x] **4.2** `tests/static/test-install-contract.sh`
   - Każdy `apps/*/install.sh` ma: `set -e`, `APP_NAME=`, `PORT=${PORT:-`, `STACK_DIR=`, `docker compose`
-  - 25 checked, 5 exempt (coolify, gateflow, littlelink, cookie-hub, dockge)
+  - 25 checked, 5 exempt (coolify, sellf, littlelink, cookie-hub, dockge)
 - [x] **4.3** `tests/static/test-compose-syntax.sh`
   - Ekstrakcja heredoc z install.sh → walidacja przez `docker compose config --quiet`
   - Mockowane env vars (PORT, DB_HOST, etc.)
@@ -275,6 +275,6 @@ Audyt porównawczy mikrus-toolbox → stackpilot wykrył i naprawił:
 
 2. **Ścieżka config sellf zmieniona** — `~/.config/sellf/` → `~/.config/stackpilot/sellf/`.
    Backwards-compatible fallback w `deploy.sh` i `sellf-setup.sh` (auto-migracja jeśli stary katalog istnieje).
-   Pliki zaktualizowane: `lib/sellf-setup.sh`, `local/setup-gateflow-config.sh`, `local/setup-supabase-gateflow.sh`,
-   `local/setup-stripe-gateflow.sh`, `local/setup-supabase-migrations.sh`, `local/setup-turnstile.sh`,
-   `local/deploy.sh`, `locale/en.sh`, `locale/pl.sh`, `apps/gateflow/README.md`, `mcp-server/src/tools/setup-sellf.ts`.
+   Pliki zaktualizowane: `lib/sellf-setup.sh`, `local/setup-sellf-config.sh`, `local/setup-supabase-sellf.sh`,
+   `local/setup-stripe-sellf.sh`, `local/setup-supabase-migrations.sh`, `local/setup-turnstile.sh`,
+   `local/deploy.sh`, `locale/en.sh`, `locale/pl.sh`, `apps/sellf/README.md`, `mcp-server/src/tools/setup-sellf.ts`.

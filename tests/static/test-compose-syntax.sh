@@ -30,7 +30,7 @@ fi
 
 # Apps that don't have extractable compose files or have complex heredoc patterns
 # that require runtime context (multi-cat, conditional sections, env_file references)
-SKIP_APPS="coolify gateflow littlelink cookie-hub dockge"
+SKIP_APPS="coolify sellf littlelink cookie-hub dockge"
 
 # Apps where heredoc extraction is known to produce incomplete YAML
 # (multi-part heredocs, env_file references, conditional composition)
