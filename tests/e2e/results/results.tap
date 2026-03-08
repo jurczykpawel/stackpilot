@@ -1,38 +1,12 @@
 TAP version 13
-1..36
-ok 1 - ntfy: insufficient disk (0MB) # SKIP
-ok 2 - uptime-kuma: insufficient disk (0MB) # SKIP
-ok 3 - filebrowser: insufficient disk (0MB) # SKIP
-ok 4 - linkstack: insufficient disk (0MB) # SKIP
-ok 5 - minio: insufficient disk (0MB) # SKIP
-ok 6 - dockge: insufficient disk (0MB) # SKIP
-ok 7 - vaultwarden: insufficient disk (0MB) # SKIP
-ok 8 - gotenberg: insufficient disk (0MB) # SKIP
-ok 9 - convertx: insufficient disk (0MB) # SKIP
-ok 10 - stirling-pdf: insufficient disk (0MB) # SKIP
-ok 11 - crawl4ai: insufficient disk (0MB) # SKIP
-not ok 12 - redis: deploy failed
-ok 13 - mcp-docker: container running
-ok 14 - umami: HTTP 200
-ok 15 - nocodb: HTTP 302
-ok 16 - listmonk: HTTP 200
-ok 17 - n8n: HTTP 200
-ok 18 - typebot: HTTP 307
-ok 19 - postiz: HTTP 307
-ok 20 - social-media-generator: HTTP 302
-not ok 21 - subtitle-burner: deploy failed (exit 1)
-ok 22 - affine: HTTP 302
-ok 23 - wordpress: HTTP 302
-ok 24 - domain-cloudflare: HTTPS 200 via e2etest.automagicznie.pl
-ok 25 - littlelink: HTTPS 200 via e2ell.automagicznie.pl
-ok 26 - cookie-hub: HTTPS 200 via e2ech.automagicznie.pl
-ok 27 - domain-caddy: HTTPS 200 via e2ecaddy.automagicznie.pl
-ok 28 - provider-mikrus: not a Mikrus VPS # SKIP
-ok 29 - cytrus-domain: not a Mikrus VPS # SKIP
-ok 30 - backup-flow: /opt/backups/db/umami_postgres_20260307_140247.sql.gz (4.0K)
-ok 31 - static-hosting: HTTPS 200, content OK via e2etest.automagicznie.pl
-ok 32 - php-hosting: HTTPS 200, PHP executing via e2ephp.automagicznie.pl
-ok 33 - health-check-static: 14 apps define healthcheck
-ok 34 - health-check-runtime: ntfy Up (no HEALTHCHECK)
-ok 35 - update-flow: initial + re-deploy OK (HTTP 200)
-ok 36 - ntfy: HTTP 200
+1..10
+ok 1 - subtitle-burner: HTTP 200
+ok 2 - domain-cloudflare: HTTPS 200 via e2etest.automagicznie.pl
+ok 3 - domain-caddy: HTTPS 200 via e2ecaddy.automagicznie.pl
+ok 4 - provider-mikrus: not a Mikrus VPS # SKIP
+ok 5 - cytrus-domain: not a Mikrus VPS # SKIP
+ok 6 - backup-flow: /opt/backups/db/umami_postgres_20260308_023115.sql.gz (4.0K)
+ok 7 - static-hosting: HTTPS 200, content OK via e2etest.automagicznie.pl
+ok 8 - php-hosting: HTTPS 200, PHP executing via e2ephp.automagicznie.pl
+ok 9 - health-check-static: 14 apps define healthcheck
+ok 10 - health-check-runtime: ntfy Up (no HEALTHCHECK)
