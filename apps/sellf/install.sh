@@ -8,14 +8,24 @@
 #
 # Requirements:
 #   - 1GB+ VPS (1GB RAM)
-#   - Supabase account (free)
-#   - Stripe account
+#   - Supabase: cloud account (free) OR self-hosted (deploy.sh supabase first)
+#   - Stripe account (for payments)
 #
-# Environment variables (optional - can be provided interactively):
-#   STRIPE_PK          - Stripe Publishable Key
-#   STRIPE_SK          - Stripe Secret Key
-#   STRIPE_WEBHOOK_SECRET - Stripe Webhook Secret (optional)
-#   DOMAIN             - Application domain
+# Supabase modes (set SUPABASE_MODE):
+#   cloud  (default) - External Supabase cloud: provide SUPABASE_URL + keys
+#   local            - Self-hosted Supabase on this server: reads from
+#                      ~/.config/stackpilot/supabase/deploy-config.env
+#                      (run: deploy.sh supabase first)
+#
+# Environment variables:
+#   SUPABASE_MODE          - cloud (default) | local
+#   SUPABASE_URL           - Supabase URL (cloud mode or override for local)
+#   SUPABASE_ANON_KEY      - Supabase anon/publishable key
+#   SUPABASE_SERVICE_KEY   - Supabase service_role key
+#   STRIPE_PK              - Stripe Publishable Key (optional, set via UI)
+#   STRIPE_SK              - Stripe Secret Key (optional, set via UI)
+#   STRIPE_WEBHOOK_SECRET  - Stripe Webhook Secret (optional)
+#   DOMAIN                 - Application domain
 
 set -e
 
@@ -218,15 +228,36 @@ echo ""
 # =============================================================================
 
 ENV_FILE="$INSTALL_DIR/admin-panel/.env.local"
+SUPABASE_MODE="${SUPABASE_MODE:-cloud}"
 
 if [ -f "$ENV_FILE" ] && grep -q "SUPABASE_URL=" "$ENV_FILE"; then
     echo "✅ Supabase configuration already exists"
-elif [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
-    # Variables passed from deploy.sh
-    echo "✅ Configuring Supabase..."
+else
+    # --- LOCAL MODE: read keys from self-hosted Supabase on this server ---
+    if [ "$SUPABASE_MODE" = "local" ] && [ -z "$SUPABASE_URL" ]; then
+        LOCAL_SUPABASE_CONFIG="$HOME/.config/stackpilot/supabase/deploy-config.env"
+        if [ -f "$LOCAL_SUPABASE_CONFIG" ]; then
+            echo "✅ Loading local Supabase config from $LOCAL_SUPABASE_CONFIG"
+            source "$LOCAL_SUPABASE_CONFIG"
+            # supabase/install.sh saves: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
+        else
+            echo "❌ Local Supabase config not found: $LOCAL_SUPABASE_CONFIG"
+            echo ""
+            echo "   Deploy Supabase first:"
+            echo "   ./local/deploy.sh supabase --ssh=vps --domain-type=local"
+            echo ""
+            echo "   Or use cloud mode (default):"
+            echo "   ./local/deploy.sh sellf --ssh=vps --supabase=cloud"
+            exit 1
+        fi
+    fi
 
-    cat > "$ENV_FILE" <<ENVEOF
-# Supabase (runtime - without NEXT_PUBLIC_)
+    # --- VALIDATE: keys must be present (cloud: passed by deploy.sh, local: loaded above) ---
+    if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
+        echo "✅ Configuring Supabase (mode: $SUPABASE_MODE)..."
+
+        cat > "$ENV_FILE" <<ENVEOF
+# Supabase ($SUPABASE_MODE mode)
 SUPABASE_URL=$SUPABASE_URL
 SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
@@ -235,11 +266,18 @@ SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 # AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
 APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ENVEOF
-else
-    echo "❌ Missing Supabase configuration!"
-    echo "   Run deploy.sh interactively or provide variables:"
-    echo "   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY"
-    exit 1
+    else
+        echo "❌ Missing Supabase configuration!"
+        echo ""
+        if [ "$SUPABASE_MODE" = "local" ]; then
+            echo "   Local Supabase config found but keys are missing."
+            echo "   Try redeploying Supabase: ./local/deploy.sh supabase --ssh=vps"
+        else
+            echo "   Run deploy.sh interactively or provide variables:"
+            echo "   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY"
+        fi
+        exit 1
+    fi
 fi
 
 # Make sure APP_ENCRYPTION_KEY exists (for older installations)

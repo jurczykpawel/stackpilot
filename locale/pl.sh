@@ -66,6 +66,10 @@ MSG_SELLF_SUPABASE_CONFIG="📦 Konfiguracja Supabase (projekt: %s)"
 MSG_SELLF_NO_TOKEN="❌ Brak tokena Supabase"
 MSG_SELLF_KEYS_FAILED="❌ Nie udało się pobrać kluczy dla projektu: %s"
 MSG_SELLF_CONFIG_FAILED="❌ Konfiguracja Supabase nie powiodła się"
+MSG_SELLF_LOCAL_SUPABASE="🔧 Tryb Supabase: lokalny (self-hosted na tym serwerze)"
+MSG_SELLF_LOCAL_SUPABASE_OK="   ✅ Klucze lokalnego Supabase załadowane (%s)"
+MSG_SELLF_LOCAL_SUPABASE_MISSING="❌ Znaleziono konfigurację lokalnego Supabase, ale brakuje kluczy"
+MSG_SELLF_LOCAL_SUPABASE_NOT_FOUND="❌ Nie znaleziono konfiguracji lokalnego Supabase na serwerze"
 
 # =============================================================================
 # DEPLOY - UPDATE MODE

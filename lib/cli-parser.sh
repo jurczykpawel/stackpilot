@@ -95,6 +95,7 @@ export DB_PASS="${DB_PASS:-}"
 export DOMAIN="${DOMAIN:-}"
 export DOMAIN_TYPE="${DOMAIN_TYPE:-}"
 export SUPABASE_PROJECT="${SUPABASE_PROJECT:-}"
+export SUPABASE_MODE="${SUPABASE_MODE:-cloud}"
 export INSTANCE="${INSTANCE:-}"
 export APP_PORT="${APP_PORT:-}"
 export YES_MODE="${YES_MODE:-false}"
@@ -159,6 +160,8 @@ parse_args() {
             --domain-type) DOMAIN_TYPE="$2"; shift ;;
 
             # Supabase (for Sellf)
+            --supabase=*) SUPABASE_MODE="${1#*=}" ;;
+            --supabase) SUPABASE_MODE="$2"; shift ;;
             --supabase-project=*) SUPABASE_PROJECT="${1#*=}" ;;
             --supabase-project) SUPABASE_PROJECT="$2"; shift ;;
 

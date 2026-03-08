@@ -67,6 +67,10 @@ MSG_SELLF_SUPABASE_CONFIG="📦 Supabase configuration (project: %s)"
 MSG_SELLF_NO_TOKEN="❌ Missing Supabase token"
 MSG_SELLF_KEYS_FAILED="❌ Failed to fetch keys for project: %s"
 MSG_SELLF_CONFIG_FAILED="❌ Supabase configuration failed"
+MSG_SELLF_LOCAL_SUPABASE="🔧 Supabase mode: local (self-hosted on this server)"
+MSG_SELLF_LOCAL_SUPABASE_OK="   ✅ Local Supabase keys loaded (%s)"
+MSG_SELLF_LOCAL_SUPABASE_MISSING="❌ Local Supabase config found but keys are missing"
+MSG_SELLF_LOCAL_SUPABASE_NOT_FOUND="❌ Local Supabase config not found on server"
 
 # =============================================================================
 # DEPLOY - UPDATE MODE

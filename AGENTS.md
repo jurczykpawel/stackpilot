@@ -170,7 +170,11 @@ Only manual step: open the site in a browser for the WordPress setup wizard.
 
 Digital products sales platform (Gumroad/EasyCart alternative). Does not use Docker -- runs on Bun + PM2 (Next.js standalone).
 
-**Requirements:** Supabase (free account), optionally Stripe (payments).
+**Requirements:** Supabase (cloud or self-hosted), optionally Stripe (payments).
+
+**Supabase modes:**
+- `cloud` (default) — external Supabase.com (free tier available)
+- `local` — self-hosted Supabase Docker on the same server (no external account needed)
 
 **MCP deployment** -- full flow without pasting secrets:
 ```
@@ -186,11 +190,15 @@ Digital products sales platform (Gumroad/EasyCart alternative). Does not use Doc
 
 **CLI deployment:**
 ```bash
-# Interactive (guided setup)
+# Cloud Supabase (interactive, guided setup)
 ./local/deploy.sh sellf --ssh=vps --domain-type=cloudflare --domain=shop.example.com
 
-# Automated (requires prior setup-sellf-config.sh)
+# Cloud Supabase (automated, requires prior setup-sellf-config.sh)
 ./local/deploy.sh sellf --ssh=vps --yes
+
+# Local self-hosted Supabase (deploy supabase first, then sellf)
+./local/deploy.sh supabase --ssh=vps --domain-type=local --yes
+./local/deploy.sh sellf --ssh=vps --supabase=local --domain-type=cloudflare --domain=shop.example.com --yes
 ```
 
 **After installation:**

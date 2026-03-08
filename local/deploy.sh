@@ -66,6 +66,7 @@ Domain Options:
   --domain-type=TYPE   Type: cloudflare, caddy, local
 
 Modes:
+  --supabase=MODE      Supabase mode for Sellf: cloud (default) | local
   --yes, -y            Skip all confirmations
   --dry-run            Show what would be executed without running
   --update             Update existing application (instead of installing)
@@ -74,6 +75,13 @@ Modes:
   --help, -h           Show this help
 
 Examples:
+  # Sellf with external Supabase cloud (default)
+  ./local/deploy.sh sellf --ssh=vps --domain-type=cloudflare --domain=shop.example.com
+
+  # Sellf with self-hosted Supabase on the same server (deploy supabase first!)
+  ./local/deploy.sh supabase --ssh=vps --domain-type=local --yes
+  ./local/deploy.sh sellf --ssh=vps --supabase=local --domain-type=cloudflare --domain=shop.example.com
+
   # Interactive (prompts for missing data)
   ./local/deploy.sh n8n --ssh=vps
 
@@ -659,43 +667,82 @@ TURNSTILE_OFFERED=false
 SELLF_STRIPE_CONFIGURED=false
 
 if [ "$APP_NAME" = "sellf" ]; then
-    # 1. Collect Supabase configuration (token + project selection)
-    # Fetch keys if:
-    # - We don't have SUPABASE_URL, OR
-    # - --supabase-project was provided and differs from current PROJECT_REF
-    NEED_SUPABASE_FETCH=false
-    if [ -z "$SUPABASE_URL" ]; then
-        NEED_SUPABASE_FETCH=true
-    elif [ -n "$SUPABASE_PROJECT" ] && [ "$SUPABASE_PROJECT" != "$PROJECT_REF" ]; then
-        # Different project than saved - need to fetch new keys
-        NEED_SUPABASE_FETCH=true
-        msg "$MSG_SELLF_CHANGING_PROJECT" "$PROJECT_REF" "$SUPABASE_PROJECT"
-    fi
+    # 1. Collect Supabase configuration
+    # Mode: cloud (default) = external Supabase.com
+    #       local            = self-hosted Supabase on the same server
 
-    if [ "$NEED_SUPABASE_FETCH" = true ]; then
-        if [ -n "$SUPABASE_PROJECT" ]; then
-            # --supabase-project provided - fetch keys automatically
-            echo ""
-            msg "$MSG_SELLF_SUPABASE_CONFIG" "$SUPABASE_PROJECT"
+    if [ "${SUPABASE_MODE:-cloud}" = "local" ]; then
+        # LOCAL MODE: read keys from self-hosted Supabase deploy-config.env
+        # The config is written by apps/supabase/install.sh on the server,
+        # then fetched here via SSH for use in deploy.sh environment
+        echo ""
+        msg "$MSG_SELLF_LOCAL_SUPABASE"
 
-            # Make sure we have a token
-            if ! check_saved_supabase_token; then
-                if ! supabase_manual_token_flow; then
-                    msg "$MSG_SELLF_NO_TOKEN"
-                    exit 1
-                fi
-                save_supabase_token "$SUPABASE_TOKEN"
-            fi
+        LOCAL_SUPABASE_CONFIG_REMOTE="$HOME/.config/stackpilot/supabase/deploy-config.env"
+        SUPABASE_ENV_TMP=$(mktemp)
 
-            if ! fetch_supabase_keys_by_ref "$SUPABASE_PROJECT"; then
-                msg "$MSG_SELLF_KEYS_FAILED" "$SUPABASE_PROJECT"
+        # Fetch the config from the server
+        if ssh "$SSH_ALIAS" "cat '$LOCAL_SUPABASE_CONFIG_REMOTE'" > "$SUPABASE_ENV_TMP" 2>/dev/null; then
+            source "$SUPABASE_ENV_TMP"
+            rm -f "$SUPABASE_ENV_TMP"
+
+            if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
+                msg "$MSG_SELLF_LOCAL_SUPABASE_OK" "$SUPABASE_URL"
+                export SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_KEY
+            else
+                rm -f "$SUPABASE_ENV_TMP"
+                echo ""
+                msg "$MSG_SELLF_LOCAL_SUPABASE_MISSING"
+                echo ""
+                echo "   Deploy Supabase first:"
+                echo "   ./local/deploy.sh supabase --ssh=$SSH_ALIAS --domain-type=local --yes"
                 exit 1
             fi
         else
-            # Interactive project selection
-            if ! sellf_collect_config "$DOMAIN"; then
-                msg "$MSG_SELLF_CONFIG_FAILED"
-                exit 1
+            rm -f "$SUPABASE_ENV_TMP"
+            echo ""
+            msg "$MSG_SELLF_LOCAL_SUPABASE_NOT_FOUND"
+            echo ""
+            echo "   Deploy Supabase first:"
+            echo "   ./local/deploy.sh supabase --ssh=$SSH_ALIAS --domain-type=local --yes"
+            exit 1
+        fi
+
+    else
+        # CLOUD MODE (default): external Supabase.com
+        # Fetch keys if:
+        # - We don't have SUPABASE_URL, OR
+        # - --supabase-project was provided and differs from current PROJECT_REF
+        NEED_SUPABASE_FETCH=false
+        if [ -z "$SUPABASE_URL" ]; then
+            NEED_SUPABASE_FETCH=true
+        elif [ -n "$SUPABASE_PROJECT" ] && [ "$SUPABASE_PROJECT" != "$PROJECT_REF" ]; then
+            NEED_SUPABASE_FETCH=true
+            msg "$MSG_SELLF_CHANGING_PROJECT" "$PROJECT_REF" "$SUPABASE_PROJECT"
+        fi
+
+        if [ "$NEED_SUPABASE_FETCH" = true ]; then
+            if [ -n "$SUPABASE_PROJECT" ]; then
+                echo ""
+                msg "$MSG_SELLF_SUPABASE_CONFIG" "$SUPABASE_PROJECT"
+
+                if ! check_saved_supabase_token; then
+                    if ! supabase_manual_token_flow; then
+                        msg "$MSG_SELLF_NO_TOKEN"
+                        exit 1
+                    fi
+                    save_supabase_token "$SUPABASE_TOKEN"
+                fi
+
+                if ! fetch_supabase_keys_by_ref "$SUPABASE_PROJECT"; then
+                    msg "$MSG_SELLF_KEYS_FAILED" "$SUPABASE_PROJECT"
+                    exit 1
+                fi
+            else
+                if ! sellf_collect_config "$DOMAIN"; then
+                    msg "$MSG_SELLF_CONFIG_FAILED"
+                    exit 1
+                fi
             fi
         fi
     fi
@@ -832,7 +879,8 @@ EXTRA_ENV=""
 
 # For Sellf - add variables to EXTRA_ENV (collected earlier in PHASE 1.5)
 if [ "$APP_NAME" = "sellf" ]; then
-    # Supabase
+    # Supabase mode + keys
+    EXTRA_ENV="$EXTRA_ENV SUPABASE_MODE='${SUPABASE_MODE:-cloud}'"
     if [ -n "$SUPABASE_URL" ]; then
         EXTRA_ENV="$EXTRA_ENV SUPABASE_URL='$SUPABASE_URL' SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY' SUPABASE_SERVICE_KEY='$SUPABASE_SERVICE_KEY'"
     fi
