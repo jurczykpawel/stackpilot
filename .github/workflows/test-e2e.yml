@@ -14,9 +14,6 @@ on:
         description: 'Quick mode (1 variant per app)'
         type: boolean
         default: true
-  schedule:
-    # Run nightly at 3:00 AM UTC
-    - cron: '0 3 * * *'
 
 jobs:
   e2e:
