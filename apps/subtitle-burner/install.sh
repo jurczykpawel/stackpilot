@@ -262,10 +262,10 @@ fi
 
 cat <<EOF | sudo tee -a docker-compose.yaml > /dev/null
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 10
       start_period: 30s
     deploy:
       resources:
