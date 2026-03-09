@@ -1,55 +1,55 @@
-# Subtitle Burner
+# Subtitle Burner - Animated Subtitle Burner for Video
 
-**Twórz, styluj i wypalaj animowane napisy na wideo.**
+Create, style, and burn animated subtitles onto video. Visual editor, 8 templates, AI transcription, server-side rendering (FFmpeg).
 
-| | |
-|---|---|
-| **Obraz** | Build z repozytorium (~900MB) |
-| **RAM** | ~1.5–2GB (6 kontenerów) |
-| **Dysk** | ~2GB obrazy + dane wideo |
-| **Port** | Konfigurowalny (domyślnie 3000) |
-| **Baza** | PostgreSQL 16 (bundled) |
-| **Plan** | Mikrus 3.0+ (2GB RAM) |
-
-## Co to robi?
-
-Subtitle Burner to pełna platforma do tworzenia napisów na wideo:
-
-- **Edytor wizualny** z drag-and-drop timeline
-- **8 szablonów** — Classic, Cinematic, Bold Box, Modern, Minimal Top, Neon, Yellow Box, Typewriter
-- **6 animacji** — word-highlight, word-by-word, karaoke, bounce, typewriter, static
-- **Transkrypcja AI** — Whisper bezpośrednio w przeglądarce (Transformers.js)
-- **Dual rendering** — client-side (FFmpeg.wasm) lub server-side (FFmpeg na workerze)
-- **REST API** — 21 endpointów do programowego użycia
-- **Import/export SRT** — kompatybilność z innymi narzędziami
-
-## Stack (6 kontenerów)
-
-| Kontener | Obraz | Rola | RAM |
-|----------|-------|------|-----|
-| nginx | nginx:alpine | Reverse proxy + rate limiting | 64M |
-| web | Build (Next.js/Bun) | Główna aplikacja | 512M |
-| worker | Build (Bun + FFmpeg) | Renderowanie wideo | 512M |
-| postgres | postgres:16-alpine | Baza danych | 256M |
-| redis | redis:7-alpine | Kolejka zadań (BullMQ) | 64M |
-| minio | minio/minio | Object storage (wideo) | 256M |
-
-## Instalacja
+## Installation
 
 ```bash
-./local/deploy.sh subtitle-burner --ssh=mikrus --domain-type=cytrus --domain=auto
+./local/deploy.sh subtitle-burner --ssh=ALIAS --domain-type=cloudflare --domain=subtitles.example.com
 ```
 
-## Konfiguracja email (opcjonalnie)
-
-Dla magic link auth edytuj `.env` na serwerze:
+### Database options
 
 ```bash
-ssh mikrus 'nano /opt/stacks/subtitle-burner/.env'
-# Ustaw: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
-ssh mikrus 'cd /opt/stacks/subtitle-burner && docker compose restart web'
+# Default: bundled PostgreSQL (zero config)
+./local/deploy.sh subtitle-burner --ssh=ALIAS --domain-type=cloudflare --domain=subtitles.example.com
+
+# External PostgreSQL
+./local/deploy.sh subtitle-burner --ssh=ALIAS --db-source=custom --domain-type=cloudflare --domain=subtitles.example.com
 ```
 
-## Źródło
+## Requirements
+
+- **RAM:** 2GB minimum (build + runtime: web 512M + worker 512M + nginx 64M + minio 256M + optional postgres 256M)
+- **Disk:** ~900MB image (Next.js + Bun + FFmpeg + Nginx + MinIO)
+- **Port:** 3000
+- **Database:** PostgreSQL 16 (bundled by default, or external via `--db-source=custom`)
+- **Redis:** Shared (`redis-shared` container on host, auto-installed if not present)
+
+## Stack
+
+| Container | Image | RAM | Role |
+|-----------|-------|-----|------|
+| nginx | nginx:alpine | 64M | Reverse proxy |
+| web | Build (Next.js/Bun) | 512M | Main application |
+| worker | Build (Bun + FFmpeg) | 512M | Video rendering |
+| minio | minio/minio | 256M | Object storage |
+| postgres *(bundled)* | postgres:16-alpine | 256M | Database (optional, skipped with `--db-source=custom`) |
+
+> **Note:** Redis is NOT bundled in this stack. A shared `redis-shared` container is auto-installed on the host and used by all apps that need it.
+
+## After Installation
+
+1. Open the app in the browser and register an account
+2. Upload a video and test subtitle burning
+3. (Optional) Configure SMTP for magic link auth:
+
+```bash
+ssh ALIAS 'nano /opt/stacks/subtitle-burner/.env'
+# Set: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
+ssh ALIAS 'cd /opt/stacks/subtitle-burner && docker compose restart web'
+```
+
+## Source
 
 https://github.com/jurczykpawel/subtitle-burner

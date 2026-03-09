@@ -1,35 +1,32 @@
-# LinkStack - Link in Bio (Admin Version)
+# LinkStack - Link in Bio
 
-Your own "Link in Bio" page (like Linktree), but on your server.
-
-**RAM:** ~200MB | **Disk:** ~600MB | **Plan:** 1GB+ RAM VPS
+Your own "Link in Bio" page (like Linktree), but on your own server.
 
 ## Installation
 
 ```bash
-# Caddy (auto domain)
-./local/deploy.sh linkstack --ssh=ALIAS --domain-type=caddy --domain=links.your-domain.com --yes
-
-# Cloudflare (own domain)
-./local/deploy.sh linkstack --ssh=ALIAS --domain-type=cloudflare --domain=links.example.com --yes
-
-# No domain (access via SSH tunnel)
+./local/deploy.sh linkstack --ssh=ALIAS --domain-type=cloudflare --domain=links.example.com
+# or locally (SSH tunnel):
 ./local/deploy.sh linkstack --ssh=ALIAS --domain-type=local --yes
 ```
 
-## Configuration (Setup Wizard)
+## Requirements
 
-After installation, open the URL and go through the wizard. **Important choice:**
+- **RAM:** ~256MB (container limit: 256MB)
+- **Disk:** ~550MB (Docker image)
+- **Port:** 8090
 
-### Database
+## After Installation
 
-**Are you a solopreneur / building a page for yourself?**
+Open the URL and go through the setup wizard.
 
-Choose **SQLite** and do not think twice. Zero configuration, works out of the box.
+### Database Choice
 
-**Building this for a company where multiple people will edit profiles?**
+**Solopreneur / single profile?**
+Choose **SQLite** — zero configuration, works out of the box.
 
-Choose **MySQL** - handles concurrent edits better.
+**Company with multiple employees editing profiles simultaneously?**
+Choose **MySQL** — handles concurrent edits better.
 
 <details>
 <summary>Technical details</summary>
@@ -43,28 +40,15 @@ Choose **MySQL** - handles concurrent edits better.
 
 SQLite handles up to 100K visits/day. The official LinkStack hosting only uses MySQL for 500+ user instances.
 
-> When using MySQL you must back up the database yourself (with SQLite, backups before updates include the database automatically).
+> When using MySQL you must back up the database yourself (with SQLite, backups include the database automatically).
 
 </details>
 
-<details>
-<summary>MySQL configuration</summary>
+### Other Settings
 
-If using an external MySQL database, you will need:
-- **Host** - database server address
-- **Database** - database name
-- **User** - username
-- **Password** - password
-
-In the wizard, select MySQL and enter your database credentials.
-
-</details>
-
-### Other settings
-
-- **Admin credentials** - save securely, you will need them to log in
-- **App Name** - name displayed on the page
-- **App URL** - full URL with https:// (e.g. `https://links.your-domain.com`)
+- **Admin credentials** — save securely, you will need them to log in
+- **App Name** — name displayed on the page
+- **App URL** — full URL with https:// (e.g. `https://links.your-domain.com`)
 
 ## LinkStack vs LittleLink
 
@@ -73,7 +57,7 @@ In the wizard, select MySQL and enter your database credentials.
 | Admin panel | Yes | No |
 | Edit from phone | Yes | No |
 | Click stats | Yes | No |
-| RAM usage | ~200MB | ~30MB |
+| RAM usage | ~256MB | ~30MB |
 | Configuration | Wizard | HTML editing |
 
 **Choose LinkStack** if you want a convenient panel and stats.

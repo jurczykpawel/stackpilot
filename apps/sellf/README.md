@@ -1,572 +1,138 @@
 # Sellf - Your Own Digital Products Sales System
 
-**Open source alternative to Gumroad, EasyCart, Teachable.**
+Open source alternative to Gumroad, EasyCart, Teachable.
 Sell e-books, courses, templates and licenses without monthly fees or platform commissions.
 
-**RAM:** ~300MB | **Disk:** ~500MB | **Plan:** 1GB+ RAM VPS
-
-> **Note:** In examples we use `--ssh=ALIAS` as the default SSH alias.
-> If you have a different alias in `~/.ssh/config`, replace `ALIAS` with yours (e.g. `srv1`, `myserver`).
-
----
-
-## Two Installation Modes
-
-Sellf supports **two** installation modes:
-
-| Mode | For whom | Description |
-|------|----------|-------------|
-| **Interactive** | First installation | Script asks questions step by step |
-| **Automatic** | CI/CD, MCP, repeatable deploys | All keys from CLI or saved configuration |
-
----
-
-## Quick Start
-
-### Interactive mode (simplest)
+## Installation
 
 ```bash
-./local/deploy.sh sellf --ssh=ALIAS
-```
+# Cloud Supabase + Cloudflare domain (interactive setup)
+./local/deploy.sh sellf --ssh=ALIAS --domain-type=cloudflare --domain=shop.example.com
 
-The script will guide you through:
-1. Logging into Supabase (opens browser)
-2. Selecting a Supabase project
-3. Stripe keys (optional - can be added later)
-4. Domain configuration
-5. Turnstile CAPTCHA (optional)
-
-### Automatic mode (for advanced users)
-
-```bash
-# STEP 1: One-time configuration (collects and saves all keys)
-./local/setup-sellf-config.sh
-
-# STEP 2: Deployment (fully automatic, no questions)
+# Cloud Supabase (automated, requires prior setup-sellf-config.sh)
 ./local/deploy.sh sellf --ssh=ALIAS --yes
-```
 
----
+# Local self-hosted Supabase (deploy supabase first, then sellf)
+./local/deploy.sh supabase --ssh=ALIAS --domain-type=local --yes
+./local/deploy.sh sellf --ssh=ALIAS --supabase=local --domain-type=cloudflare --domain=shop.example.com --yes
+
+# Docker runtime (isolated container, ~200MB RAM)
+./local/deploy.sh sellf --ssh=ALIAS --supabase=local --runtime=docker --domain-type=cloudflare --domain=shop.example.com --yes
+```
 
 ## Requirements
+
+- **RAM:**
+  - `pm2` mode (default): ~50MB (Bun + PM2, Node.js standalone)
+  - `docker` mode: ~200MB (Docker container, `network_mode: host`)
+- **Disk:** ~500MB (IMAGE_SIZE_MB=500, Next.js standalone build)
+- **Port:** 3333 (default from `PORT=${PORT:-3333}`)
+- **Database:** Supabase (cloud account or self-hosted)
+
+### Services
 
 | Service | Cost | Purpose | Required |
 |---------|------|---------|----------|
 | **VPS (1GB+ RAM)** | varies | Application hosting | Yes |
-| **Supabase** | Free | Database + Auth | Yes |
+| **Supabase** | Free tier available | Database + Auth | Yes |
 | **Stripe** | 2.9% + fee/transaction | Payments | No* |
 | **Cloudflare** | Free | Turnstile CAPTCHA | No |
 
-*Stripe can be configured later in the Sellf panel.
+*Stripe can be configured later via the Sellf admin panel.
 
-### Before installation, create accounts:
+## Runtime Modes
 
-1. **Supabase** - https://supabase.com (create a project)
-2. **Stripe** - https://dashboard.stripe.com/apikeys (optional)
-3. **Cloudflare** - https://dash.cloudflare.com (optional, for Turnstile)
+| Mode | RAM | Description |
+|------|-----|-------------|
+| `pm2` (default) | ~50MB | Bun + PM2, lightweight, backward compatible |
+| `docker` | ~200MB | Docker container with `network_mode: host`; reaches local Supabase on `localhost`; automatically stops PM2 on switch |
 
----
+Switch modes by passing `--runtime=docker` or `--runtime=pm2` to deploy.sh.
 
-## Interactive Mode (details)
+## Supabase Modes
 
-### Basic command
+| Mode | Description |
+|------|-------------|
+| `cloud` (default) | External Supabase.com — free tier, no server resources |
+| `local` | Self-hosted Supabase Docker on the same VPS — deploy supabase first |
+
+## After Installation
+
+1. Open `https://shop.example.com`
+2. Register — the **first registered user gets admin access**
+3. Configure Stripe in the admin panel (or set up webhooks now):
+   - Webhook URL: `https://shop.example.com/api/webhooks/stripe`
+   - Events: `checkout.session.completed`, `payment_intent.succeeded`
+   - Copy `whsec_...` signing secret to the panel
+4. Optional CAPTCHA: `./local/setup-turnstile.sh shop.example.com ALIAS`
+
+## Multi-Instance
+
+Each domain = separate isolated instance:
 
 ```bash
-./local/deploy.sh sellf --ssh=ALIAS
-```
-
-### Optional parameters
-
-```bash
-# With Caddy domain (automatic subdomain)
-./local/deploy.sh sellf --ssh=ALIAS --domain=auto --domain-type=caddy
-
-# With your own domain (Cloudflare DNS)
 ./local/deploy.sh sellf --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
-
-# With a specific Supabase project (skips selection from list)
-./local/deploy.sh sellf --ssh=ALIAS --supabase-project=abcdefghijk
-```
-
-### What happens during installation
-
-```
-1. Logging into Supabase
-   +-- Automatic (opens browser) or
-   +-- Manual (paste Personal Access Token)
-
-2. Selecting Supabase project
-   +-- List of your projects -> pick a number
-
-3. Stripe configuration (optional)
-   +-- Enter pk_... and sk_... keys or
-   +-- Skip -> configure in the panel later
-
-4. Domain selection
-   +-- Automatic Caddy subdomain
-   +-- Custom Caddy subdomain
-   +-- Custom Cloudflare domain
-
-5. Turnstile CAPTCHA (optional)
-   +-- Automatically via API or manually
-
-6. Installation and startup
-   +-- Build -> Start -> Database migrations
-```
-
----
-
-## Automatic Mode (details)
-
-Automatic mode requires **pre-collected keys** using the configuration script.
-
-### Step 1: Collecting keys
-
-```bash
-./local/setup-sellf-config.sh
-```
-
-The script collects and saves to `~/.config/stackpilot/sellf/deploy-config.env`:
-- Supabase token + project keys
-- Stripe keys (optional)
-- Turnstile keys (optional)
-- SSH alias
-- Domain
-
-### Step 2: Automatic deployment
-
-```bash
-./local/deploy.sh sellf --ssh=ALIAS --yes
-```
-
-The `--yes` flag means:
-- No interactive questions
-- Uses saved configuration
-- Automatic Turnstile configuration (if you have a Cloudflare token)
-
-### setup-sellf-config.sh Parameters
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `--ssh=ALIAS` | SSH alias for the server | `--ssh=ALIAS` |
-| `--domain=DOMAIN` | Domain or `auto` | `--domain=auto` |
-| `--domain-type=TYPE` | `caddy` or `cloudflare` | `--domain-type=caddy` |
-| `--supabase-project=REF` | Project ref (skips selection) | `--supabase-project=abc123` |
-| `--no-supabase` | Without Supabase configuration | |
-| `--no-stripe` | Without Stripe configuration | |
-| `--no-turnstile` | Without Turnstile configuration | |
-
-### Configuration examples
-
-```bash
-# Full interactive configuration
-./local/setup-sellf-config.sh
-
-# Quick configuration with automatic Caddy domain
-./local/setup-sellf-config.sh --ssh=ALIAS --domain=auto
-
-# Without Stripe and Turnstile (Supabase only)
-./local/setup-sellf-config.sh --ssh=ALIAS --no-stripe --no-turnstile
-
-# With a specific Supabase project
-./local/setup-sellf-config.sh --ssh=ALIAS --supabase-project=grinnleqqyygznnbpjzc --domain=auto
-
-# With custom Cloudflare domain
-./local/setup-sellf-config.sh --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
-```
-
----
-
-## deploy.sh Parameters (for Sellf)
-
-### Required
-
-| Parameter | Description |
-|-----------|-------------|
-| `--ssh=ALIAS` | SSH alias from ~/.ssh/config |
-
-### Optional - Supabase
-
-| Parameter | Description |
-|-----------|-------------|
-| `--supabase-project=REF` | Project ref - skips interactive selection |
-
-### Optional - Domain
-
-| Parameter | Description |
-|-----------|-------------|
-| `--domain=DOMAIN` | Application domain or `auto` for automatic Caddy domain |
-| `--domain-type=TYPE` | `caddy` (auto subdomain) or `cloudflare` (own domain) |
-
-### Optional - Modes
-
-| Parameter | Description |
-|-----------|-------------|
-| `--yes` | Automatic mode - no questions |
-| `--update` | Update existing installation |
-| `--build-file=PATH` | Use local .tar.gz file (for private repos) |
-| `--dry-run` | Show what would be done without executing |
-
-### Examples
-
-```bash
-# Interactive with automatic domain
-./local/deploy.sh sellf --ssh=ALIAS --domain=auto --domain-type=caddy
-
-# Automatic (requires prior configuration)
-./local/deploy.sh sellf --ssh=ALIAS --yes
-
-# Automatic with specific Supabase project
-./local/deploy.sh sellf --ssh=ALIAS --supabase-project=abc123 --yes
-
-# With custom Cloudflare domain
-./local/deploy.sh sellf --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare --yes
-
-# Update
-./local/deploy.sh sellf --ssh=ALIAS --update
-
-# With local build (private repo)
-./local/deploy.sh sellf --ssh=ALIAS --build-file=~/Downloads/sellf-build.tar.gz --yes
-```
-
----
-
-## Case Studies
-
-### Case 1: First Installation (beginner)
-
-**Situation:** First time installing Sellf, you want the script to guide you step by step.
-
-```bash
-# Just run
-./local/deploy.sh sellf --ssh=ALIAS
-
-# The script:
-# 1. Opens browser for Supabase login
-# 2. Shows list of projects to choose from
-# 3. Asks for Stripe keys (you can skip)
-# 4. Asks about domain (choose automatic)
-# 5. Installs and starts
-```
-
-### Case 2: CI/CD Deployment
-
-**Situation:** You want to automate deployment in a CI/CD pipeline.
-
-```bash
-# ONE-TIME (on local machine):
-./local/setup-sellf-config.sh --ssh=ALIAS --domain=auto
-
-# In CI/CD:
-./local/deploy.sh sellf --ssh=ALIAS --yes
-```
-
-### Case 3: Multiple Servers
-
-**Situation:** You have several servers and want to deploy quickly to different ones.
-
-```bash
-# Configuration for each server
-./local/setup-sellf-config.sh --ssh=server1 --domain=auto
-./local/setup-sellf-config.sh --ssh=server2 --domain=auto
-
-# Deploy (uses saved configuration)
-./local/deploy.sh sellf --ssh=server1 --yes
-./local/deploy.sh sellf --ssh=server2 --yes
-```
-
-### Case 4: Custom Domain with Cloudflare
-
-**Situation:** You have a domain `shop.mysite.com` with DNS in Cloudflare.
-
-```bash
-# 1. In Cloudflare: add A record pointing to your server IP
-#    shop.mysite.com -> 1.2.3.4
-
-# 2. Configuration
-./local/setup-sellf-config.sh \
-  --ssh=ALIAS \
-  --domain=shop.mysite.com \
-  --domain-type=cloudflare
-
-# 3. Deploy
-./local/deploy.sh sellf --ssh=ALIAS --yes
-```
-
-### Case 5: Multiple Supabase Projects on One Account
-
-**Situation:** You have two Supabase projects: production and test.
-
-```bash
-# Find project ref in URL:
-# https://supabase.com/dashboard/project/REF_HERE
-
-# Deploy to test project
-./local/deploy.sh sellf --ssh=staging-server --supabase-project=abc123test --yes
-
-# Deploy to production project
-./local/deploy.sh sellf --ssh=prod-server --supabase-project=xyz789prod --yes
-```
-
-### Case 6: Reinstallation After Server Wipe
-
-**Situation:** You wiped the server but have saved configuration.
-
-```bash
-# Configuration is in ~/.config/stackpilot/sellf/deploy-config.env
-# Just run:
-./local/deploy.sh sellf --ssh=ALIAS --yes
-
-# The script uses saved Supabase keys, domain, etc.
-```
-
-### Case 7: Updating Sellf
-
-**Situation:** A new version is out and you want to update.
-
-```bash
-# Simple update (auto-detects instance)
-./local/deploy.sh sellf --ssh=ALIAS --update
-
-# Update specific instance
-./local/deploy.sh sellf --ssh=ALIAS --update --domain=shop.example.com
-
-# Update with local build (private repo)
-./local/deploy.sh sellf --ssh=ALIAS --update --build-file=~/Downloads/sellf-build.tar.gz
-```
-
-### Case 8: Multiple Instances on One Server (same database)
-
-**Situation:** You want to run several shops on one VPS, using the same Supabase project.
-
-```bash
-# First instance - main shop
-./local/deploy.sh sellf --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
-
-# Second instance - online courses
 ./local/deploy.sh sellf --ssh=ALIAS --domain=courses.example.com --domain-type=cloudflare
-
-# Third instance - different domain
-./local/deploy.sh sellf --ssh=ALIAS --domain=digital.otherdomain.com --domain-type=cloudflare
 ```
 
-**Result on the server:**
+Result on the server:
 ```
 /opt/stacks/sellf-shop/      # PM2: sellf-shop,    port: 3333
 /opt/stacks/sellf-courses/   # PM2: sellf-courses, port: 3334
-/opt/stacks/sellf-digital/   # PM2: sellf-digital, port: 3335
 ```
 
-Each instance:
-- Has its own directory and PM2 process
-- Can have its own Stripe configuration
-- Port is auto-incremented (3333, 3334, 3335...)
-
-**Updating a specific instance:**
-```bash
-./local/deploy.sh sellf --ssh=ALIAS --update --domain=courses.example.com
-```
-
-### Case 9: Multiple Instances with Different Databases
-
-**Situation:** You want completely independent shops - each with its own Supabase database.
-
-```bash
-# Check your Supabase projects
-# https://supabase.com/dashboard/projects
-
-# Instance 1: Production (project: sellf-prod)
-./local/deploy.sh sellf --ssh=ALIAS \
-  --supabase-project=abc123prod \
-  --domain=shop.example.com \
-  --domain-type=cloudflare \
-  --yes
-
-# Instance 2: Tests (project: sellf-test)
-./local/deploy.sh sellf --ssh=ALIAS \
-  --supabase-project=xyz789test \
-  --domain=test.example.com \
-  --domain-type=cloudflare \
-  --yes
-
-# Instance 3: Client demo (project: sellf-demo)
-./local/deploy.sh sellf --ssh=ALIAS \
-  --supabase-project=demo456client \
-  --domain=demo.example.com \
-  --domain-type=cloudflare \
-  --yes
-```
-
-**Result on the server:**
-```
-/opt/stacks/sellf-shop/   # Supabase: abc123prod,  port: 3333
-/opt/stacks/sellf-test/   # Supabase: xyz789test,  port: 3334
-/opt/stacks/sellf-demo/   # Supabase: demo456client, port: 3335
-```
-
-**Key parameter:** `--supabase-project=REF` lets you choose a different Supabase project for each instance.
-
-**Verify configuration:**
-```bash
-# Check which project each instance uses
-ssh ALIAS "grep SUPABASE_URL /opt/stacks/sellf-*/admin-panel/.env.local"
-```
-
----
-
-## Where Keys Are Stored
-
-### On the local machine
-
-```
-~/.config/stackpilot/sellf/
-+-- deploy-config.env    # Main configuration (setup-sellf-config.sh)
-+-- supabase.env         # Backup of Supabase keys
-
-~/.config/supabase/
-+-- access_token         # Personal Access Token Supabase
-
-~/.config/cloudflare/
-+-- turnstile_token      # Cloudflare API token
-+-- turnstile_account_id # Account ID
-+-- turnstile_keys_DOMAIN # Turnstile keys per domain
-```
-
-### On the server
-
-```
-# Single instance (auto-domain or first installation)
-~/sellf/
-+-- admin-panel/
-|   +-- .env.local           # Application configuration
-|   +-- .next/standalone/    # Built application
-+-- .env.local.backup        # Backup (on update)
-
-# Multi-instance (each domain = separate directory)
-~/sellf-shop/             # domain: shop.example.com
-~/sellf-courses/          # domain: courses.example.com
-~/sellf-demo/             # domain: demo.example.com
-```
-
----
+Ports are auto-incremented (3333, 3334, 3335...).
 
 ## Management
 
 ```bash
-# Status of all instances
+# PM2 mode
 ssh ALIAS "pm2 status"
+ssh ALIAS "pm2 logs sellf-shop"
+ssh ALIAS "pm2 restart sellf-shop"
 
-# Logs for a single instance
-ssh ALIAS "pm2 logs sellf-admin"           # auto-domain
-ssh ALIAS "pm2 logs sellf-shop"            # shop.example.com
-
-# Restart
-ssh ALIAS "pm2 restart sellf-admin"
-
-# Restart all Sellf instances
-ssh ALIAS "pm2 restart all"
-
-# Live logs
-ssh ALIAS "pm2 logs sellf-shop --lines 50"
-
-# Check Supabase configuration for all instances
-ssh ALIAS "grep SUPABASE_URL /opt/stacks/sellf*/admin-panel/.env.local"
+# Docker mode
+ssh ALIAS "docker logs sellf-shop"
+ssh ALIAS "cd /opt/stacks/sellf-shop && docker compose restart"
 ```
 
-> **Note:** If `pm2: command not found`, add PATH manually:
-> ```bash
-> ssh ALIAS "echo 'export PATH=\"\$HOME/.bun/bin:\$PATH\"' >> ~/.bashrc"
-> ```
-> New Sellf installations add this automatically.
+## Automated Setup (CI/CD)
 
----
+```bash
+# Step 1: one-time config collection (opens browser for Supabase login)
+./local/setup-sellf-config.sh --ssh=ALIAS --domain=shop.example.com --domain-type=cloudflare
+
+# Step 2: deploy without any prompts
+./local/deploy.sh sellf --ssh=ALIAS --yes
+```
+
+Configuration is saved to `~/.config/stackpilot/sellf/deploy-config.env` and reused on subsequent deploys.
+
+## Update
+
+```bash
+./local/deploy.sh sellf --ssh=ALIAS --update
+# or for a specific instance:
+./local/deploy.sh sellf --ssh=ALIAS --update --domain=shop.example.com
+```
 
 ## Additional Scripts
 
-### setup-turnstile.sh - CAPTCHA
-
 ```bash
-# Automatically creates a Turnstile widget for the domain
+# Turnstile CAPTCHA
 ./local/setup-turnstile.sh shop.example.com ALIAS
-```
 
-### setup-supabase-email.sh - SMTP
-
-```bash
-# Configures custom SMTP for sending emails
+# Custom SMTP for Supabase emails
 ./local/setup-supabase-email.sh
-```
 
-### setup-supabase-migrations.sh - Database Migrations
-
-```bash
-# Manual migration run (normally automatic)
+# Manual database migrations
 SSH_ALIAS=ALIAS ./local/setup-supabase-migrations.sh
 ```
 
----
+## Backup
 
-## Stripe Webhooks (after installation)
-
-1. Open: https://dashboard.stripe.com/webhooks
-2. Add endpoint: `https://YOUR-DOMAIN/api/webhooks/stripe`
-3. Events:
-   - `checkout.session.completed`
-   - `payment_intent.succeeded`
-   - `payment_intent.payment_failed`
-4. Copy Signing Secret (`whsec_...`)
-5. Add to configuration:
-   ```bash
-   ssh ALIAS "echo 'STRIPE_WEBHOOK_SECRET=whsec_...' >> ~/sellf/admin-panel/.env.local"
-   ssh ALIAS "pm2 restart sellf-admin"
-   ```
-
----
-
-## FAQ
-
-**Q: What is the difference between interactive and automatic mode?**
-
-A: Interactive asks questions step by step - ideal for beginners. Automatic uses saved keys and the `--yes` flag - ideal for CI/CD and repeatable deploys.
-
-**Q: Do I need to run setup-sellf-config.sh before every deploy?**
-
-A: No! Once is enough. The configuration is saved and used automatically on subsequent deploys with `--yes`.
-
-**Q: What if I want to change the Supabase project?**
-
-A: Run `./local/setup-sellf-config.sh` again and select a different project, or use `--supabase-project=NEW_REF`.
-
-**Q: Is the first user the admin?**
-
-A: Yes! The first person to register automatically gets admin privileges.
-
-**Q: Test card for Stripe?**
-
-A: `4242 4242 4242 4242` (any date, any CVC)
-
-**Q: Where do I find the Supabase project ref?**
-
-A: In the project URL: `https://supabase.com/dashboard/project/REF_HERE`
-
-**Q: Is Turnstile required?**
-
-A: No. It is optional CAPTCHA protection. You can configure it later or skip it.
-
-**Q: Can I have multiple Sellf instances on one server?**
-
-A: Yes! Each instance must have a different domain. The system automatically:
-- Creates a separate directory (`/opt/stacks/sellf-{subdomain}/`)
-- Assigns the next port (3333, 3334, 3335...)
-- Creates a separate PM2 process
-
-You can also use different Supabase projects for each instance via `--supabase-project=REF`.
-
-**Q: How to check the status of multiple instances?**
-
-A: `ssh ALIAS "pm2 list"` - shows all Sellf processes with their status.
-
----
+Configuration and app files are in `/opt/stacks/sellf-{subdomain}/admin-panel/`.
+Database lives in Supabase (cloud or local). For local Supabase, back up the Supabase stack separately.
 
 ## Cost Comparison
 
@@ -574,9 +140,7 @@ A: `ssh ALIAS "pm2 list"` - shows all Sellf processes with their status.
 |---|---|---|---|
 | Monthly fee | ~$25/mo | $10/mo | **$0** |
 | Sales commission | 1-3% | 10% | **0%** |
-| Data ownership | - | - | **Yes** |
-
-**Save thousands per year** by self-hosting Sellf on your VPS.
+| Data ownership | — | — | **Yes** |
 
 ---
 

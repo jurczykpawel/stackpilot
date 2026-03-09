@@ -6,32 +6,40 @@ REST API for crawling pages with headless Chromium. Data extraction via AI, outp
 
 ```bash
 ./local/deploy.sh crawl4ai --ssh=ALIAS --domain-type=caddy --domain=crawl4ai.your-domain.com
+# or locally (SSH tunnel):
+./local/deploy.sh crawl4ai --ssh=ALIAS --domain-type=local --yes
 ```
 
 ## Requirements
 
-- **RAM:** minimum 2GB VPS, ~1-1.5GB usage at runtime
+- **RAM:** minimum 2GB total RAM, ~1-1.5GB usage at runtime (container limit: 1536MB)
 - **Disk:** ~3.5GB (Docker image with Chromium + Python + ML deps)
+- **Port:** 8000
 - **Database:** Not required (stateless)
 
-**Crawl4AI will NOT work on a 1GB RAM VPS!** Headless Chromium needs ~1-1.5GB RAM. install.sh blocks installation when <1800MB RAM is available.
+**Crawl4AI will NOT work on a 1GB RAM VPS!** Headless Chromium needs ~1-1.5GB RAM. The install script blocks installation when <1800MB total RAM is detected.
 
 ## After Installation
 
 API, Playground and Monitor are available immediately:
 - **API:** `https://domain/crawl`
-- **Playground:** `https://domain/playground` - interactive testing
-- **Monitor:** `https://domain/monitor` - dashboard with metrics (RAM, browser pool, requests)
+- **Playground:** `https://domain/playground` — interactive testing
+- **Monitor:** `https://domain/monitor` — dashboard with metrics (RAM, browser pool, requests)
+
+The API token is generated automatically during installation and saved in:
+```
+/opt/stacks/crawl4ai/.api_token
+```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CRAWL4AI_API_TOKEN` | (generated) | API token - install.sh generates automatically |
+| `CRAWL4AI_API_TOKEN` | (generated) | API token — install.sh generates automatically |
 | `CRAWL4AI_MODE` | api | Working mode (api for Docker) |
 | `PLAYWRIGHT_MAX_CONCURRENCY` | 2 | Max parallel browsers (more = more RAM) |
 
-Optional (LLM extraction - add manually to docker-compose):
+Optional (LLM extraction — add manually to docker-compose):
 
 | Variable | Description |
 |----------|-------------|
@@ -66,33 +74,22 @@ curl -X POST https://your-domain.com/crawl \
 ### With n8n
 
 Crawl4AI integrates with n8n for automated scraping:
-1. HTTP Request node -> POST to Crawl4AI API
+1. HTTP Request node → POST to Crawl4AI API
 2. Parse response (Markdown/JSON)
 3. Save data or send notification
 
-## API Token
-
-The token is generated automatically during installation and saved in:
-```
-/opt/stacks/crawl4ai/.api_token
-```
-
-## Version
-
-Container runs as non-root (UID 1000).
-
 ## Limitations
 
-- **Memory leak** - Under intensive use, memory grows (Chrome processes accumulate). `PLAYWRIGHT_MAX_CONCURRENCY=2` mitigates the problem. For heavy traffic, add a daily restart:
+- **Memory leak** — Under intensive use, memory grows (Chrome processes accumulate). `PLAYWRIGHT_MAX_CONCURRENCY=2` mitigates the problem. For heavy traffic, add a daily restart:
   ```bash
   # crontab -e on the server
   0 4 * * * cd /opt/stacks/crawl4ai && docker compose restart
   ```
-- **Slow start** - Chromium starts in ~60-90s
-- **Large image** - ~3.5GB on disk
-- **JWT auth broken** - Built-in JWT does not require credentials (known bug). Use `CRAWL4AI_API_TOKEN` or reverse proxy with auth.
-- **RAM on small VPS** - On a 2GB VPS the container limit is 1536MB, sufficient for 1-2 concurrent crawls
+- **Slow start** — Chromium starts in ~60-90s
+- **Large image** — ~3.5GB on disk
+- **JWT auth broken** — Built-in JWT does not require credentials (known bug). Use `CRAWL4AI_API_TOKEN` or reverse proxy with auth.
+- **RAM on small VPS** — On a 2GB VPS the container limit is 1536MB, sufficient for 1-2 concurrent crawls
 
 ## Backup
 
-Crawl4AI is stateless - it does not store data. Just back up `docker-compose.yaml` and `.api_token`.
+Crawl4AI is stateless — it does not store data. Just back up `docker-compose.yaml` and `.api_token`.

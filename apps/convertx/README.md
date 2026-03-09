@@ -6,17 +6,20 @@ Self-hosted file converter supporting 1000+ formats: images, documents, audio, v
 
 ```bash
 ./local/deploy.sh convertx --ssh=ALIAS --domain-type=caddy --domain=convertx.your-domain.com
+# or locally (SSH tunnel):
+./local/deploy.sh convertx --ssh=ALIAS --domain-type=local --yes
 ```
 
 ## Requirements
 
 - **RAM:** ~70MB idle, ~150MB during conversion (container limit: 512MB)
-- **Disk:** ~5GB (Docker image with bundled tools: LibreOffice, FFmpeg, texlive, Calibre...)
+- **Disk:** ~5.3GB (Docker image with bundled tools: LibreOffice, FFmpeg, texlive, Calibre...)
+- **Port:** 3000
 - **Database:** SQLite (built-in, data in `./data/`)
 
 ## After Installation
 
-1. Open the page and create an admin account
+1. Open the page and create an admin account.
 2. **Disable registration** after creating your account:
    ```bash
    ssh ALIAS 'cd /opt/stacks/convertx && sed -i "s/ACCOUNT_REGISTRATION=true/ACCOUNT_REGISTRATION=false/" docker-compose.yaml && docker compose up -d'
@@ -26,7 +29,7 @@ Self-hosted file converter supporting 1000+ formats: images, documents, audio, v
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `JWT_SECRET` | (generated) | JWT secret - install.sh generates automatically |
+| `JWT_SECRET` | (generated) | JWT secret — install.sh generates automatically |
 | `ACCOUNT_REGISTRATION` | true | New account registration (disable after setup!) |
 | `AUTO_DELETE_EVERY_N_HOURS` | 24 | Auto-delete files (0 = disable) |
 | `TZ` | Europe/Warsaw | Timezone |
@@ -51,11 +54,11 @@ ConvertX bundles 20+ tools in a single Docker image:
 
 ## Limitations
 
-- **Large files** - ConvertX loads files into RAM during conversion. With a 512MB limit, files >200MB may cause issues. For large files, increase `memory` in docker-compose.yaml.
-- **Slow start** - First start takes ~60s (checking versions of 20+ bundled tools)
-- **Large image** - ~5GB on disk; on a 10GB VPS that is half the disk
-- **No SSO/OAuth** - only local accounts with JWT
-- **Single-threaded** - no horizontal scalability
+- **Large files** — ConvertX loads files into RAM during conversion. With a 512MB limit, files >200MB may cause issues. For large files, increase `memory` in docker-compose.yaml.
+- **Slow start** — First start takes ~60s (checking versions of 20+ bundled tools)
+- **Large image** — ~5.3GB on disk; on a 10GB VPS that is over half the disk
+- **No SSO/OAuth** — only local accounts with JWT
+- **Single-threaded** — no horizontal scalability
 
 ## Backup
 

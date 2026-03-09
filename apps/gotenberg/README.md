@@ -1,6 +1,6 @@
-# Gotenberg
+# Gotenberg - Document Conversion API
 
-API for document conversion. A lightweight alternative to Stirling-PDF.
+Lightweight HTTP API for converting documents to PDF (HTML, DOCX, XLSX, PPTX, URLs) via Chromium and LibreOffice.
 
 > **Gotenberg has no graphical interface!** It is a pure API.
 > When you visit the domain you will see: *"Hey, Gotenberg has no UI, it's an API."*
@@ -28,26 +28,68 @@ API for document conversion. A lightweight alternative to Stirling-PDF.
 - You have a 2GB+ RAM VPS
 - You need advanced features (OCR, watermark, digital signature)
 
-## Supported Conversions
+---
 
-- HTML to PDF (via Chromium)
-- Markdown to PDF
-- DOCX, XLSX, PPTX, ODT to PDF (via LibreOffice)
-- Merging multiple PDFs into one
-- URL to PDF (page screenshot)
+## Installation
+
+```bash
+./local/deploy.sh gotenberg --ssh=ALIAS --domain-type=cloudflare --domain=pdf.example.com
+# or local access only (SSH tunnel):
+./local/deploy.sh gotenberg --ssh=ALIAS --domain-type=local --yes
+```
+
+---
+
+## Requirements
+
+- **RAM:** 256MB (limit set in docker-compose; ~150MB typical usage)
+- **Disk:** ~1500MB image (gotenberg:8 includes LibreOffice + Chromium)
+- **Port:** 3000 (default: `PORT=${PORT:-3000}`)
+- **Database:** None
+
+---
+
+## After Installation
+
+The API is **always protected with Basic Auth** (configured automatically during install).
+
+Retrieve your credentials:
+
+```bash
+ssh ALIAS 'cat /opt/stacks/gotenberg/.api_credentials'
+```
+
+Or read from the `.env` equivalent:
+
+```bash
+ssh ALIAS 'cat /opt/stacks/gotenberg/.api_credentials'
+# Output: user:password
+```
 
 ---
 
 ## Usage Examples (curl)
 
-### 1. Web Page to PDF
+> **All requests require `-u user:password`** — Basic Auth is always enabled.
+
+### 1. Health check
+
 ```bash
-curl -X POST https://your-domain.com/forms/chromium/convert/url \
+curl -u user:password https://your-domain.com/health
+# Returns: {"status":"up"}
+```
+
+### 2. Web Page to PDF
+
+```bash
+curl -u user:password \
+  -X POST https://your-domain.com/forms/chromium/convert/url \
   -F 'url=https://example.com' \
   -o page.pdf
 ```
 
-### 2. HTML to PDF (generating an invoice)
+### 3. HTML to PDF (generating an invoice)
+
 ```bash
 # Create an HTML file
 cat > invoice.html << 'EOF'
@@ -67,69 +109,61 @@ cat > invoice.html << 'EOF'
 EOF
 
 # Convert to PDF
-curl -X POST https://your-domain.com/forms/chromium/convert/html \
+curl -u user:password \
+  -X POST https://your-domain.com/forms/chromium/convert/html \
   -F 'files=@invoice.html' \
   -o invoice.pdf
 ```
 
-### 3. DOCX to PDF
+### 4. DOCX to PDF
+
 ```bash
-curl -X POST https://your-domain.com/forms/libreoffice/convert \
+curl -u user:password \
+  -X POST https://your-domain.com/forms/libreoffice/convert \
   -F 'files=@document.docx' \
   -o document.pdf
 ```
 
-### 4. Excel to PDF
+### 5. Excel to PDF
+
 ```bash
-curl -X POST https://your-domain.com/forms/libreoffice/convert \
+curl -u user:password \
+  -X POST https://your-domain.com/forms/libreoffice/convert \
   -F 'files=@report.xlsx' \
   -o report.pdf
 ```
 
-### 5. Merging PDFs
+### 6. Merging PDFs
+
 ```bash
-curl -X POST https://your-domain.com/forms/pdfengines/merge \
+curl -u user:password \
+  -X POST https://your-domain.com/forms/pdfengines/merge \
   -F 'files=@file1.pdf' \
   -F 'files=@file2.pdf' \
   -F 'files=@file3.pdf' \
   -o merged.pdf
 ```
 
-### 6. Health check
-```bash
-curl https://your-domain.com/health
-# Should return: {"status":"up"}
-```
-
 ---
 
 ## Integration with n8n
+
+In n8n use the **HTTP Request** node with **Basic Auth** credentials (add a credential of type "Basic Auth" with your Gotenberg user/password).
 
 ### Generating PDF from HTML
 
 1. **HTTP Request** node:
    - Method: `POST`
-   - URL: `http://gotenberg:3000/forms/chromium/convert/html`
+   - URL: `https://gotenberg.example.com/forms/chromium/convert/html`
+   - Authentication: Basic Auth (credentials from `.api_credentials`)
    - Body Content Type: `Form-Data`
    - Form Parameters:
      - Name: `files`
-     - Value: `{{ $json.htmlContent }}`  (or binary file)
-
-2. **Save result** - output is a binary PDF
-
-### Web Page Screenshot
-
-1. **HTTP Request** node:
-   - Method: `POST`
-   - URL: `http://gotenberg:3000/forms/chromium/convert/url`
-   - Body Content Type: `Form-Data`
-   - Form Parameters:
-     - Name: `url`
-     - Value: `https://example.com`
+     - Value: binary HTML file
 
 ### Typical use cases in n8n:
-- Automatic invoice generation after payment (Stripe webhook -> HTML -> PDF -> email)
-- Weekly reports (data from DB -> HTML template -> PDF)
+- Automatic invoice generation after payment (Stripe webhook → HTML → PDF → email)
+- Weekly reports (data from DB → HTML template → PDF)
 - Archiving web pages as PDF
 - Converting documents uploaded by clients
 
@@ -138,8 +172,10 @@ curl https://your-domain.com/health
 ## API Options
 
 ### Page settings (Chromium)
+
 ```bash
-curl -X POST http://localhost:3000/forms/chromium/convert/html \
+curl -u user:password \
+  -X POST https://your-domain.com/forms/chromium/convert/html \
   -F 'files=@index.html' \
   -F 'paperWidth=8.5' \
   -F 'paperHeight=11' \
@@ -150,12 +186,30 @@ curl -X POST http://localhost:3000/forms/chromium/convert/html \
 ```
 
 ### Wait for JS to load (SPA)
+
 ```bash
-curl -X POST http://localhost:3000/forms/chromium/convert/url \
+curl -u user:password \
+  -X POST https://your-domain.com/forms/chromium/convert/url \
   -F 'url=https://spa-app.com' \
   -F 'waitDelay=3s' \
   -o result.pdf
 ```
+
+---
+
+## Supported Conversions
+
+- HTML to PDF (via Chromium)
+- Markdown to PDF
+- DOCX, XLSX, PPTX, ODT to PDF (via LibreOffice)
+- Merging multiple PDFs into one
+- URL to PDF (page screenshot)
+
+---
+
+## Backup
+
+Gotenberg is stateless — no persistent data. Nothing to back up.
 
 ---
 

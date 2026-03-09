@@ -1,64 +1,57 @@
-# RoutePix
+# RoutePix - Travel Route Visualizer from Geotagged Photos
 
-**Wizualizuj trasy podróży ze zdjęć geotagowanych.**
+Visualize travel routes from geotagged photos. Upload photos → EXIF extraction → interactive map with markers and route. Optional AI scene recognition.
 
-| | |
-|---|---|
-| **Obraz** | Build z repozytorium (~600MB) |
-| **RAM** | ~256–512MB |
-| **Dysk** | ~1GB + zdjęcia |
-| **Port** | Konfigurowalny (domyślnie 3000) |
-| **Baza** | SQLite (bundled, zero config) |
-| **Plan** | Mikrus 2.1+ (1GB RAM) |
+## Installation
 
-## Co to robi?
+```bash
+./local/deploy.sh routepix --ssh=ALIAS --domain-type=cloudflare --domain=routes.example.com
+```
 
-RoutePix zamienia zdjęcia z podróży w interaktywne mapy z trasami:
+## Requirements
 
-- **Upload zdjęć** → automatyczna ekstrakcja EXIF (GPS, data, orientacja)
-- **Interaktywna mapa** z markerami, trasą i zdjęciami (Leaflet)
-- **Import Google Photos** — OAuth2, wybierz album → mapa gotowa
-- **Import KML** — trasy z Organic Maps, Google Earth
-- **AI rozpoznawanie scen** — Groq, OpenRouter lub Ollama (opcjonalnie)
-- **Road-snapping** — OSRM dopasowuje trasę do rzeczywistych dróg
-- **Udostępnianie** — publiczne linki z opcjonalnym hasłem i wygaśnięciem
-- **Magic link auth** — jeden admin, bez haseł
+- **RAM:** ~512MB (1 container, memory limit: 512M)
+- **Disk:** ~600MB image (Node.js 22 + Next.js standalone + better-sqlite3 + vips) + user photo uploads
+- **Port:** 3000
+- **Database:** SQLite (bundled in container, zero config)
 
 ## Stack
 
-| Komponent | Technologia |
-|-----------|-------------|
-| Frontend | Next.js 16 + Tailwind + Leaflet |
-| Backend | Next.js API Routes + Prisma 7 |
-| Baza | SQLite (domyślnie) lub PostgreSQL |
-| Obrazy | sharp + vips |
+| Component | Technology |
+|-----------|------------|
+| Frontend | Next.js + Tailwind + Leaflet |
+| Backend | Next.js API Routes + Prisma |
+| Database | SQLite (embedded, no external DB needed) |
+| Images | sharp + vips |
 | Auth | Magic links (JWT) |
 
-## Instalacja
+## After Installation
+
+1. Configure SMTP (required for magic link login):
 
 ```bash
-./local/deploy.sh routepix --ssh=mikrus --domain-type=cytrus --domain=auto
+ssh ALIAS 'nano /opt/stacks/routepix/.env'
+# Set: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+ssh ALIAS 'cd /opt/stacks/routepix && docker compose restart'
 ```
 
-## Konfiguracja (opcjonalnie)
+2. Open the app → request magic link to `ADMIN_EMAIL`
+3. Upload geotagged photos or import from Google Photos
 
-Edytuj `.env` na serwerze:
+### Optional integrations
 
 ```bash
-ssh mikrus 'nano /opt/stacks/routepix/.env'
+# AI scene recognition (free tier available):
+AI_GROQ_API_KEY=your-key
 
-# SMTP (wymagane do logowania):
-# SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+# Google Photos import:
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 
-# AI (rozpoznawanie scen):
-# AI_GROQ_API_KEY — darmowy tier na groq.com
-
-# Google Photos:
-# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-
-ssh mikrus 'cd /opt/stacks/routepix && docker compose restart'
+# Road-snapping (uses public OSRM by default):
+OSRM_BASE_URL=https://router.project-osrm.org
 ```
 
-## Źródło
+## Source
 
 https://github.com/jurczykpawel/routepix

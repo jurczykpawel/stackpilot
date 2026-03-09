@@ -1,137 +1,111 @@
 # Cap - Open Source Loom Alternative
 
-**Cap** lets you record your screen, edit and share videos in seconds. Great for:
-- Recording tutorials for clients
-- Asynchronous team communication
-- Product demos
-- Bug reports with screen recordings
+Record, edit and share video in seconds. Great for tutorials, async team communication, product demos, and bug reports.
 
 > Project page: https://cap.so
 > GitHub: https://github.com/CapSoftware/Cap
 
----
-
-## Requirements
-
-Cap is **resource-heavy**. It requires:
-
-| Component | Description | RAM |
-|-----------|------------|-----|
-| cap-web | Main application | ~400-500 MB |
-| MySQL | Database | ~300-500 MB |
-| MinIO | S3 storage (optional) | ~200 MB |
-
-**Recommendation:** 2GB RAM VPS or higher.
-
-### Optimization for small VPS
-
-To save resources:
-1. **Use an external MySQL database (recommended)** - don't waste RAM on a local database. Cap only stores metadata (users, links) in the DB - the actual videos go to S3, so a small DB is more than enough.
-2. **External S3** - use Cloudflare R2 (cheap!), AWS S3 or Backblaze B2 instead of local MinIO
-
----
-
 ## Installation
 
 ```bash
-./local/deploy.sh cap
+./local/deploy.sh cap --ssh=ALIAS --domain-type=cloudflare --domain=cap.example.com
 ```
 
-The script will ask for:
-1. **Database mode** - external MySQL (recommended) or local
-2. **Storage mode** - external S3 (recommended) or local MinIO
-3. **Domain** - e.g. `cap.example.com`
+Cap requires a **domain** (used for HTTPS and video sharing links). It also requires a database and S3 storage — see options below.
 
----
+### Option A: Local MySQL + Local MinIO (simplest)
 
-## Recommended Storage Configuration
-
-### Option 1: MinIO with StackPilot (simplest)
-If you have MinIO installed as a separate app:
 ```bash
-# First install MinIO
+MYSQL_ROOT_PASS=secret \
+USE_LOCAL_MINIO=true \
+./local/deploy.sh cap --ssh=ALIAS --domain-type=cloudflare --domain=cap.example.com
+```
+
+### Option B: External MySQL + External S3
+
+```bash
+DB_HOST=mysql.example.com DB_PORT=3306 DB_NAME=cap \
+DB_USER=myuser DB_PASS=secret \
+S3_ENDPOINT=https://xxx.r2.cloudflarestorage.com \
+S3_PUBLIC_URL=https://cdn.example.com \
+S3_REGION=auto S3_BUCKET=cap-videos \
+S3_ACCESS_KEY=xxx S3_SECRET_KEY=yyy \
+./local/deploy.sh cap --ssh=ALIAS --domain-type=cloudflare --domain=cap.example.com
+```
+
+### Option C: Separate MinIO app (recommended)
+
+```bash
+# First install MinIO as a standalone app:
 ./local/deploy.sh minio --ssh=ALIAS
 
-# Find credentials in:
-ssh ALIAS "cat /opt/stacks/minio/.env"
+# Get credentials:
+ssh ALIAS 'cat /opt/stacks/minio/.env'
 
-# Then install Cap with external S3
-S3_ENDPOINT=http://minio:9000 \
+# Then install Cap pointing to it:
+S3_ENDPOINT=http://cap-minio:9000 \
 S3_ACCESS_KEY=admin \
-S3_SECRET_KEY=<password-from-minio> \
+S3_SECRET_KEY=<password-from-minio-env> \
 S3_BUCKET=cap-videos \
-./local/deploy.sh cap --ssh=ALIAS
+./local/deploy.sh cap --ssh=ALIAS --domain-type=cloudflare --domain=cap.example.com
 ```
 
-### Option 2: Cloudflare R2 (cheapest for large volumes)
-- Free 10GB/month
-- No egress fees
-- Endpoint: `https://<account-id>.r2.cloudflarestorage.com`
-- Region: `auto`
+## Requirements
 
-### Option 3: AWS S3
-- Pay-as-you-go
-- Region: `eu-central-1` (Frankfurt) for low latency from Europe
+- **RAM:** ~1.5-2GB+ (cap-web 512M + MySQL 512M + MinIO 256M when all bundled)
+- **Disk:** ~1.5GB image (`cap-web`) + ~4GB total with MySQL and MinIO images
+- **Port:** 3000 (main app)
+- **Database:** MySQL 8.0 only (PostgreSQL not supported)
 
-### Option 4: Backblaze B2
-- Cheap storage
-- S3 API compatible
+### Local MinIO ports (when `USE_LOCAL_MINIO=true`)
 
-### Option 5: Local MinIO (built into Cap)
-If you only need MinIO for Cap:
-```bash
-USE_LOCAL_MINIO=true ./local/deploy.sh cap --ssh=ALIAS
-```
-MinIO will start as a container in the same stack as Cap.
+| Port | Service |
+|------|---------|
+| 3000 | Cap web app |
+| 3902 | MinIO S3 API (public video access via `https://<domain>:3902`) |
+| 3903 | MinIO Console (localhost only) |
 
----
+> **Note:** When using local MinIO, port 3902 must be reachable from the internet — Cap's desktop app fetches videos from `https://<domain>:3902`. Configure your firewall/proxy accordingly or use an external S3 provider instead.
 
-## Desktop Client
+## Recommended Storage
 
-Cap has a desktop app for recording:
-- **macOS:** https://cap.so/download
-- **Windows:** https://cap.so/download
+| Option | Cost | Notes |
+|--------|------|-------|
+| Local MinIO (bundled) | Free | Needs open port 3902 or proxy |
+| Cloudflare R2 | Free 10GB/mo, no egress | Best for production |
+| AWS S3 | Pay-as-you-go | Region `eu-central-1` for EU |
+| Backblaze B2 | Cheap | S3 API compatible |
 
-After installing the self-hosted version, configure the app to point to your own server.
+## After Installation
 
----
+1. Open `https://<domain>` to get started
+2. Install the Cap desktop app: https://cap.so/download
+3. In the desktop app, point to your self-hosted server
+
+**Save these keys** — without them you cannot recover access after reinstallation:
+- `NEXTAUTH_SECRET` — user authentication
+- `DATABASE_ENCRYPTION_KEY` — data encryption
 
 ## Management
 
-### Logs
 ```bash
+# Logs
 ssh ALIAS "docker logs -f cap-cap-web-1"
-```
 
-### Restart
-```bash
+# Restart
 ssh ALIAS "cd /opt/stacks/cap && docker compose restart"
-```
 
-### Update
-```bash
+# Update
 ssh ALIAS "cd /opt/stacks/cap && docker compose pull && docker compose up -d"
 ```
 
----
-
-## Security
-
-After installation, **make sure to save** the generated keys:
-- `NEXTAUTH_SECRET` - for user authentication
-- `DATABASE_ENCRYPTION_KEY` - for encrypting data in the database
-
-Without these keys you cannot recover data access after reinstallation!
-
----
-
 ## FAQ
 
-**Q: How much disk space do I need?**
-A: Depends on the number of recordings. 1 minute of HD video is ~50-100 MB. For many recordings, use external S3.
+**Q: How much disk space per recording?**
+A: ~50-100MB per minute of HD video. Use external S3 for large volumes.
 
-**Q: Can I use PostgreSQL instead of MySQL?**
-A: No. Cap officially supports only MySQL 8.0.
+**Q: Can I use PostgreSQL?**
+A: No. Cap officially supports MySQL 8.0 only.
 
-**Q: How do I share a recording?**
-A: After recording in the desktop app, Cap automatically uploads the video to your server and generates a sharing link.
+**Q: How does sharing work?**
+A: After recording in the desktop app, Cap automatically uploads the video and generates a sharing link.

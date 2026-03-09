@@ -5,16 +5,19 @@ Generate pixel-perfect social media graphics from HTML/CSS templates. One text, 
 ## Installation
 
 ```bash
-./local/deploy.sh social-media-generator --ssh=vps --domain-type=caddy --domain=smg.example.com
+./local/deploy.sh social-media-generator --ssh=ALIAS --domain-type=caddy --domain=smg.example.com
+# or locally (SSH tunnel):
+./local/deploy.sh social-media-generator --ssh=ALIAS --domain-type=local --yes
 ```
 
 ## Requirements
 
-- **RAM:** 2GB minimum, ~512MB-1GB runtime usage
+- **RAM:** 2GB minimum total RAM, ~512MB-1GB runtime usage (container limit: 1024MB)
 - **Disk:** ~1GB (Docker image with Chromium + Python + deps) + ~200MB PostgreSQL
+- **Port:** 8000
 - **Database:** PostgreSQL 16 (bundled, installed automatically)
 
-**This app will NOT work on servers with <2GB RAM!** Headless Chromium needs ~1GB RAM. The install script blocks installation when <1800MB RAM is detected.
+**This app will NOT work on servers with <2GB RAM!** Headless Chromium needs ~1GB RAM. The install script blocks installation when <1800MB total RAM is detected.
 
 ## After Installation
 
@@ -49,7 +52,7 @@ Web panel and API are available immediately:
 | `SMTP_USER` | (empty) | SMTP username |
 | `SMTP_PASS` | (empty) | SMTP password |
 | `EMAIL_FROM` | (empty) | Sender email address |
-| `CREDIT_PRODUCTS` | JSON | Product-to-credits mapping |
+| `CREDIT_PRODUCTS` | `{"100-credits": 100, "500-credits": 500, "unlimited": 10000}` | Product-to-credits mapping |
 
 ## Templates
 
@@ -66,13 +69,6 @@ Custom templates: add HTML/CSS to `repo/templates/`.
 Branding via CSS custom properties (`--brand-accent`, `--brand-font`, etc.). Add a directory with a CSS file to `repo/brands/`.
 
 ## Usage
-
-### CLI (on server)
-
-```bash
-docker exec -it social-media-generator-app-1 \
-  python generate.py --brand example --template quote-card --text "Your text"
-```
 
 ### API
 

@@ -21,59 +21,67 @@ You only pay for hosting and sending emails via SMTP (e.g. Amazon SES: ~$1 per 1
 
 ## Requirements
 
-### PostgreSQL (required)
+- **RAM:** 256MB (limit set in docker-compose; ~50-100MB typical usage)
+- **Disk:** ~150MB image (listmonk/listmonk:latest — Go binary)
+- **Port:** 9000 (default: `PORT=${PORT:-9000}`)
+- **Database:** PostgreSQL with `pgcrypto` extension (required since v6.0.0)
 
-Listmonk requires a PostgreSQL database with the **pgcrypto** extension (since v6.0.0).
+### PostgreSQL Options
 
-> **The bundled shared database does NOT work!** No permissions to create extensions. You need a dedicated PostgreSQL database.
+> **The shared Mikrus database does NOT work!** The shared instance (PostgreSQL 12) does not allow creating extensions like `pgcrypto`. You need a dedicated database.
 
-#### Dedicated PostgreSQL Database
+> **`--db-source=bundled` works correctly.** It starts a dedicated `postgres:16-alpine` container which supports all required extensions.
 
-Use a managed PostgreSQL service or provision a dedicated database instance. A small 512MB/10GB instance is sufficient for most use cases.
+**Option A — Bundled PostgreSQL 16 (dedicated container, easiest):**
+```bash
+./local/deploy.sh listmonk --ssh=ALIAS --domain-type=cloudflare --domain=newsletter.example.com --db-source=bundled
+```
+Starts a dedicated `postgres:16-alpine` container alongside Listmonk. No external DB needed.
+
+**Option B — External/custom PostgreSQL:**
+```bash
+./local/deploy.sh listmonk --ssh=ALIAS --domain-type=cloudflare --domain=newsletter.example.com --db-source=custom
+```
+The script will ask for host, database, user, and password. A small 512MB/10GB managed instance is sufficient and can be shared between n8n, Listmonk, and Umami.
+
+> **Note:** Listmonk does not support schema isolation — its tables are always created in the `public` schema of the target database. When sharing a database with other apps, listmonk tables (campaigns, subscribers, lists) will be alongside them.
 
 ---
 
 ## Installation
 
-### Step 1: Prepare database credentials
-
-From your database provider you need:
-- **Host** - e.g. `db.example.com` or your DB server address
-- **Database** - database name
-- **User** - username
-- **Password** - password
-
-### Step 2: Run the installer
-
 ```bash
-./local/deploy.sh listmonk
+# With bundled PostgreSQL (recommended):
+./local/deploy.sh listmonk --ssh=ALIAS --domain-type=cloudflare --domain=newsletter.example.com --db-source=bundled
+
+# With external PostgreSQL:
+./local/deploy.sh listmonk --ssh=ALIAS --domain-type=cloudflare --domain=newsletter.example.com --db-source=custom
+
+# Local access only (SSH tunnel):
+./local/deploy.sh listmonk --ssh=ALIAS --domain-type=local --db-source=bundled --yes
 ```
 
-The script will ask for:
-- PostgreSQL database credentials (host, database, user, password)
-- Domain (e.g. `newsletter.example.com`)
+---
 
-### Step 3: Configure the domain
-
-After installation, expose the app via HTTPS:
-
-**Caddy:**
-```bash
-sp-expose newsletter.example.com 9000
-```
-
-### Step 4: Log in and configure SMTP
+## After Installation
 
 1. Go to `https://newsletter.example.com`
 2. Log in: **admin** / **listmonk**
-3. **Change the password!**
-4. Go to Settings -> SMTP and configure the mail server
+3. **Change the password immediately!**
+4. Go to **Settings → SMTP** and configure the mail server
+
+### SSH tunnel (local access):
+
+```bash
+ssh -L 9000:localhost:9000 ALIAS
+# Then open http://localhost:9000
+```
 
 ---
 
 ## SMTP Configuration
 
-Listmonk does not send emails by itself - you need an SMTP server:
+Listmonk does not send emails by itself — you need an SMTP server:
 
 | Service | Cost | Limit |
 |---|---|---|
@@ -82,7 +90,7 @@ Listmonk does not send emails by itself - you need an SMTP server:
 | **Resend** | $0 | 3,000/mo free |
 | **Own server** | $0 | Risk of blacklisting |
 
-> **Recommendation:** Amazon SES - cheapest at scale, requires domain verification.
+> **Recommendation:** Amazon SES — cheapest at scale, requires domain verification.
 
 ---
 
@@ -111,33 +119,19 @@ After configuring SMTP, run the domain setup script:
 | **DMARC** | Adds policy + cross-domain auth records | Protects against spoofing |
 | **Bounce guide** | SNS instructions (if --webhook-url provided) | Without this SES may suspend your account |
 
-**`setup-listmonk-mail.sh`** — wrapper: calls the above + adds:
-
-| Element | What it does |
-|---|---|
-| **Bounce handling** | PUT /api/settings — SES webhook ON, count=1, action=blocklist |
-| **Notifications** | PUT /api/settings — notification emails |
-| **Restart** | docker compose restart via --ssh=ALIAS |
-
 Requires prior Cloudflare configuration (`./local/setup-cloudflare.sh`) for automatic DNS record creation.
 
-### Manual configuration
+---
 
-If you prefer not to use the script, add manually in Cloudflare DNS:
+## Backup
 
-**DKIM (for each domain, from SES/EmailLabs panel):**
-- 3 CNAME records from the SES console (Authentication -> DKIM)
-- 1 CNAME/TXT record from the EmailLabs panel
+Data location: `/opt/stacks/listmonk/data/` (file uploads)
 
-**DMARC (for each domain):**
+Database backup (if using bundled PostgreSQL):
+```bash
+ssh ALIAS 'cd /opt/stacks/listmonk && docker compose exec db pg_dump -U listmonk listmonk > /tmp/listmonk-db.sql'
+scp ALIAS:/tmp/listmonk-db.sql ./listmonk-db.sql
 ```
-_dmarc.yourdomain.com  TXT  "v=DMARC1; p=none; rua=mailto:dmarc-reports@yourdomain.com"
-```
-
-**Bounce handling:**
-1. AWS SNS -> topic `listmonk-bounces` -> subscription HTTPS -> `https://YOUR-LISTMONK/webhooks/service/ses`
-2. AWS SES -> each domain -> Notifications -> Bounce + Complaint -> topic `listmonk-bounces`
-3. Listmonk -> Settings -> Bounces -> Enable SES, count=1, action=blocklist
 
 ---
 
@@ -160,7 +154,7 @@ Listmonk API: `https://listmonk.app/docs/apis/subscribers/`
 A: ~50-100MB. Written in Go, very lightweight.
 
 **Q: Can I import subscribers from Mailchimp?**
-A: Yes! Export CSV from Mailchimp and import in Listmonk -> Subscribers -> Import.
+A: Yes! Export CSV from Mailchimp and import in Listmonk → Subscribers → Import.
 
 **Q: How to avoid spam?**
 A: Configure SPF, DKIM and DMARC for your domain. Listmonk has built-in double opt-in support.

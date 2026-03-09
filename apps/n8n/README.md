@@ -21,60 +21,79 @@ You only pay for hosting.
 
 ## Requirements
 
-- **RAM:** Min. 600MB (recommended 1GB on a 2GB VPS)
-- **PostgreSQL:** Required (external database!)
-
-> **IMPORTANT:** Do not install PostgreSQL locally on a small VPS - you will run out of RAM for n8n itself!
+- **RAM:** 800MB (n8n container limit); bundled PostgreSQL adds ~256MB on top
+- **Disk:** ~800MB image (n8nio/n8n:latest)
+- **Port:** 5678 (default: `PORT=${PORT:-5678}`)
+- **Database:** PostgreSQL with `pgcrypto` extension (required)
 
 ### PostgreSQL Options
 
-> **The bundled shared database does NOT work!** n8n requires the `pgcrypto` extension (`gen_random_uuid()`), which is not available on shared PostgreSQL 12. You need a dedicated database.
+> **The shared Mikrus database does NOT work!** n8n requires the `pgcrypto` extension (`gen_random_uuid()`), which is not available on shared PostgreSQL. You need a dedicated database.
 
-#### Dedicated PostgreSQL Database (required)
+**Option A — Bundled PostgreSQL 16 (dedicated container, easiest):**
+```bash
+./local/deploy.sh n8n --ssh=ALIAS --domain-type=cloudflare --domain=n8n.example.com --db-source=bundled
+```
+Starts a dedicated `postgres:16-alpine` container alongside n8n. No external DB needed.
 
-Use a managed PostgreSQL service or provision a dedicated database instance. A small 512MB/10GB instance is sufficient and can be shared between n8n, Listmonk and Umami.
+**Option B — External/custom PostgreSQL:**
+```bash
+./local/deploy.sh n8n --ssh=ALIAS --domain-type=cloudflare --domain=n8n.example.com --db-source=custom
+```
+The script will ask for host, database, user, and password. A small 512MB/10GB managed instance is sufficient and can be shared between n8n, Listmonk, and Umami.
 
 ---
 
 ## Installation
 
-### Step 1: Prepare database credentials
-
-From your database provider you need:
-- **Host** - e.g. `db.example.com` or your DB server address
-- **Database** - database name
-- **User** - username
-- **Password** - password
-
-### Step 2: Run the installer
-
 ```bash
-./local/deploy.sh n8n
+# With bundled PostgreSQL (recommended for single-server setups):
+./local/deploy.sh n8n --ssh=ALIAS --domain-type=cloudflare --domain=n8n.example.com --db-source=bundled
+
+# With external PostgreSQL:
+./local/deploy.sh n8n --ssh=ALIAS --domain-type=cloudflare --domain=n8n.example.com --db-source=custom
+
+# Local access only (SSH tunnel):
+./local/deploy.sh n8n --ssh=ALIAS --domain-type=local --db-source=bundled --yes
 ```
 
-The script will ask for:
-- PostgreSQL database credentials
-- Domain (e.g. `n8n.example.com`)
+---
 
-### Step 3: Configure the domain
+## After Installation
 
-**Caddy:**
+1. Open `https://n8n.example.com` (or `http://localhost:5678` via SSH tunnel)
+2. Create your admin account on first launch — n8n will prompt you
+3. Set up your first workflow
+
+### SSH tunnel (local access):
+
 ```bash
-sp-expose n8n.example.com 5678
+ssh -L 5678:localhost:5678 ALIAS
+# Then open http://localhost:5678
 ```
 
 ---
 
 ## Backup
 
-n8n stores workflows in the database and encryption keys (credentials) in a file.
+n8n stores data in two places:
 
-Full backup:
+1. **Workflows and credentials** — in the PostgreSQL database
+2. **Encryption key** — in `/opt/stacks/n8n/data/.n8n/` on the server
+
+To back up:
+
 ```bash
-./local/deploy.sh apps/n8n/backup.sh
+# Copy the data directory (contains encryption key — required to restore credentials)
+ssh ALIAS 'tar czf /tmp/n8n-data-backup.tar.gz /opt/stacks/n8n/data/'
+scp ALIAS:/tmp/n8n-data-backup.tar.gz ./n8n-data-backup.tar.gz
+
+# Also back up the database (if using bundled PostgreSQL):
+ssh ALIAS 'cd /opt/stacks/n8n && docker compose exec db pg_dump -U n8n n8n > /tmp/n8n-db.sql'
+scp ALIAS:/tmp/n8n-db.sql ./n8n-db.sql
 ```
 
-Creates a `.tar.gz` in `/opt/stacks/n8n/backups` on the server.
+> **Important:** Without the encryption key from the data directory, credential secrets cannot be decrypted even if you have a DB backup.
 
 ---
 
@@ -110,10 +129,10 @@ n8n is the "brain" of your automation:
 ## FAQ
 
 **Q: How much RAM does n8n use?**
-A: 400-600MB at rest, more with complex workflows.
+A: 400-600MB at rest, more with complex workflows. The memory limit in docker-compose is set to 800MB.
 
 **Q: Can I use SQLite instead of PostgreSQL?**
 A: You can, but it is not recommended. SQLite locks up under many concurrent operations.
 
 **Q: How to migrate workflows from Make/Zapier?**
-A: Manually - n8n has different connectors. But most popular integrations (Slack, Google Sheets, Stripe) work similarly.
+A: Manually — n8n has different connectors. But most popular integrations (Slack, Google Sheets, Stripe) work similarly.

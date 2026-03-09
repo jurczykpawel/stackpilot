@@ -1,17 +1,11 @@
 # MinIO - S3-Compatible Object Storage
 
-Self-hosted storage compatible with the Amazon S3 API.
-
-## Requirements
-
-- **RAM**: ~256MB
-- **Disk**: Depends on the amount of stored files
-- **Plan**: 1GB+ RAM VPS (basic is sufficient)
+Self-hosted storage compatible with the Amazon S3 API. Use it for file storage, backups, and media uploads.
 
 ## Installation
 
 ```bash
-./local/deploy.sh minio --ssh=ALIAS --domain=s3.example.com
+./local/deploy.sh minio --ssh=ALIAS --domain-type=cloudflare --domain=s3.example.com
 ```
 
 ### Optional variables
@@ -23,6 +17,15 @@ DEFAULT_BUCKET=myfiles \
 ./local/deploy.sh minio --ssh=ALIAS
 ```
 
+## Requirements
+
+- **RAM:** ~256MB
+- **Disk:** ~300MB image + stored files
+- **Port:** 9000 (S3 API), 9001 (Console Web UI)
+
+> When deployed **with a domain**, Caddy exposes the **Console (port 9001)** at `https://<domain>`.
+> The S3 API (port 9000) remains on localhost and requires a separate subdomain or direct access.
+
 ## Ports
 
 | Port | Service |
@@ -30,15 +33,45 @@ DEFAULT_BUCKET=myfiles \
 | 9000 | S3 API (AWS S3 compatible) |
 | 9001 | Console (Web UI) |
 
+## After Installation
+
+### Access the Console
+
+```bash
+# With domain (Console exposed via Caddy):
+https://s3.example.com
+
+# Without domain (SSH tunnel):
+ssh -L 9001:localhost:9001 ALIAS
+# then open http://localhost:9001
+```
+
+### Get credentials
+
+```bash
+ssh ALIAS 'cat /opt/stacks/minio/.env'
+```
+
+### Create a bucket via CLI
+
+```bash
+# Get password from .env first:
+ssh ALIAS 'cat /opt/stacks/minio/.env'
+
+# Then inside the container:
+docker exec minio mc alias set local http://localhost:9000 admin <password-from-env>
+docker exec minio mc mb local/bucket-name
+docker exec minio mc ls local/
+```
+
 ## Usage with Other Applications
 
 ### Cap (video recordings)
 
-In `apps/cap/install.sh`:
 ```bash
-S3_ENDPOINT=http://minio:9000
+S3_ENDPOINT=http://cap-minio:9000
 S3_ACCESS_KEY=admin
-S3_SECRET_KEY=<password from /opt/stacks/minio/.env>
+S3_SECRET_KEY=<password from: ssh ALIAS 'cat /opt/stacks/minio/.env'>
 S3_BUCKET=cap-videos
 ```
 
@@ -47,14 +80,13 @@ S3_BUCKET=cap-videos
 ```bash
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=admin
-S3_SECRET_KEY=<password>
+S3_SECRET_KEY=<password from: ssh ALIAS 'cat /opt/stacks/minio/.env'>
 S3_BUCKET=typebot-uploads
 ```
 
-### Your own application
+### Node.js (AWS SDK)
 
 ```javascript
-// Node.js with AWS SDK
 const s3 = new S3Client({
   endpoint: "http://minio:9000",
   credentials: {
@@ -64,31 +96,6 @@ const s3 = new S3Client({
   forcePathStyle: true,
   region: "us-east-1"
 });
-```
-
-## Managing Buckets
-
-### Via Web Console
-
-1. Open https://s3.example.com (or http://localhost:9001)
-2. Log in with credentials from `.env`
-3. "Create Bucket" -> enter name
-
-### Via CLI (mc)
-
-```bash
-# Inside the container
-docker exec minio mc alias set local http://localhost:9000 admin <password>
-docker exec minio mc mb local/new-bucket
-docker exec minio mc ls local/
-```
-
-### Via API (curl)
-
-```bash
-# Creating a bucket
-curl -X PUT http://localhost:9000/new-bucket \
-  -H "Authorization: AWS admin:<signature>"
 ```
 
 ## Backup
@@ -106,22 +113,14 @@ docker compose -f /opt/stacks/minio/docker-compose.yaml restart
 
 ## Troubleshooting
 
-### Container does not start
-
 ```bash
+# Container logs
 docker logs minio
-```
 
-### Out of disk space
-
-```bash
+# Disk space
 df -h
-# Remove unnecessary files or expand disk
-```
 
-### Permission issues
-
-```bash
+# Permission issues
 sudo chown -R 1000:1000 /opt/stacks/minio/data
 ```
 

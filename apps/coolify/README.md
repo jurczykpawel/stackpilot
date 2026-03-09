@@ -2,17 +2,21 @@
 
 Open-source PaaS (Platform as a Service) with 280+ apps to install with one click. Automatic SSL, backups, Git push deploy, monitoring.
 
-**Requires a large VPS** - 8GB RAM, 80GB disk, 2x CPU recommended.
+**Requires a large VPS** — minimum 4GB RAM and 20GB free disk (enforced by installer). 8GB RAM and 80GB disk recommended.
+
+---
 
 ## What You Get
 
 - **280+ apps** from the catalog (one-click deploy): WordPress, n8n, Nextcloud, Grafana, Gitea, Ghost, Jellyfin, Vaultwarden, Uptime Kuma, PostHog, Supabase, Minio, Ollama...
-- **Automatic SSL** - Let's Encrypt for every app
-- **Git push deploy** - connect a repo from GitHub/GitLab, push = deploy
-- **Backups** - automatic to S3-compatible storage
-- **Monitoring** - alerts on disk, CPU, RAM, deployment status
-- **Web terminal** - SSH to containers from the browser
-- **Multi-server** - manage multiple servers from one panel
+- **Automatic SSL** — Let's Encrypt for every app
+- **Git push deploy** — connect a repo from GitHub/GitLab, push = deploy
+- **Backups** — automatic to S3-compatible storage
+- **Monitoring** — alerts on disk, CPU, RAM, deployment status
+- **Web terminal** — SSH to containers from the browser
+- **Multi-server** — manage multiple servers from one panel
+
+---
 
 ## Why a Large VPS?
 
@@ -25,15 +29,19 @@ Open-source PaaS (Platform as a Service) with 280+ apps to install with one clic
 | Traefik (reverse proxy) | ~50-100 MB |
 | **Total (platform)** | **~500-800 MB** |
 
-On a 4GB/40GB VPS it would be tight - the platform consumes ~800 MB, leaving ~3 GB for apps, and disk (40 GB) fills up quickly with Docker images.
+On a 4GB/40GB VPS it would be tight — the platform consumes ~800 MB, leaving ~3 GB for apps, and disk (40 GB) fills up quickly with Docker images.
 
-On an 8GB/80GB VPS - comfortable. ~7 GB for apps, 80 GB disk for images and data.
+On an 8GB/80GB VPS — comfortable. ~7 GB for apps, 80 GB disk for images and data.
+
+---
 
 ## Installation
 
 ```bash
 ./local/deploy.sh coolify --ssh=ALIAS
 ```
+
+Does not require `--domain-type`, `--domain`, or `--db-source`. Coolify manages those itself via Traefik.
 
 ### With admin pre-configuration (more secure)
 
@@ -42,7 +50,7 @@ ROOT_USERNAME=admin ROOT_USER_EMAIL=admin@example.com ROOT_USER_PASSWORD=SecretP
   ./local/deploy.sh coolify --ssh=ALIAS
 ```
 
-Skips the open registration screen - the admin account is ready immediately.
+Skips the open registration screen — the admin account is ready immediately.
 
 ### Disabling auto-updates
 
@@ -50,29 +58,42 @@ Skips the open registration screen - the admin account is ready immediately.
 AUTOUPDATE=false ./local/deploy.sh coolify --ssh=ALIAS
 ```
 
-Does not require: `--domain-type`, `--domain`, database. Coolify manages those itself.
+---
+
+## Requirements
+
+- **RAM:** Minimum 4GB (enforced by installer — aborts if total RAM < 3500MB). Recommended: 8GB+
+- **Disk:** Minimum 20GB free (enforced by installer — aborts if free disk < 20000MB). Recommended: 40GB+
+- **CPU:** 2+ cores recommended
+- **Port 8000:** Coolify UI (default). If port 8000 is already in use, the installer automatically finds the next free port and uses that instead.
+- **Ports 80 and 443:** Taken over by Traefik. Do not install other apps alongside Coolify.
+- **Database:** None required — Coolify manages its own PostgreSQL and Redis.
+
+---
 
 ## After Installation
 
 ### 1. Create an Admin Account (IMMEDIATELY!)
 
-Open `http://<server-IP>:8000` and register. **The first registered user = administrator.** Until you register, the panel is open to everyone!
+Open `http://<server-IP>:8000` (or the alternate port shown by the installer) and register. **The first registered user = administrator.** Until you register, the panel is open to everyone!
 
 ### 2. Configure a Domain (optional)
 
-In the Coolify panel: Settings -> General -> set Instance's Domain (e.g. `https://panel.your-domain.com`).
+In the Coolify panel: **Settings → General → Instance's Domain** (e.g. `https://panel.your-domain.com`).
 
-DNS: add an A record `panel.your-domain.com` -> server IP. Traefik will automatically provision SSL.
+DNS: add an A record `panel.your-domain.com` → server IP. Traefik will automatically provision SSL.
 
 ### 3. Deploy Your First App
 
-Resources -> + New -> Service -> pick from catalog (e.g. WordPress) -> Deploy.
+**Resources → + New → Service → pick from catalog** (e.g. WordPress) → **Deploy**.
 
 Coolify automatically:
 - Pulls the Docker image
 - Configures the database (if needed)
 - Provisions SSL via Let's Encrypt
 - Configures routing via Traefik
+
+---
 
 ## Architecture
 
@@ -86,7 +107,7 @@ Browser  -> Coolify UI (:8000) -> PostgreSQL, Redis (platform)
 
 | Port | Service |
 |---|---|
-| 8000 | Coolify Panel (UI) |
+| 8000 | Coolify Panel UI (auto-reassigned if in use) |
 | 80 | Traefik HTTP (redirect to HTTPS) |
 | 443 | Traefik HTTPS (SSL, routing to apps) |
 | 6001 | Soketi WebSocket (internal) |
@@ -100,14 +121,28 @@ Browser  -> Coolify UI (:8000) -> PostgreSQL, Redis (platform)
 | `/data/coolify/databases/` | app database data |
 | `/data/coolify/backups/` | backups |
 | `/data/coolify/proxy/` | Traefik configuration |
-| `/data/coolify/ssh/keys/` | SSH keys (container<->host) |
+| `/data/coolify/ssh/keys/` | SSH keys (container↔host) |
+
+---
 
 ## Important Notes
 
-- **Coolify takes over the server.** Traefik on ports 80/443 manages all HTTP/HTTPS traffic. Do not install other apps alongside it via deploy.sh - there will be port conflicts.
+- **Coolify takes over the server.** Traefik on ports 80/443 manages all HTTP/HTTPS traffic. Do not install other apps alongside it via deploy.sh — there will be port conflicts.
 - **One panel, all apps.** After installing Coolify, manage ALL apps through the panel (not through deploy.sh).
 - **Auto-update.** Coolify updates itself automatically by default. Disable in `/data/coolify/source/.env`: `AUTOUPDATE=false`.
 - **Platform backup.** Coolify has built-in backups for apps (to S3). For Coolify itself = back up `/data/coolify/`.
+
+---
+
+## Backup
+
+```bash
+# Back up the entire Coolify data directory
+ssh ALIAS 'tar czf /tmp/coolify-backup.tar.gz /data/coolify/'
+scp ALIAS:/tmp/coolify-backup.tar.gz ./coolify-backup.tar.gz
+```
+
+---
 
 ## Example Apps from the Catalog
 
@@ -125,6 +160,8 @@ Browser  -> Coolify UI (:8000) -> PostgreSQL, Redis (platform)
 
 Full list (280+): [coolify.io/docs/services](https://coolify.io/docs/services/)
 
+---
+
 ## Useful Commands
 
 ```bash
@@ -141,9 +178,11 @@ cd /data/coolify/source && docker compose ps
 cd /data/coolify/source && docker compose pull && docker compose up -d
 ```
 
+---
+
 ## Limitations
 
-- **Requires a dedicated server** - Coolify takes over ports 80/443, does not coexist with other toolbox apps
-- **Platform consumes ~500-800 MB RAM** - overhead for the web panel and infrastructure
-- **Disk** - each app is another Docker image (500 MB - 3 GB); on 80 GB you can fit ~10-15 apps
-- **Beta** - Coolify v4 is in beta (stable, but regressions can happen during auto-update)
+- **Requires a dedicated server** — Coolify takes over ports 80/443, does not coexist with other toolbox apps
+- **Platform consumes ~500-800 MB RAM** — overhead for the web panel and infrastructure
+- **Disk** — each app is another Docker image (500 MB - 3 GB); on 80 GB you can fit ~10-15 apps
+- **Beta** — Coolify v4 is in beta (stable, but regressions can happen during auto-update)
