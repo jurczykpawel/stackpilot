@@ -634,10 +634,10 @@ MSG_SELLF_STRIPE_COLLECTED="${GREEN}✅ Stripe keys collected${NC}"
 MSG_SELLF_STRIPE_SKIPPED="⏭️  Skipped - you can configure Stripe in the panel after installation."
 
 # sellf_show_post_install_reminders
-MSG_SELLF_POST_ADMIN="👤 Open https://%s - the first user will become admin"
+MSG_SELLF_POST_ADMIN="👤 Open %s - the first user will become admin"
 MSG_SELLF_POST_WEBHOOK="${YELLOW}💳 Stripe Webhook:${NC}"
 MSG_SELLF_POST_WH_STEP1="   1. Open: https://dashboard.stripe.com/webhooks"
-MSG_SELLF_POST_WH_STEP2="   2. Add endpoint: https://%s/api/webhooks/stripe"
+MSG_SELLF_POST_WH_STEP2="   2. Add endpoint: %s/api/webhooks/stripe"
 MSG_SELLF_POST_WH_STEP3="   3. Events: checkout.session.completed, payment_intent.succeeded"
 MSG_SELLF_POST_WH_STEP4="   4. Copy Signing secret (whsec_...) to .env.local"
 MSG_SELLF_POST_STRIPE="${YELLOW}💳 Stripe API Keys:${NC} (if not configured)"

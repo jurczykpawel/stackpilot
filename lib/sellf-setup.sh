@@ -749,16 +749,25 @@ sellf_show_post_install_reminders() {
     local SSH_ALIAS="${2:-}"
     local STRIPE_CONFIGURED="${3:-false}"
     local TURNSTILE_CONFIGURED="${4:-false}"
+    local PORT="${5:-3333}"
+
+    # Determine base URL: https://domain or http://localhost:PORT (local mode)
+    local BASE_URL
+    if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
+        BASE_URL="https://$DOMAIN"
+    else
+        BASE_URL="http://localhost:$PORT"
+    fi
 
     # First user = admin
     echo ""
-    msg "$MSG_SELLF_POST_ADMIN" "$DOMAIN"
+    msg "$MSG_SELLF_POST_ADMIN" "$BASE_URL"
 
     # Stripe Webhook (always needed for payments)
     echo ""
     msg "$MSG_SELLF_POST_WEBHOOK"
     msg "$MSG_SELLF_POST_WH_STEP1"
-    msg "$MSG_SELLF_POST_WH_STEP2" "$DOMAIN"
+    msg "$MSG_SELLF_POST_WH_STEP2" "$BASE_URL"
     msg "$MSG_SELLF_POST_WH_STEP3"
     msg "$MSG_SELLF_POST_WH_STEP4"
 
@@ -769,7 +778,7 @@ sellf_show_post_install_reminders() {
         msg "$MSG_SELLF_POST_STRIPE_CMD" "$SSH_ALIAS"
     fi
 
-    # Turnstile
+    # Turnstile (only makes sense with a public domain)
     if [ "$TURNSTILE_CONFIGURED" != true ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
         echo ""
         msg "$MSG_SELLF_POST_TURNSTILE"

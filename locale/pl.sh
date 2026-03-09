@@ -633,10 +633,10 @@ MSG_SELLF_STRIPE_COLLECTED="${GREEN}✅ Klucze Stripe zebrane${NC}"
 MSG_SELLF_STRIPE_SKIPPED="⏭️  Pominięto — możesz skonfigurować Stripe w panelu po instalacji."
 
 # sellf_show_post_install_reminders
-MSG_SELLF_POST_ADMIN="👤 Otwórz https://%s — pierwszy użytkownik zostanie adminem"
+MSG_SELLF_POST_ADMIN="👤 Otwórz %s — pierwszy użytkownik zostanie adminem"
 MSG_SELLF_POST_WEBHOOK="${YELLOW}💳 Stripe Webhook:${NC}"
 MSG_SELLF_POST_WH_STEP1="   1. Otwórz: https://dashboard.stripe.com/webhooks"
-MSG_SELLF_POST_WH_STEP2="   2. Dodaj endpoint: https://%s/api/webhooks/stripe"
+MSG_SELLF_POST_WH_STEP2="   2. Dodaj endpoint: %s/api/webhooks/stripe"
 MSG_SELLF_POST_WH_STEP3="   3. Zdarzenia: checkout.session.completed, payment_intent.succeeded"
 MSG_SELLF_POST_WH_STEP4="   4. Skopiuj Signing secret (whsec_...) do .env.local"
 MSG_SELLF_POST_STRIPE="${YELLOW}💳 Klucze Stripe API:${NC} (jeśli nie skonfigurowane)"

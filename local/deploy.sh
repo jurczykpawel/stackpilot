@@ -1131,7 +1131,7 @@ if [ "$APP_NAME" = "sellf" ]; then
 
     echo ""
     msg "$MSG_SUMMARY_NEXT_STEPS"
-    sellf_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$SELLF_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED"
+    sellf_show_post_install_reminders "$DOMAIN" "$SSH_ALIAS" "$SELLF_STRIPE_CONFIGURED" "$TURNSTILE_CONFIGURED" "$APP_PORT"
 fi
 
 # =============================================================================
