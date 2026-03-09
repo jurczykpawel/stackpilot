@@ -2,23 +2,32 @@
 
 Private drive + public file hosting. A Tiiny.host replacement at a fraction of the cost.
 
+**RAM:** ~160MB (FileBrowser + Nginx) | **Disk:** depends on files | **Plan:** Mikrus 1.0 PRO+ (35 PLN/yr + 60 PLN one-time for Docker)
+
 ## Installation
 
+### Full setup (admin + public hosting)
+
 ```bash
-# With public static hosting
+# Cloudflare domain
 DOMAIN_PUBLIC=static.example.com ./local/deploy.sh filebrowser \
   --ssh=ALIAS \
   --domain-type=cloudflare \
   --domain=files.example.com \
   --yes
-
-# Admin panel only (no public hosting)
-./local/deploy.sh filebrowser --ssh=ALIAS --domain-type=local --yes
 ```
 
 After installation you have:
 - `https://files.example.com` — admin panel (login required)
-- `https://static.example.com` — public files (no login, via Caddy)
+- `https://static.example.com` — public files (no login)
+
+### Admin panel only (no public hosting)
+
+```bash
+./local/deploy.sh filebrowser --ssh=ALIAS --domain-type=local --yes
+```
+
+Useful when you want a private drive only, or plan to add public hosting later.
 
 ### Adding public hosting later
 
@@ -26,6 +35,12 @@ If you installed without `DOMAIN_PUBLIC`, add it anytime:
 
 ```bash
 ./local/add-static-hosting.sh static.example.com ALIAS
+
+# Custom directory
+./local/add-static-hosting.sh cdn.example.com ALIAS /var/www/cdn
+
+# Custom directory and port
+./local/add-static-hosting.sh assets.example.com ALIAS /var/www/assets 8097
 ```
 
 ## Requirements
@@ -45,24 +60,37 @@ If you installed without `DOMAIN_PUBLIC`, add it anytime:
 ## How It Works
 
 ```
-files.example.com (ADMIN)
-  -> FileBrowser on port 8095
-  -> Upload, edit, delete files
-
-static.example.com (PUBLIC)
-  -> Caddy file_server -> /var/www/public/
-  -> Direct access without login
-  -> https://static.example.com/ebook.pdf
+┌─────────────────────────────────────────────────────────────┐
+│  files.example.com (ADMIN)                                  │
+│  -> FileBrowser with login                                  │
+│  -> Upload, edit, delete files                              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ files in /var/www/public/
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  static.example.com (PUBLIC)                                │
+│  -> Direct access without login                             │
+│  -> https://static.example.com/ebook.pdf                    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 FileBrowser is the only Docker container. Caddy handles static hosting directly
-as a `file_server` — no nginx container is created.
+as a `file_server` — no extra nginx container is needed.
 
 ## Use Cases
 
-- **Lead magnet:** upload PDF → link `https://static.example.com/ebook.pdf`
-- **Landing page:** upload `index.html` → instant static site
-- **Client proposals:** `proposal-client.pdf` → shareable link
+- **Lead magnet:** upload PDF → link `https://static.example.com/ebook.pdf` → use in automation (n8n, email)
+- **Landing page:** upload `index.html` → instant static site at `https://static.example.com/`
+- **Client proposals:** `proposal-smith.pdf` → shareable private-looking link
+
+## Cost Comparison
+
+| Solution | Price/year | Limit |
+|---|---|---|
+| Tiiny.host Pro | ~$120/yr | 10 sites |
+| Tiiny.host Business | ~$300/yr | 50 sites |
+| **FileBrowser + Mikrus 1.0 PRO** | **35 PLN/yr + 60 PLN one-time (Docker)** | **unlimited** |
 
 ## Management
 
@@ -87,6 +115,19 @@ Files are stored in `/var/www/public/` on the server.
 ```bash
 ./local/sync.sh down /var/www/public ./backup-files --ssh=ALIAS
 ```
+
+## Security
+
+**Change the password after first login!**
+```
+Default credentials: admin / admin
+```
+
+### File visibility
+- **Admin** (`files.*`) — requires login
+- **Public** (`static.*`) — accessible to anyone with the link
+
+For "unlisted" files use random names: `proposal-x7k9m2.pdf`
 
 ## Troubleshooting
 
