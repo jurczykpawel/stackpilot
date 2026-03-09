@@ -317,8 +317,9 @@ if [ -n "$APP_TYPE" ]; then
                 -H "Content-Type: application/json")
 
             # Remove old rules for this host, keep the rest
+            # (.result.rules // []) guards against null when ruleset exists but has no rules yet
             KEPT_RULES=$(echo "$EXISTING_RESPONSE" | jq --arg host "$FULL_DOMAIN" '
-                [.result.rules[] | select(.description | endswith("[" + $host + "]") | not)]
+                [(.result.rules // [])[] | select(.description | endswith("[" + $host + "]") | not)]
             ')
 
             # Merge: existing (without this host) + new
