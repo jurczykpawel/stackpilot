@@ -123,7 +123,7 @@ Applications are located in `apps/<name>/install.sh`:
 |--------|-------------|-------|
 | `deploy.sh` | Install applications | `./local/deploy.sh APP [options]` |
 | `dns-add.sh` | Add Cloudflare DNS record | `./local/dns-add.sh DOMAIN [SSH]` |
-| `add-static-hosting.sh` | Static file hosting | `./local/add-static-hosting.sh DOMAIN [SSH] [DIR] [PORT]` |
+| `add-static-hosting.sh` | Static file hosting | `./local/add-static-hosting.sh DOMAIN [SSH] [LOCAL_DIR] [REMOTE_DIR]` |
 | `add-php-hosting.sh` | PHP site hosting | `./local/add-php-hosting.sh DOMAIN [SSH] [DIR]` |
 | `setup-backup.sh` | Configure backups | `./local/setup-backup.sh [SSH]` |
 | `restore.sh` | Restore from backup | `./local/restore.sh [SSH]` |
@@ -202,11 +202,12 @@ A simple rsync wrapper for quick file transfers. Ideal for:
 ### add-static-hosting.sh - Static Hosting
 
 ```bash
-./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY] [PORT]
+./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [LOCAL_DIR] [REMOTE_DIR]
 
 # Examples:
-./local/add-static-hosting.sh static.example.com
-./local/add-static-hosting.sh cdn.example.com vps /var/www/assets 8097
+./local/add-static-hosting.sh static.example.com vps               # files already on server at /var/www/static.example.com
+./local/add-static-hosting.sh cdn.example.com vps ./dist            # upload ./dist -> /var/www/cdn.example.com
+./local/add-static-hosting.sh cdn.example.com vps ./dist /var/www/assets  # upload ./dist -> /var/www/assets
 ```
 
 ---

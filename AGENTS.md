@@ -237,7 +237,12 @@ A simple rsync wrapper for quick file transfers without a full deploy.
 ### Static Hosting
 
 ```bash
-./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [DIRECTORY]
+./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [LOCAL_DIR] [REMOTE_DIR]
+
+# Examples:
+./local/add-static-hosting.sh cdn.example.com vps                        # files already on server at /var/www/cdn.example.com
+./local/add-static-hosting.sh cdn.example.com vps ./dist                 # upload ./dist -> /var/www/cdn.example.com
+./local/add-static-hosting.sh cdn.example.com vps ./dist /var/www/assets # upload ./dist -> /var/www/assets
 ```
 
 ### PHP Hosting
