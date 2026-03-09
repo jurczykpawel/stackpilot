@@ -481,6 +481,13 @@ DCEOF
 
     echo "✅ Docker image built"
 
+    # Stop PM2 process if it was previously running in PM2 mode
+    if command -v pm2 &> /dev/null && pm2 list 2>/dev/null | grep -q "$PM2_NAME"; then
+        echo "🛑 Stopping existing PM2 process ($PM2_NAME)..."
+        pm2 delete "$PM2_NAME" 2>/dev/null || true
+        pm2 save 2>/dev/null || true
+    fi
+
     # Stop old container if running
     echo "🚀 Starting Sellf (Docker)..."
     cd "$STACK_DIR"
@@ -528,6 +535,13 @@ else
     fi
 
     echo "🚀 Starting Sellf..."
+
+    # Stop Docker container if it was previously running in Docker mode
+    DOCKER_NAME_PM2="sellf-${INSTANCE_NAME:-default}"
+    if docker ps -q --filter "name=${DOCKER_NAME_PM2}" 2>/dev/null | grep -q .; then
+        echo "🛑 Stopping existing Docker container (${DOCKER_NAME_PM2})..."
+        docker compose -f "$INSTALL_DIR/docker-compose.yml" down 2>/dev/null || true
+    fi
 
     pm2 delete "$PM2_NAME" 2>/dev/null || true
 
