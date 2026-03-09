@@ -28,12 +28,16 @@ Sell e-books, courses, templates and licenses without monthly fees or platform c
 - **Disk:** ~500MB (IMAGE_SIZE_MB=500, Next.js standalone build)
 - **Port:** 3333 (default from `PORT=${PORT:-3333}`)
 - **Database:** Supabase (cloud account or self-hosted)
+- **Minimum VPS:** 512MB RAM, 5GB disk — runs on the cheapest servers (e.g. Mikrus 1.0 at ~35 PLN/year)
+
+In `pm2` mode Sellf uses only ~50MB RAM, so it fits comfortably alongside other apps on a 512MB VPS.
+With `--supabase=cloud` (default) the database runs on Supabase.com free tier — zero extra server resources.
 
 ### Services
 
 | Service | Cost | Purpose | Required |
 |---------|------|---------|----------|
-| **VPS (1GB+ RAM)** | varies | Application hosting | Yes |
+| **VPS** | from ~35 PLN/year (e.g. Mikrus 1.0) | Application hosting | Yes |
 | **Supabase** | Free tier available | Database + Auth | Yes |
 | **Stripe** | 2.9% + fee/transaction | Payments | No* |
 | **Cloudflare** | Free | Turnstile CAPTCHA | No |

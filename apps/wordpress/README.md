@@ -112,10 +112,13 @@ Each additional site costs ~80MB RAM (PHP-FPM + Nginx). Shared Redis saves ~96MB
 
 ## Requirements
 
-- **RAM:** ~80-100MB idle (WP + Nginx + Redis), works on a 1GB RAM VPS
+- **RAM:** ~80-100MB idle (WP + Nginx + Redis) — runs on a 512MB RAM VPS (e.g. Mikrus 1.0 at ~35 PLN/year)
 - **Disk:** ~550MB (Docker images: WP+redis ext, Nginx, Redis)
 - **Port:** 8080 (internal, behind Caddy — not exposed directly)
 - **MySQL:** Bundled or custom. SQLite mode does not require MySQL.
+- **Minimum VPS:** 512MB RAM, 5GB disk
+
+The RAM profiling table below shows that WordPress adapts automatically to available memory — even 512MB is enough for a functional site.
 
 ## After Installation
 
