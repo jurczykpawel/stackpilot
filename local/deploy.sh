@@ -566,19 +566,39 @@ DEFAULT_PORT=$(grep -E "^PORT=" "$SCRIPT_PATH" 2>/dev/null | head -1 | sed -E 's
 PORT_OVERRIDE=""
 
 if [ -n "$DEFAULT_PORT" ]; then
-    # Check if port is in use on the server
-    PORT_IN_USE=$(server_exec_timeout 5 "ss -tlnp 2>/dev/null | grep -q ':${DEFAULT_PORT} ' && echo 'yes' || echo 'no'" 2>/dev/null)
+    # For re-deploys: if an existing .env.local already has a PORT, reuse it.
+    # This avoids picking a different port when the old process still holds the
+    # original port (it will be stopped by install.sh before Docker/PM2 starts).
+    # Derive INSTALL_DIR using the same logic as install.sh (domain → instance name).
+    if [ -n "$DOMAIN" ]; then
+        _INSTANCE="${DOMAIN%%.*}"
+        _EXISTING_ENV="/opt/stacks/${APP_NAME}-${_INSTANCE}/admin-panel/.env.local"
+    else
+        _EXISTING_ENV="/opt/stacks/${APP_NAME}/admin-panel/.env.local"
+    fi
+    _EXISTING_PORT=$(server_exec_timeout 5 "grep -m1 '^PORT=' '$_EXISTING_ENV' 2>/dev/null | cut -d= -f2" 2>/dev/null | tr -d '[:space:]')
 
-    if [ "$PORT_IN_USE" == "yes" ]; then
-        echo ""
-        msg "$MSG_PORT_IN_USE" "$DEFAULT_PORT"
+    if [ -n "$_EXISTING_PORT" ] && [ "$_EXISTING_PORT" != "$DEFAULT_PORT" ]; then
+        # Re-deploy with a previously assigned non-default port — preserve it
+        PORT_OVERRIDE="$_EXISTING_PORT"
+        echo "   Reusing existing port $PORT_OVERRIDE (from previous install)"
+    elif [ -z "$_EXISTING_PORT" ]; then
+        # Fresh install — check if default port is free
+        PORT_IN_USE=$(server_exec_timeout 5 "ss -tlnp 2>/dev/null | grep -q ':${DEFAULT_PORT} ' && echo 'yes' || echo 'no'" 2>/dev/null)
 
-        # Single SSH call → port list, search in memory (no retry limit)
-        PORT_OVERRIDE=$(find_free_port_remote "$SSH_ALIAS" $((DEFAULT_PORT + 1)))
-        if [ -n "$PORT_OVERRIDE" ]; then
-            msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
+        if [ "$PORT_IN_USE" == "yes" ]; then
+            echo ""
+            msg "$MSG_PORT_IN_USE" "$DEFAULT_PORT"
+
+            # Single SSH call → port list, search in memory (no retry limit)
+            PORT_OVERRIDE=$(find_free_port_remote "$SSH_ALIAS" $((DEFAULT_PORT + 1)))
+            if [ -n "$PORT_OVERRIDE" ]; then
+                msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
+            fi
         fi
     fi
+    # else: re-deploy, existing port == default port → no override needed,
+    #       install.sh will stop the old process and reuse the same port.
 fi
 
 # =============================================================================

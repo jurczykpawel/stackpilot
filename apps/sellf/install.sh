@@ -459,25 +459,47 @@ services:
           memory: 512M
 DCEOF
 
-    # Build the Docker image from the extracted source
-    # The Dockerfile lives at admin-panel/Dockerfile in the repo.
-    # We use admin-panel/ as the build context.
+    # Build a minimal Docker image that runs the pre-built Next.js standalone server.
+    # We do NOT rebuild the app from source (slow, needs bun install + build).
+    # Instead we copy the already-built standalone/ output and run server.js with Node.
     echo "🔨 Building Docker image ${DOCKER_IMAGE}:latest..."
-    DOCKERFILE_PATH="$INSTALL_DIR/admin-panel/Dockerfile"
 
-    if [ ! -f "$DOCKERFILE_PATH" ]; then
-        echo "❌ Dockerfile not found at $DOCKERFILE_PATH"
-        echo "   The tar.gz artifact must contain admin-panel/Dockerfile"
+    STANDALONE_DIR_DOCKER="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+    if [ ! -f "$STANDALONE_DIR_DOCKER/server.js" ]; then
+        # Fallback: standalone without subdir (older releases)
+        STANDALONE_DIR_DOCKER="$INSTALL_DIR/admin-panel/.next/standalone"
+    fi
+    if [ ! -f "$STANDALONE_DIR_DOCKER/server.js" ]; then
+        echo "❌ server.js not found — archive may be invalid"
+        echo "   Searched: $INSTALL_DIR/admin-panel/.next/standalone/admin-panel/"
         exit 1
     fi
+
+    # Copy static assets into standalone (same as PM2 mode)
+    cp -r "$INSTALL_DIR/admin-panel/.next/static" "$STANDALONE_DIR_DOCKER/.next/" 2>/dev/null || true
+    cp -r "$INSTALL_DIR/admin-panel/public" "$STANDALONE_DIR_DOCKER/" 2>/dev/null || true
+    cp "$ENV_FILE" "$STANDALONE_DIR_DOCKER/.env.local"
+
+    # Write a minimal Dockerfile next to the standalone server
+    cat > "$STANDALONE_DIR_DOCKER/Dockerfile.stackpilot" <<'INNERDF'
+FROM node:lts-alpine
+WORKDIR /app
+COPY . .
+ENV NODE_ENV=production
+EXPOSE 3333
+CMD ["node", "server.js"]
+INNERDF
 
     if ! docker build \
         --tag "${DOCKER_IMAGE}:latest" \
-        --file "$DOCKERFILE_PATH" \
-        "$INSTALL_DIR/admin-panel/"; then
+        --file "$STANDALONE_DIR_DOCKER/Dockerfile.stackpilot" \
+        "$STANDALONE_DIR_DOCKER"; then
         echo "❌ Docker build failed"
         exit 1
     fi
+
+    # Cleanup temp Dockerfile
+    rm -f "$STANDALONE_DIR_DOCKER/Dockerfile.stackpilot"
 
     echo "✅ Docker image built"
 
