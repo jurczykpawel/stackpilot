@@ -199,7 +199,14 @@ Digital products sales platform (Gumroad/EasyCart alternative). Does not use Doc
 # Local self-hosted Supabase (deploy supabase first, then sellf)
 ./local/deploy.sh supabase --ssh=vps --domain-type=local --yes
 ./local/deploy.sh sellf --ssh=vps --supabase=local --domain-type=cloudflare --domain=shop.example.com --yes
+
+# Docker runtime instead of PM2 (isolated container, ~200MB RAM)
+./local/deploy.sh sellf --ssh=vps --supabase=local --runtime=docker --domain-type=cloudflare --domain=shop.example.com --yes
 ```
+
+**Runtime modes (`--runtime`):**
+- `pm2` (default) — Bun + PM2, lightweight (~50MB RAM), backward compatible
+- `docker` — Docker container built locally from the release artifact; uses `network_mode: host` so it can reach a local Supabase on `localhost`; re-deploying switches away from PM2 automatically
 
 **After installation:**
 - First registered user = admin
