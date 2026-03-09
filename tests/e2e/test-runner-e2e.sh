@@ -1154,6 +1154,38 @@ suite_i18n() {
     LANG_TEST=""
 }
 
+suite_sellf() {
+    echo ""
+    echo -e "${E2E_BOLD}━━━ Suite: sellf ━━━${E2E_NC}"
+
+    # sellf.sh is a self-contained suite with its own counters and summary.
+    # We delegate to it, capturing exit code, and record a single suite result.
+    local sellf_script="$E2E_DIR/sellf.sh"
+
+    if [ ! -f "$sellf_script" ]; then
+        echo -e "  ${E2E_YELLOW}SKIP: $sellf_script not found${E2E_NC}"
+        E2E_RESULTS+=("SKIP|sellf|sellf.sh not found")
+        E2E_SKIP=$((E2E_SKIP + 1))
+        return 0
+    fi
+
+    local extra_args=()
+    [ -n "$APP_FILTER" ] && extra_args+=("--filter=$APP_FILTER")
+
+    # Run sellf.sh — it prints its own output and summary
+    bash "$sellf_script" --ssh="$E2E_SSH" --cleanup="$E2E_CLEANUP" "${extra_args[@]}"
+    local sellf_exit=$?
+
+    # Record aggregate result for the top-level summary
+    if [ "$sellf_exit" -eq 0 ]; then
+        E2E_RESULTS+=("PASS|sellf|all tests passed")
+        E2E_PASS=$((E2E_PASS + 1))
+    else
+        E2E_RESULTS+=("FAIL|sellf|one or more tests failed")
+        E2E_FAIL=$((E2E_FAIL + 1))
+    fi
+}
+
 # =============================================================================
 # SUMMARY + TAP OUTPUT
 # =============================================================================
@@ -1251,6 +1283,7 @@ if [ -n "$SUITE_FILTER" ]; then
         php-hosting)    suite_php_hosting ;;
         health-check)   suite_health_check ;;
         i18n)           suite_i18n ;;
+        sellf)          suite_sellf ;;
         *)
             echo -e "${E2E_RED}Unknown suite: $SUITE_FILTER${E2E_NC}"
             exit 1
