@@ -427,13 +427,10 @@ if [ "$RUNTIME" = "docker" ]; then
     # -------------------------------------------------------------------------
     # DOCKER MODE
     # -------------------------------------------------------------------------
-    # Build a Docker image from the downloaded tar.gz artifact (no registry
-    # needed — everything is built locally on the server).
-    # The Dockerfile is bundled inside the tar.gz as admin-panel/Dockerfile.
+    # Pull pre-built image from GHCR (ghcr.io/jurczykpawel/sellf:latest).
+    # No local build needed — CI/CD publishes the image on every release.
 
-    echo "📋 Preparing Docker build..."
-
-    DOCKER_IMAGE="sellf-${INSTANCE_NAME:-default}"
+    GHCR_IMAGE="ghcr.io/$(echo "$GITHUB_REPO" | tr '[:upper:]' '[:lower:]'):latest"
     DOCKER_NAME="sellf-${INSTANCE_NAME:-default}"
     STACK_DIR="$INSTALL_DIR"
 
@@ -448,56 +445,20 @@ if [ "$RUNTIME" = "docker" ]; then
     cat > "$STACK_DIR/docker-compose.yml" <<DCEOF
 services:
   sellf:
-    image: ${DOCKER_IMAGE}:latest
+    image: ${GHCR_IMAGE}
     container_name: ${DOCKER_NAME}
     restart: unless-stopped
     network_mode: host
     env_file: .env
 DCEOF
 
-    # Build a minimal Docker image that runs the pre-built Next.js standalone server.
-    # We do NOT rebuild the app from source (slow, needs bun install + build).
-    # Instead we copy the already-built standalone/ output and run server.js with Node.
-    echo "🔨 Building Docker image ${DOCKER_IMAGE}:latest..."
-
-    STANDALONE_DIR_DOCKER="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
-    if [ ! -f "$STANDALONE_DIR_DOCKER/server.js" ]; then
-        # Fallback: standalone without subdir (older releases)
-        STANDALONE_DIR_DOCKER="$INSTALL_DIR/admin-panel/.next/standalone"
-    fi
-    if [ ! -f "$STANDALONE_DIR_DOCKER/server.js" ]; then
-        echo "❌ server.js not found — archive may be invalid"
-        echo "   Searched: $INSTALL_DIR/admin-panel/.next/standalone/admin-panel/"
+    echo "📥 Pulling Sellf image from GHCR..."
+    if ! docker pull "${GHCR_IMAGE}"; then
+        echo "❌ Failed to pull image: ${GHCR_IMAGE}"
+        echo "   Make sure the image exists and the server has internet access."
         exit 1
     fi
-
-    # Copy static assets into standalone (same as PM2 mode)
-    cp -r "$INSTALL_DIR/admin-panel/.next/static" "$STANDALONE_DIR_DOCKER/.next/" 2>/dev/null || true
-    cp -r "$INSTALL_DIR/admin-panel/public" "$STANDALONE_DIR_DOCKER/" 2>/dev/null || true
-    cp "$ENV_FILE" "$STANDALONE_DIR_DOCKER/.env.local"
-
-    # Write a minimal Dockerfile next to the standalone server
-    cat > "$STANDALONE_DIR_DOCKER/Dockerfile.stackpilot" <<'INNERDF'
-FROM node:lts-alpine
-WORKDIR /app
-COPY . .
-ENV NODE_ENV=production
-EXPOSE 3333
-CMD ["node", "server.js"]
-INNERDF
-
-    if ! docker build \
-        --tag "${DOCKER_IMAGE}:latest" \
-        --file "$STANDALONE_DIR_DOCKER/Dockerfile.stackpilot" \
-        "$STANDALONE_DIR_DOCKER"; then
-        echo "❌ Docker build failed"
-        exit 1
-    fi
-
-    # Cleanup temp Dockerfile
-    rm -f "$STANDALONE_DIR_DOCKER/Dockerfile.stackpilot"
-
-    echo "✅ Docker image built"
+    echo "✅ Image pulled: ${GHCR_IMAGE}"
 
     # Stop PM2 process if it was previously running in PM2 mode
     if command -v pm2 &> /dev/null && pm2 list 2>/dev/null | grep -q "$PM2_NAME"; then
