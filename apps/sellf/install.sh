@@ -94,9 +94,28 @@ if ! command -v bun &> /dev/null || ! command -v pm2 &> /dev/null; then
         source /opt/stackpilot/system/bun-setup.sh
     else
         # Fallback - install directly
+        command -v unzip &> /dev/null || apt-get install -y unzip -qq 2>/dev/null || true
         curl -fsSL https://bun.sh/install | bash
         export PATH="$HOME/.bun/bin:$PATH"
         bun install -g pm2
+    fi
+fi
+
+# PM2 requires real Node.js for fork mode IPC (bun's child_process.fork is
+# not fully compatible with PM2's process management protocol).
+# Install Node.js LTS via NodeSource if not already present.
+# Also remove any bun->node symlink that may shadow the real node binary.
+if [ -L "/root/.bun/bin/node" ]; then
+    rm -f /root/.bun/bin/node
+fi
+if ! /usr/bin/node --version &> /dev/null 2>&1; then
+    echo "📦 Installing Node.js LTS (required by PM2)..."
+    if command -v apt-get &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - 2>/dev/null
+        apt-get install -y nodejs 2>/dev/null || true
+    elif command -v yum &> /dev/null; then
+        curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash - 2>/dev/null
+        yum install -y nodejs 2>/dev/null || true
     fi
 fi
 
@@ -416,20 +435,55 @@ pm2 delete $PM2_NAME 2>/dev/null || true
 if [ -f "$STANDALONE_DIR/server.js" ]; then
     cd "$STANDALONE_DIR"
 
-    # Load variables from .env.local and start PM2 in the same session
-    # (PM2 inherits environment variables from the current session)
-    # Clear system HOSTNAME (it's the machine name, not the listen address)
-    unset HOSTNAME
-    set -a
-    source .env.local
-    set +a
-    export PORT="${PORT:-3333}"
-    # :: listens on IPv4 and IPv6
-    export HOSTNAME="${HOSTNAME:-::}"
+    # Resolve absolute path to Node.js interpreter.
+    # Prefer /usr/bin/node (system Node.js), fall back to PATH lookup.
+    # This avoids picking up any bun->node symlink that may exist in ~/.bun/bin.
+    if [ -x "/usr/bin/node" ]; then
+        NODE_BIN="/usr/bin/node"
+    else
+        NODE_BIN="$(command -v node)"
+    fi
 
-    # IMPORTANT: use --interpreter node, NOT "node server.js" in quotes
-    # Quotes launch via bash, which doesn't inherit environment variables
-    pm2 start server.js --name $PM2_NAME --interpreter node
+    # Build PM2 ecosystem file with env vars baked in.
+    # This is the correct way to persist env across PM2 restarts and reboots.
+    # (shell `source .env.local` only works for the initial `pm2 start`, not
+    #  subsequent `pm2 restart` calls by the daemon or after server reboot)
+    ECOSYSTEM_FILE="$STANDALONE_DIR/ecosystem.config.js"
+
+    # Read .env.local and convert to a JS object for the ecosystem file
+    ENV_JS=""
+    while IFS='=' read -r key val; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+        # Strip surrounding quotes from val if present
+        val="${val%\"}"
+        val="${val#\"}"
+        val="${val%\'}"
+        val="${val#\'}"
+        # Escape backslashes and single quotes for JS
+        val="${val//\\/\\\\}"
+        val="${val//\'/\\\'}"
+        ENV_JS="${ENV_JS}    '${key}': '${val}',\n"
+    done < .env.local
+
+    cat > "$ECOSYSTEM_FILE" <<ECOEOF
+module.exports = {
+  apps: [{
+    name: '$PM2_NAME',
+    script: 'server.js',
+    interpreter: '$NODE_BIN',
+    cwd: '$STANDALONE_DIR',
+    env: {
+$(printf '%b' "$ENV_JS")
+      PORT: '${PORT:-3333}',
+      HOSTNAME: '::',
+      NODE_ENV: 'production',
+    }
+  }]
+}
+ECOEOF
+
+    pm2 start "$ECOSYSTEM_FILE"
 else
     # Fallback to bun run start
     cd "$INSTALL_DIR/admin-panel"

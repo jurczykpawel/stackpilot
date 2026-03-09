@@ -678,11 +678,11 @@ if [ "$APP_NAME" = "sellf" ]; then
         echo ""
         msg "$MSG_SELLF_LOCAL_SUPABASE"
 
-        LOCAL_SUPABASE_CONFIG_REMOTE="$HOME/.config/stackpilot/supabase/deploy-config.env"
+        LOCAL_SUPABASE_CONFIG_REMOTE='$HOME/.config/stackpilot/supabase/deploy-config.env'
         SUPABASE_ENV_TMP=$(mktemp)
 
-        # Fetch the config from the server
-        if ssh "$SSH_ALIAS" "cat '$LOCAL_SUPABASE_CONFIG_REMOTE'" > "$SUPABASE_ENV_TMP" 2>/dev/null; then
+        # Fetch the config from the server ($HOME expanded on the server side)
+        if ssh "$SSH_ALIAS" "cat $LOCAL_SUPABASE_CONFIG_REMOTE" > "$SUPABASE_ENV_TMP" 2>/dev/null; then
             source "$SUPABASE_ENV_TMP"
             rm -f "$SUPABASE_ENV_TMP"
 
@@ -982,7 +982,7 @@ if [ "$APP_NAME" = "sellf" ]; then
     echo ""
     msg "$MSG_SELLF_DB_PREP"
 
-    if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
+    if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ] && [ "${SUPABASE_MODE:-cloud}" != "local" ]; then
         SSH_ALIAS="$SSH_ALIAS" PROJECT_REF="$PROJECT_REF" SUPABASE_URL="$SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || {
             msg "$MSG_SELLF_DB_PREP_FAILED"
             echo "   SSH_ALIAS=$SSH_ALIAS ./local/setup-supabase-migrations.sh"

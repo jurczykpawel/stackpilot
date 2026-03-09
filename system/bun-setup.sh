@@ -26,6 +26,10 @@ if command -v bun &> /dev/null; then
     msg "$MSG_BUN_ALREADY" "$BUN_VERSION"
 else
     msg "$MSG_BUN_INSTALLING"
+    # Ensure unzip is available (required by the Bun installer)
+    if ! command -v unzip &> /dev/null; then
+        apt-get install -y unzip -qq 2>/dev/null || yum install -y unzip -q 2>/dev/null || true
+    fi
     curl -fsSL https://bun.sh/install | bash
 
     # Add to PATH for the current session
@@ -43,15 +47,25 @@ else
     msg "$MSG_BUN_INSTALLED" "$(bun --version)"
 fi
 
+# PM2 requires 'node' in PATH (it uses #!/usr/bin/env node shebang).
+# If node is not available but bun is, create a symlink: node -> bun
+# Bun is Node-compatible and can run PM2 scripts transparently.
+if ! command -v node &> /dev/null && command -v bun &> /dev/null; then
+    BUN_BIN="$(command -v bun)"
+    BUN_BIN_DIR="$(dirname "$BUN_BIN")"
+    ln -sf "$BUN_BIN" "$BUN_BIN_DIR/node"
+    export PATH="$BUN_BIN_DIR:$PATH"
+fi
+
 # Check if PM2 is already installed
-if command -v pm2 &> /dev/null; then
-    PM2_VERSION=$(pm2 --version)
+if command -v pm2 &> /dev/null && pm2 --version &> /dev/null 2>&1; then
+    PM2_VERSION=$(pm2 --version 2>/dev/null)
     msg "$MSG_PM2_ALREADY" "$PM2_VERSION"
 else
     msg "$MSG_PM2_INSTALLING"
     bun install -g pm2
 
-    msg "$MSG_PM2_INSTALLED" "$(pm2 --version)"
+    msg "$MSG_PM2_INSTALLED" "$(pm2 --version 2>/dev/null)"
 
     # Configure autostart
     msg "$MSG_PM2_AUTOSTART"
