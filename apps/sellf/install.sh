@@ -62,11 +62,15 @@ else
     INSTALL_DIR="/opt/stacks/sellf"
     PM2_NAME="sellf"
 
-    # Check if directory already exists (prevent overwrite without specific domain)
-    if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ]; then
+    # Check if directory already exists (prevent accidental overwrite without a domain).
+    # Allow re-deploy of the same instance (UPDATE_MODE or same runtime).
+    if [ -d "$INSTALL_DIR/admin-panel" ] && [ -f "$INSTALL_DIR/admin-panel/.env.local" ] && [ "${UPDATE_MODE:-false}" != "true" ] && [ "${YES_MODE:-false}" != "true" ]; then
         echo "Directory $INSTALL_DIR already exists!"
         echo ""
         echo "   Without a domain, only ONE instance is supported."
+        echo "   To re-deploy the existing instance, add --update:"
+        echo "   ./local/deploy.sh sellf --update"
+        echo ""
         echo "   For multiple instances use specific domains:"
         echo "   ./local/deploy.sh sellf --domain=shop.example.com"
         echo "   ./local/deploy.sh sellf --domain=test.example.com"

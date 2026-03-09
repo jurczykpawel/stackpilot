@@ -919,6 +919,8 @@ EXTRA_ENV=""
 if [ "$APP_NAME" = "sellf" ]; then
     # Runtime mode (pm2 = default, docker = containerized)
     EXTRA_ENV="$EXTRA_ENV RUNTIME='${RUNTIME:-pm2}'"
+    # Pass update mode so install.sh can skip the single-instance guard on re-deploy
+    [ "$UPDATE_MODE" = "true" ] && EXTRA_ENV="$EXTRA_ENV UPDATE_MODE='true'"
 
     # Supabase mode + keys
     EXTRA_ENV="$EXTRA_ENV SUPABASE_MODE='${SUPABASE_MODE:-cloud}'"
