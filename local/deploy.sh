@@ -679,33 +679,51 @@ if [ "$APP_NAME" = "sellf" ]; then
         msg "$MSG_SELLF_LOCAL_SUPABASE"
 
         LOCAL_SUPABASE_CONFIG_REMOTE='$HOME/.config/stackpilot/supabase/deploy-config.env'
-        SUPABASE_ENV_TMP=$(mktemp)
+
+        # Helper: fetch Supabase config from server into SUPABASE_ENV_TMP
+        # Returns 0 and populates SUPABASE_URL/ANON_KEY/SERVICE_KEY on success.
+        _load_local_supabase_config() {
+            SUPABASE_ENV_TMP=$(mktemp)
+            if ssh "$SSH_ALIAS" "cat $LOCAL_SUPABASE_CONFIG_REMOTE" > "$SUPABASE_ENV_TMP" 2>/dev/null; then
+                source "$SUPABASE_ENV_TMP"
+                rm -f "$SUPABASE_ENV_TMP"
+                if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
+                    return 0
+                fi
+            fi
+            rm -f "$SUPABASE_ENV_TMP"
+            return 1
+        }
 
         # Fetch the config from the server ($HOME expanded on the server side)
-        if ssh "$SSH_ALIAS" "cat $LOCAL_SUPABASE_CONFIG_REMOTE" > "$SUPABASE_ENV_TMP" 2>/dev/null; then
-            source "$SUPABASE_ENV_TMP"
-            rm -f "$SUPABASE_ENV_TMP"
+        if _load_local_supabase_config; then
+            msg "$MSG_SELLF_LOCAL_SUPABASE_OK" "$SUPABASE_URL"
+            export SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_KEY
+        else
+            # Config missing or incomplete — auto-deploy Supabase, then retry
+            echo ""
+            msg "$MSG_SELLF_LOCAL_SUPABASE_AUTO"
+            echo ""
 
-            if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
-                msg "$MSG_SELLF_LOCAL_SUPABASE_OK" "$SUPABASE_URL"
-                export SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_KEY
+            if "$REPO_ROOT/local/deploy.sh" supabase \
+                    --ssh="$SSH_ALIAS" \
+                    --domain-type=local \
+                    --yes; then
+                # Retry loading config after successful deploy
+                if _load_local_supabase_config; then
+                    msg "$MSG_SELLF_LOCAL_SUPABASE_OK" "$SUPABASE_URL"
+                    export SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_KEY
+                else
+                    echo ""
+                    msg "$MSG_SELLF_LOCAL_SUPABASE_MISSING"
+                    exit 1
+                fi
             else
-                rm -f "$SUPABASE_ENV_TMP"
                 echo ""
-                msg "$MSG_SELLF_LOCAL_SUPABASE_MISSING"
-                echo ""
-                echo "   Deploy Supabase first:"
+                msg "$MSG_SELLF_LOCAL_SUPABASE_AUTO_FAIL"
                 echo "   ./local/deploy.sh supabase --ssh=$SSH_ALIAS --domain-type=local --yes"
                 exit 1
             fi
-        else
-            rm -f "$SUPABASE_ENV_TMP"
-            echo ""
-            msg "$MSG_SELLF_LOCAL_SUPABASE_NOT_FOUND"
-            echo ""
-            echo "   Deploy Supabase first:"
-            echo "   ./local/deploy.sh supabase --ssh=$SSH_ALIAS --domain-type=local --yes"
-            exit 1
         fi
 
     else

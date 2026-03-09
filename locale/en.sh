@@ -71,6 +71,8 @@ MSG_SELLF_LOCAL_SUPABASE="🔧 Supabase mode: local (self-hosted on this server)
 MSG_SELLF_LOCAL_SUPABASE_OK="   ✅ Local Supabase keys loaded (%s)"
 MSG_SELLF_LOCAL_SUPABASE_MISSING="❌ Local Supabase config found but keys are missing"
 MSG_SELLF_LOCAL_SUPABASE_NOT_FOUND="❌ Local Supabase config not found on server"
+MSG_SELLF_LOCAL_SUPABASE_AUTO="🚀 Supabase not found — deploying it automatically..."
+MSG_SELLF_LOCAL_SUPABASE_AUTO_FAIL="❌ Automatic Supabase deployment failed. Deploy it manually first:"
 
 # =============================================================================
 # DEPLOY - UPDATE MODE
