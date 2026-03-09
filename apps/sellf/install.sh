@@ -199,10 +199,12 @@ fi
 # 2. DOWNLOAD PRE-BUILT RELEASE (PM2 mode only)
 # =============================================================================
 # Docker mode pulls a pre-built image from GHCR — no tar.gz needed.
+# Both modes need the admin-panel dir for .env.local (config files).
+
+mkdir -p "$INSTALL_DIR/admin-panel"
 
 if [ "$RUNTIME" != "docker" ]; then
 
-mkdir -p "$INSTALL_DIR/admin-panel"
 cd "$INSTALL_DIR/admin-panel"
 
 # Check if we already have files (update vs fresh install)
