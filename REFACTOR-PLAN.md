@@ -1,6 +1,6 @@
 # Refactor Plan: Merge mikrus-toolbox + stackpilot + Tests
 
-Status: **COMPLETE — All phases done. E2E: 21 PASS, 3 SKIP. Remaining: Phase 7.4 (archive mikrus-toolbox, pending approval).**
+Status: **COMPLETE — All phases done. E2E: 34 PASS, 2 SKIP, 0 FAIL. Phase 7.4 done. No remaining tasks.**
 Base repo: `stackpilot/` (mikrus-toolbox code merges here)
 Tracking: check boxes below — update as work progresses
 
@@ -229,9 +229,11 @@ Goal: Jeden entry point + GitHub Actions.
   - Jak dodać nowy locale
   - Jak dodać nowy provider
   - Jak uruchomić testy
-- [ ] **7.4** mikrus-toolbox → archive
-  - README: "This project has been merged into StackPilot. See: [link]"
-  - Link do stackpilot + instrukcja migracji (zmień remote, zmień config)
+- [x] **7.4** mikrus-toolbox → archive
+  - README.md replaced with migration notice (see README-ORIGINAL.md for old docs)
+  - README-ARCHIVE.md removed (content moved to README.md)
+  - apps/gateflow/ renamed to apps/sellf/ (rebranding in mikrus-toolbox)
+  - Pushed to GitHub: commit 4b9a7f6
 - [x] **7.5** Przetestować pełny flow na Mikrusie
   - i18n suite: ntfy with TOOLBOX_LANG=pl ✓ (Polish output confirmed)
   - Provider auto-detection ✓, shared DB (nocodb) ✓
