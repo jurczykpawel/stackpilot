@@ -441,6 +441,10 @@ if [ "$RUNTIME" = "docker" ]; then
     cp "$ENV_FILE" "$STACK_DIR/.env"
 
     # Generate docker-compose.yml
+    # Notes:
+    # - network_mode: host so container can reach local Supabase on localhost
+    # - env_file: .env carries all vars (PORT, HOSTNAME, NODE_ENV etc.)
+    # - No 'deploy.resources' - that requires Docker Swarm mode
     cat > "$STACK_DIR/docker-compose.yml" <<DCEOF
 services:
   sellf:
@@ -449,14 +453,6 @@ services:
     restart: unless-stopped
     network_mode: host
     env_file: .env
-    environment:
-      - PORT=${PORT}
-      - HOSTNAME=::
-      - NODE_ENV=production
-    deploy:
-      resources:
-        limits:
-          memory: 512M
 DCEOF
 
     # Build a minimal Docker image that runs the pre-built Next.js standalone server.
