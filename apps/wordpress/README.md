@@ -46,11 +46,62 @@ Caddy (host) -> Nginx (gzip, FastCGI cache, rate limiting, security)
 
 ### Benchmark: TTFB
 
-| Metric | Shared hosting | VPS WP |
-|---|---|---|
-| TTFB (homepage) | 800-3000ms | **~200ms** (cache HIT) |
-| TTFB (cold, no cache) | 2000-5000ms | **300-400ms** |
-| TTFB with Breakdance/Elementor | 2000-5000ms (session kills cache) | **~200ms** (session bypass) |
+| Metric | Shared hosting | VPS (1GB+) | Mikrus 1.0 (384MB) |
+|---|---|---|---|
+| TTFB (homepage, cache HIT) | 800-3000ms | **~200ms** | **~35ms** (CF) |
+| TTFB (cold, no cache) | 2000-5000ms | **300-400ms** | **~80ms** |
+| TTFB with Breakdance/Elementor | 2000-5000ms (session kills cache) | **~200ms** (session bypass) | **~40ms** (CF) |
+
+### Benchmark: Mikrus 1.0 (perf-test.sh, 20 req × 4 paths, concurrency 5)
+
+Test on WordPress SQLite + Redis + Nginx + Cloudflare:
+
+| Path | TTFB avg | TTFB p95 | Total avg | Size |
+|---|---|---|---|---|
+| `/` (homepage) | **44ms** | 65ms | 56ms | 64.7KB |
+| `/hello-world/` (post) | **39ms** | 61ms | 67ms | 87.1KB |
+| `/sample-page/` (subpage) | **39ms** | 51ms | 53ms | 64.3KB |
+| `/comments/feed/` (RSS) | **32ms** | 43ms | 33ms | 1.6KB |
+
+**Summary:** 80 requests, 100% success rate, avg TTFB **37ms**, P95 **47ms**, throughput **55.2 req/s**. Verdict: **Excellent**.
+
+Resources after installation (Mikrus 1.0, 384MB RAM, 5GB disk):
+
+| Resource | Usage |
+|---|---|
+| RAM | 145MB / 384MB (238MB free) |
+| WordPress PHP-FPM | 83MB |
+| Nginx | 6MB |
+| Redis | 7MB |
+| Free disk | 1.4GB (for media and plugins) |
+
+### Comparison with hosting providers
+
+Renewal prices (not first-year promotional). Plans comparable to 1GB RAM.
+
+| Hosting | Price/year | RAM | Redis | Server cache | Auto-purge | WooCommerce rules |
+|---|---|---|---|---|---|---|
+| **Mikrus 1.0 PRO + Toolbox** | **35 PLN/yr + 60 PLN PRO** | 384 MB | bundled | FastCGI 24h | Nginx Helper | auto |
+| **Mikrus 2.1 + Toolbox** | **75 PLN** | 1 GB | bundled | FastCGI 24h | Nginx Helper | auto |
+| Smarthost Pro Mini | ~170 PLN | 1 GB | yes | LSCache | plugin | manual |
+| LH.pl Orange | 199 PLN* | 1 GB | **none** | **none** | none | none |
+| MyDevil MD1 | 200 PLN | 1 GB | yes (manual config) | **none** | none | none |
+| dhosting EWH | 359 PLN* | auto-scale | yes | LSCache | plugin | manual |
+| cyber_Folks wp_START! | 328 PLN** | 2 GB NVMe | yes | LSCache | plugin | manual |
+| nazwa.pl WP Start | 360 PLN* | 8 GB | n/a | n/a | n/a | n/a |
+| Zenbox Firma 10k | 648 PLN | n/a | **none** | LSCache | plugin | manual |
+
+\* price excl. VAT (23%) | \*\* 299 PLN plan + 29 PLN SSL, 250 GB/mo transfer limit
+
+**What Mikrus + Toolbox gives at 75 PLN/year that shared hosting lacks:**
+- Redis Object Cache — on LH.pl only from Mango plan (399 PLN/yr excl. VAT); Kinsta addon $100/mo
+- Nginx FastCGI cache with auto-purge — shared hosting requires manual LiteSpeed Cache plugin config
+- WooCommerce skip rules — requires WP Rocket (~$59/yr) or manual configuration
+- Breakdance/Elementor session fix — unavailable on any shared hosting
+- Unlimited transfer — cyber_Folks wp_START! (328 PLN/yr) has 250 GB/mo limit
+- Free SSL (Caddy) — cyber_Folks SSL is an extra 29 PLN/yr
+- Full root + Docker — unavailable on shared hosting
+- **A server, not just WP hosting** — on the same VPS you can run static sites, n8n, Uptime Kuma, Vaultwarden, NocoDB and [30+ other apps](../../GUIDE.md). Shared hosting = WordPress only.
 
 ## Installation
 
@@ -261,12 +312,58 @@ Data in `/opt/stacks/wordpress/`:
 - `redis-data/` - Redis cache
 - `docker-compose.yaml`
 
+## Mikrus 1.0 (384MB RAM, 5GB disk)
+
+WordPress runs on Mikrus 1.0 with the PRO upgrade (60 PLN one-time — adds Docker and more resources). Use SQLite + bundled Redis.
+
+**Note:** Install Docker via the built-in `start` script on the server (not `curl get.docker.com`) — it installs the compatible version.
+
+```bash
+ssh -t mikrus 'start'
+# Answer T (Yes) to each question — the Docker step is critical
+```
+
+### Disk — real sizes
+
+Mikrus 1.0 advertises 5GB disk, but in practice:
+
+| Component | Size |
+|---|---|
+| Partition visible to OS | 4.9GB |
+| Operating system (Debian) | ~1.8GB |
+| **Free after cleanup** | **~3GB** |
+
+Running `apt clean` and removing old journal files recovers ~1GB.
+
+### How much does WordPress take?
+
+| Component | Size |
+|---|---|
+| Docker + images (WP + Nginx + Redis) | ~1.5GB |
+| WordPress core + plugins + config | ~150MB |
+| SQLite database (1000 posts) | ~10-20MB |
+| **Free for media** | **~1.4GB** |
+
+### Blog capacity (with ~2GB for media)
+
+| Post type | Average size | How many fit |
+|---|---|---|
+| Text only | ~5KB | thousands (SQLite is the limit) |
+| Post + 1 image (compressed ~150KB) | ~155KB | ~12,000 |
+| Post + 3 images | ~460KB | ~4,000 |
+| Post + thumbnail + body image | ~310KB | ~6,000 |
+
+**Conclusion:** For a business blog, portfolio, or landing page — more than enough. At 1-2 posts per week with 1-2 images each, you won't fill the disk for years. Only a photography blog or WooCommerce store with hundreds of product images would be problematic.
+
+Tested on a real Mikrus 1.0 with Docker boost. WordPress SQLite + Redis + Nginx + Cloudflare. Benchmark: avg TTFB **37ms**, P95 **47ms** — verdict **Excellent**.
+
 ## RAM Profiling
 
 The script automatically detects RAM and adjusts PHP-FPM:
 
 | Server RAM | FPM workers | WP limit | Nginx limit |
 |---|---|---|---|
+| 384MB (Mikrus 1.0) | 3 | 150M | 20M |
 | 512MB | 4 | 192M | 32M |
 | 1GB | 8 | 256M | 48M |
 | 2GB+ | 15 | 256M | 64M |
