@@ -192,8 +192,11 @@ else
 fi
 
 # =============================================================================
-# 2. DOWNLOAD PRE-BUILT RELEASE
+# 2. DOWNLOAD PRE-BUILT RELEASE (PM2 mode only)
 # =============================================================================
+# Docker mode pulls a pre-built image from GHCR — no tar.gz needed.
+
+if [ "$RUNTIME" != "docker" ]; then
 
 mkdir -p "$INSTALL_DIR/admin-panel"
 cd "$INSTALL_DIR/admin-panel"
@@ -257,6 +260,8 @@ else
 
     echo "✅ Sellf downloaded"
 fi
+
+fi # end: if [ "$RUNTIME" != "docker" ]
 echo ""
 
 # =============================================================================
