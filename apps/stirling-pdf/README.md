@@ -10,7 +10,7 @@ All-in-one PDF tool. Replaces Adobe Acrobat Pro and sketchy "online pdf converte
 
 ## Requirements
 
-- **RAM:** ~500MB+ (Java + LibreOffice)
+- **RAM:** ~500MB typical usage (container limit: 1024MB on <3GB VPS, 1536MB on 3GB+ VPS)
 - **Disk:** ~1GB
 - **Port:** 8087
 - **Database:** No

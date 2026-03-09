@@ -19,7 +19,7 @@ Send a message to your bot and PicoClaw uses an LLM (via OpenRouter, Anthropic, 
 - **RAM:** 64MB minimum (~10MB typical usage)
 - **Disk:** ~10MB (Docker image)
 - **Database:** Not required
-- **Port:** None exposed (bot communicates outbound only)
+- **Port:** None exposed to host (internal healthcheck on 18790)
 
 ## How It Works
 

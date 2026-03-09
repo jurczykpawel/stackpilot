@@ -62,10 +62,10 @@ S3_BUCKET=cap-videos \
 | Port | Service |
 |------|---------|
 | 3000 | Cap web app |
-| 3902 | MinIO S3 API (public video access via `https://<domain>:3902`) |
+| 3902 | MinIO S3 API (localhost only — `127.0.0.1:3902`) |
 | 3903 | MinIO Console (localhost only) |
 
-> **Note:** When using local MinIO, port 3902 must be reachable from the internet — Cap's desktop app fetches videos from `https://<domain>:3902`. Configure your firewall/proxy accordingly or use an external S3 provider instead.
+> **Note:** Port 3902 is bound to `127.0.0.1` (localhost only) — it is not directly reachable from the internet. The Cap desktop client connects to MinIO via the domain (Caddy reverse proxy), not directly on port 3902. Configure Caddy to proxy the MinIO S3 API endpoint, or use an external S3 provider instead.
 
 ## Recommended Storage
 

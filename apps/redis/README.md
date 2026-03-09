@@ -10,7 +10,7 @@ Szybki magazyn danych w pamięci RAM (In-Memory Key-Value Store).
 
 ## Wymagania
 
-- **RAM:** ~30MB
+- **RAM:** ~30MB typical usage (container limit: 128MB)
 - **Dysk:** ~130MB
 - **Port:** 6379 (TCP, brak interfejsu HTTP)
 - **Baza danych:** Nie

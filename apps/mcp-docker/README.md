@@ -10,7 +10,7 @@ A bridge connecting your AI Agent (Claude, Gemini, Cursor) with your server.
 
 ## Requirements
 
-- **RAM:** ~10MB
+- **RAM:** ~10MB typical usage (container limit: 128MB)
 - **Disk:** ~100MB
 - **Port:** none (MCP protocol over SSH)
 - **Database:** No

@@ -44,7 +44,7 @@ Lightweight HTTP API for converting documents to PDF (HTML, DOCX, XLSX, PPTX, UR
 
 - **RAM:** 256MB (limit set in docker-compose; ~150MB typical usage)
 - **Disk:** ~1500MB image (gotenberg:8 includes LibreOffice + Chromium)
-- **Port:** 3000 (default: `PORT=${PORT:-3000}`)
+- **Port:** 3000 (default: `PORT=${PORT:-3000}`) — Note: port is bound to all interfaces (0.0.0.0) — access is protected by Basic Auth. Use with a domain for HTTPS.
 - **Database:** None
 
 ---

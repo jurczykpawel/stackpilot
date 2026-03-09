@@ -114,6 +114,7 @@ Each additional site costs ~80MB RAM (PHP-FPM + Nginx). Shared Redis saves ~96MB
 
 - **RAM:** ~80-100MB idle (WP + Nginx + Redis), works on a 1GB RAM VPS
 - **Disk:** ~550MB (Docker images: WP+redis ext, Nginx, Redis)
+- **Port:** 8080 (internal, behind Caddy — not exposed directly)
 - **MySQL:** Bundled or custom. SQLite mode does not require MySQL.
 
 ## After Installation
