@@ -1,9 +1,9 @@
 # StackPilot
 
-**The AI-native self-hosting toolkit. Deploy 28+ production-optimized Docker apps to any VPS with a single command.**
+**The AI-native self-hosting toolkit. Deploy 31+ production-optimized Docker apps to any VPS with a single command.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Apps: 26+](https://img.shields.io/badge/Apps-28%2B-blue)
+![Apps: 31+](https://img.shields.io/badge/Apps-31%2B-blue)
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
 [![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
@@ -88,6 +88,7 @@ cd stackpilot
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
 | [Cap](apps/cap/) | Loom | Screen recording and video sharing. |
+| [Subtitle Burner](apps/subtitle-burner/) | Kapwing / VEED | Burn animated subtitles into video. 8 templates, AI transcription, REST API. |
 | [Cookie Hub](apps/cookie-hub/) | Cookiebot | Centralized GDPR consent server for all your sites. |
 | [Social Media Generator](apps/social-media-generator/) | Canva (basic) | Generate brand-consistent social media graphics from HTML templates. |
 
@@ -102,6 +103,7 @@ cd stackpilot
 | [LittleLink](apps/littlelink/) | Linktree | Ultra-lightweight link-in-bio page (pure HTML). |
 | [Umami](apps/umami/) | Google Analytics | Privacy-focused web analytics. No cookies, GDPR-compliant. |
 | [AFFiNE](apps/affine/) | Notion / Miro | Knowledge base with docs, whiteboards, and databases. Open-source. |
+| [RoutePix](apps/routepix/) | - | Visualize travel routes from geotagged photos. |
 
 ### Security and Storage
 
@@ -118,6 +120,7 @@ cd stackpilot
 | [Gotenberg](apps/gotenberg/) | - | Document conversion API (HTML/DOCX/ODT to PDF). ~150MB RAM. |
 | [ConvertX](apps/convertx/) | CloudConvert | Convert 800+ file formats in the browser. |
 | [NocoDB](apps/nocodb/) | Airtable | Spreadsheet-style database. CRM, projects, orders. |
+| [Supabase](apps/supabase/) | Firebase / Neon | Self-hosted PostgreSQL + Auth + Storage + Realtime + Studio. |
 | [MCP Docker](apps/mcp-docker/) | - | Let AI assistants manage Docker containers on your server. |
 
 ### AI and Data
@@ -358,7 +361,7 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | **GitHub stars** | New | ~50k | ~32k | ~14k |
 | **Min. RAM** | 512MB | 2GB+ | 1GB+ | 512MB |
 | **AI integration** | Native MCP server | No | No | No |
-| **Pre-built apps** | 28 production-optimized | 280+ (community) | Via plugins | None (bring your own) |
+| **Pre-built apps** | 31 production-optimized | 280+ (community) | Via plugins | None (bring your own) |
 | **Complexity** | Single deploy command | Web dashboard | CLI + buildpacks | YAML config files |
 | **Dependencies** | Bash, SSH, Docker | Docker, Traefik, PostgreSQL, Redis | Docker, Nginx, buildpacks | Docker, Ruby |
 | **Domain/SSL** | Caddy auto-HTTPS or Cloudflare | Traefik + Let's Encrypt | Nginx + Let's Encrypt | Traefik or manual |
@@ -404,7 +407,7 @@ Apps run in isolated Docker containers. External access is HTTPS-only via Caddy.
 Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved.
 
 **Can I deploy custom Docker apps?**
-Yes. Via the MCP server, you can deploy any Docker Compose stack -- not just the 25 built-in apps. The AI generates the compose file and deploys it.
+Yes. Via the MCP server, you can deploy any Docker Compose stack -- not just the 31 built-in apps. The AI generates the compose file and deploys it.
 
 **What is MCP?**
 [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants interact with external tools. StackPilot's MCP server (`stackpilot-mcp`) gives Claude (and other compatible AIs) the ability to deploy apps, check server status, configure domains, and set up backups -- all through natural conversation.
@@ -431,10 +434,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 - [x] Provider plugin system (Mikrus auto-detected, extensible)
 - [x] Comprehensive test suite (unit, static, E2E)
 - [x] CI pipeline (GitHub Actions)
-
-### In Progress
-
-- [ ] Static and PHP hosting support (`add-static-hosting.sh`, `add-php-hosting.sh`)
+- [x] Static and PHP hosting support (`add-static-hosting.sh`, `add-php-hosting.sh`)
 
 ### Planned
 
@@ -623,6 +623,6 @@ MIT -- see [LICENSE](LICENSE) for details.
 
 ---
 
-*Self-hosted infrastructure toolkit. Deploy 28+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+*Self-hosted infrastructure toolkit. Deploy 31+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
 
 ![](https://stats.techskills.academy/pixels/github?url=/readme/stackpilot)
