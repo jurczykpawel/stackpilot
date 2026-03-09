@@ -32,6 +32,9 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt update
 sudo apt install caddy -y
 
+# Replace default Caddyfile (default :80 block prevents self-signed certs for CF-proxied domains)
+echo "# Managed by StackPilot" | sudo tee /etc/caddy/Caddyfile > /dev/null
+
 msg "$MSG_CADDY_STEP2"
 
 # Creating a lazy wrapper script to add domains easily
