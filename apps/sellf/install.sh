@@ -17,7 +17,13 @@
 #                      ~/.config/stackpilot/supabase/deploy-config.env
 #                      (run: deploy.sh supabase first)
 #
+# Runtime modes (set RUNTIME):
+#   pm2    (default) - Bun + PM2 process manager (lightweight, ~50MB RAM)
+#   docker           - Docker container (isolated, reproducible, ~200MB RAM)
+#                      Builds image locally from the downloaded tar.gz artifact.
+#
 # Environment variables:
+#   RUNTIME                - pm2 (default) | docker
 #   SUPABASE_MODE          - cloud (default) | local
 #   SUPABASE_URL           - Supabase URL (cloud mode or override for local)
 #   SUPABASE_ANON_KEY      - Supabase anon/publishable key
@@ -29,6 +35,7 @@
 
 set -e
 
+# shellcheck disable=SC2034  # APP_NAME is used by toolbox conventions / external scripts
 APP_NAME="sellf"
 GITHUB_REPO="jurczykpawel/sellf"
 
@@ -71,108 +78,118 @@ else
 fi
 
 PORT=${PORT:-3333}
+RUNTIME="${RUNTIME:-pm2}"
 
 echo "--- 💰 Sellf Setup ---"
 echo ""
 if [ -n "$INSTANCE_NAME" ]; then
     echo "📦 Instance: $INSTANCE_NAME"
     echo "   Directory: $INSTALL_DIR"
-    echo "   PM2: $PM2_NAME"
+    if [ "$RUNTIME" = "docker" ]; then
+        echo "   Runtime: Docker"
+    else
+        echo "   PM2: $PM2_NAME"
+    fi
     echo ""
 fi
 
 # =============================================================================
-# 1. INSTALL BUN + PM2
+# 1. INSTALL RUNTIME DEPENDENCIES
 # =============================================================================
 
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-if ! command -v bun &> /dev/null || ! command -v pm2 &> /dev/null; then
-    echo "📦 Installing Bun + PM2..."
-    if [ -f "/opt/stackpilot/system/bun-setup.sh" ]; then
-        source /opt/stackpilot/system/bun-setup.sh
-    else
-        # Fallback - install directly
-        command -v unzip &> /dev/null || apt-get install -y unzip -qq 2>/dev/null || true
-        curl -fsSL https://bun.sh/install | bash
-        export PATH="$HOME/.bun/bin:$PATH"
-        bun install -g pm2
+if [ "$RUNTIME" = "docker" ]; then
+    # Docker mode: only Docker is needed (already required by stackpilot)
+    if ! command -v docker &> /dev/null; then
+        echo "❌ Docker is not installed. Install it first:"
+        echo "   curl -fsSL https://get.docker.com | sh"
+        exit 1
     fi
-fi
+    echo "✅ Runtime: Docker $(docker --version | grep -oP '\d+\.\d+\.\d+' | head -1)"
+    echo ""
+else
+    # PM2 mode: install Bun + Node.js + PM2
+    export BUN_INSTALL="$HOME/.bun"
+    export PATH="$BUN_INSTALL/bin:$PATH"
 
-# PM2 requires real Node.js for fork mode IPC (bun's child_process.fork is
-# not fully compatible with PM2's process management protocol).
-# Install Node.js LTS via NodeSource if not already present.
-# Also remove any bun->node symlink that may shadow the real node binary.
-if [ -L "/root/.bun/bin/node" ]; then
-    rm -f /root/.bun/bin/node
-fi
-if ! /usr/bin/node --version &> /dev/null 2>&1; then
-    echo "📦 Installing Node.js LTS (required by PM2)..."
-    if command -v apt-get &> /dev/null; then
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - 2>/dev/null
-        apt-get install -y nodejs 2>/dev/null || true
-    elif command -v yum &> /dev/null; then
-        curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash - 2>/dev/null
-        yum install -y nodejs 2>/dev/null || true
+    if ! command -v bun &> /dev/null || ! command -v pm2 &> /dev/null; then
+        echo "📦 Installing Bun + PM2..."
+        if [ -f "/opt/stackpilot/system/bun-setup.sh" ]; then
+            source /opt/stackpilot/system/bun-setup.sh
+        else
+            # Fallback - install directly
+            command -v unzip &> /dev/null || apt-get install -y unzip -qq 2>/dev/null || true
+            curl -fsSL https://bun.sh/install | bash
+            export PATH="$HOME/.bun/bin:$PATH"
+            bun install -g pm2
+        fi
     fi
-fi
 
-# Add PATH to shell rc file (so pm2 works via SSH)
-# Check $SHELL to pick the right file
-add_path_to_rc() {
-    local RC_FILE="$1"
-    local PREPEND="${2:-false}"
-
-    if [ "$PREPEND" = "true" ] && [ -f "$RC_FILE" ]; then
-        # Add at the beginning (bash - before the guard [ -z "$PS1" ] && return)
-        {
-            echo '# Bun & PM2 (added by stackpilot)'
-            echo 'export PATH="$HOME/.bun/bin:$PATH"'
-            echo ''
-            cat "$RC_FILE"
-        } > "${RC_FILE}.new"
-        mv "${RC_FILE}.new" "$RC_FILE"
-    else
-        # Add at the end (zsh, profile)
-        echo '' >> "$RC_FILE"
-        echo '# Bun & PM2 (added by stackpilot)' >> "$RC_FILE"
-        echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$RC_FILE"
+    # PM2 requires real Node.js for fork mode IPC (bun's child_process.fork is
+    # not fully compatible with PM2's process management protocol).
+    # Install Node.js LTS via NodeSource if not already present.
+    # Also remove any bun->node symlink that may shadow the real node binary.
+    if [ -L "/root/.bun/bin/node" ]; then
+        rm -f /root/.bun/bin/node
     fi
-}
+    if ! /usr/bin/node --version &> /dev/null 2>&1; then
+        echo "📦 Installing Node.js LTS (required by PM2)..."
+        if command -v apt-get &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - 2>/dev/null
+            apt-get install -y nodejs 2>/dev/null || true
+        elif command -v yum &> /dev/null; then
+            curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash - 2>/dev/null
+            yum install -y nodejs 2>/dev/null || true
+        fi
+    fi
 
-# Check if PATH already added to any file
-if ! grep -q '\.bun/bin' ~/.bashrc 2>/dev/null && \
-   ! grep -q '\.bun/bin' ~/.zshrc 2>/dev/null && \
-   ! grep -q '\.bun/bin' ~/.profile 2>/dev/null; then
+    # Add PATH to shell rc file (so pm2 works via SSH)
+    add_path_to_rc() {
+        local RC_FILE="$1"
+        local PREPEND="${2:-false}"
 
-    # Choose file based on user's shell
-    case "$SHELL" in
-        */zsh)
-            add_path_to_rc ~/.zshrc false
-            echo "✅ Added PATH to ~/.zshrc"
-            ;;
-        */bash)
-            if [ -f ~/.bashrc ]; then
-                add_path_to_rc ~/.bashrc true
-                echo "✅ Added PATH to ~/.bashrc"
-            else
+        if [ "$PREPEND" = "true" ] && [ -f "$RC_FILE" ]; then
+            {
+                echo '# Bun & PM2 (added by stackpilot)'
+                echo 'export PATH="$HOME/.bun/bin:$PATH"'
+                echo ''
+                cat "$RC_FILE"
+            } > "${RC_FILE}.new"
+            mv "${RC_FILE}.new" "$RC_FILE"
+        else
+            echo '' >> "$RC_FILE"
+            echo '# Bun & PM2 (added by stackpilot)' >> "$RC_FILE"
+            echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$RC_FILE"
+        fi
+    }
+
+    if ! grep -q '\.bun/bin' ~/.bashrc 2>/dev/null && \
+       ! grep -q '\.bun/bin' ~/.zshrc 2>/dev/null && \
+       ! grep -q '\.bun/bin' ~/.profile 2>/dev/null; then
+        case "$SHELL" in
+            */zsh)
+                add_path_to_rc ~/.zshrc false
+                echo "✅ Added PATH to ~/.zshrc"
+                ;;
+            */bash)
+                if [ -f ~/.bashrc ]; then
+                    add_path_to_rc ~/.bashrc true
+                    echo "✅ Added PATH to ~/.bashrc"
+                else
+                    add_path_to_rc ~/.profile false
+                    echo "✅ Added PATH to ~/.profile"
+                fi
+                ;;
+            *)
                 add_path_to_rc ~/.profile false
                 echo "✅ Added PATH to ~/.profile"
-            fi
-            ;;
-        *)
-            # Unknown shell - use .profile (universal)
-            add_path_to_rc ~/.profile false
-            echo "✅ Added PATH to ~/.profile"
-            ;;
-    esac
-fi
+                ;;
+        esac
+    fi
 
-echo "✅ Bun: v$(bun --version)"
-echo "✅ PM2: v$(pm2 --version)"
-echo ""
+    echo "✅ Bun: v$(bun --version)"
+    echo "✅ PM2: v$(pm2 --version 2>/dev/null)"
+    echo ""
+fi
 
 # =============================================================================
 # 2. DOWNLOAD PRE-BUILT RELEASE
@@ -402,71 +419,142 @@ echo "✅ Configuration saved to $ENV_FILE"
 echo ""
 
 # =============================================================================
-# 6. COPY ENV TO STANDALONE
+# 6. START APPLICATION (PM2 or Docker)
 # =============================================================================
 
-echo "📋 Configuring standalone server..."
+if [ "$RUNTIME" = "docker" ]; then
 
-STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+    # -------------------------------------------------------------------------
+    # DOCKER MODE
+    # -------------------------------------------------------------------------
+    # Build a Docker image from the downloaded tar.gz artifact (no registry
+    # needed — everything is built locally on the server).
+    # The Dockerfile is bundled inside the tar.gz as admin-panel/Dockerfile.
 
-if [ -d "$STANDALONE_DIR" ]; then
-    # Copy configuration
-    cp "$ENV_FILE" "$STANDALONE_DIR/.env.local"
+    echo "📋 Preparing Docker build..."
 
-    # Copy static files (required for standalone mode)
-    cp -r "$INSTALL_DIR/admin-panel/.next/static" "$STANDALONE_DIR/.next/" 2>/dev/null || true
-    cp -r "$INSTALL_DIR/admin-panel/public" "$STANDALONE_DIR/" 2>/dev/null || true
+    DOCKER_IMAGE="sellf-${INSTANCE_NAME:-default}"
+    DOCKER_NAME="sellf-${INSTANCE_NAME:-default}"
+    STACK_DIR="$INSTALL_DIR"
 
-    echo "✅ Standalone configured (env + static files)"
-else
-    echo "⚠️  No standalone folder - using standard start"
-fi
+    # Write .env file for docker-compose (docker-compose reads .env, not .env.local)
+    cp "$ENV_FILE" "$STACK_DIR/.env"
 
-# =============================================================================
-# 7. START APPLICATION
-# =============================================================================
+    # Generate docker-compose.yml
+    cat > "$STACK_DIR/docker-compose.yml" <<DCEOF
+services:
+  sellf:
+    image: ${DOCKER_IMAGE}:latest
+    container_name: ${DOCKER_NAME}
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      - PORT=${PORT}
+      - HOSTNAME=::
+      - NODE_ENV=production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+DCEOF
 
-echo "🚀 Starting Sellf..."
+    # Build the Docker image from the extracted source
+    # The Dockerfile lives at admin-panel/Dockerfile in the repo.
+    # We use admin-panel/ as the build context.
+    echo "🔨 Building Docker image ${DOCKER_IMAGE}:latest..."
+    DOCKERFILE_PATH="$INSTALL_DIR/admin-panel/Dockerfile"
 
-# Stop if running
-pm2 delete $PM2_NAME 2>/dev/null || true
-
-# Start - prefer standalone server (faster start, less RAM)
-if [ -f "$STANDALONE_DIR/server.js" ]; then
-    cd "$STANDALONE_DIR"
-
-    # Resolve absolute path to Node.js interpreter.
-    # Prefer /usr/bin/node (system Node.js), fall back to PATH lookup.
-    # This avoids picking up any bun->node symlink that may exist in ~/.bun/bin.
-    if [ -x "/usr/bin/node" ]; then
-        NODE_BIN="/usr/bin/node"
-    else
-        NODE_BIN="$(command -v node)"
+    if [ ! -f "$DOCKERFILE_PATH" ]; then
+        echo "❌ Dockerfile not found at $DOCKERFILE_PATH"
+        echo "   The tar.gz artifact must contain admin-panel/Dockerfile"
+        exit 1
     fi
 
-    # Build PM2 ecosystem file with env vars baked in.
-    # This is the correct way to persist env across PM2 restarts and reboots.
-    # (shell `source .env.local` only works for the initial `pm2 start`, not
-    #  subsequent `pm2 restart` calls by the daemon or after server reboot)
-    ECOSYSTEM_FILE="$STANDALONE_DIR/ecosystem.config.js"
+    if ! docker build \
+        --tag "${DOCKER_IMAGE}:latest" \
+        --file "$DOCKERFILE_PATH" \
+        "$INSTALL_DIR/admin-panel/"; then
+        echo "❌ Docker build failed"
+        exit 1
+    fi
 
-    # Read .env.local and convert to a JS object for the ecosystem file
-    ENV_JS=""
-    while IFS='=' read -r key val; do
-        # Skip comments and empty lines
-        [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
-        # Strip surrounding quotes from val if present
-        val="${val%\"}"
-        val="${val#\"}"
-        val="${val%\'}"
-        val="${val#\'}"
-        # Escape backslashes and single quotes for JS
-        val="${val//\\/\\\\}"
-        val="${val//\'/\\\'}"
-        ENV_JS="${ENV_JS}    '${key}': '${val}',\n"
-    done < .env.local
+    echo "✅ Docker image built"
 
-    cat > "$ECOSYSTEM_FILE" <<ECOEOF
+    # Stop old container if running
+    echo "🚀 Starting Sellf (Docker)..."
+    cd "$STACK_DIR"
+    docker compose down 2>/dev/null || true
+    docker compose up -d
+
+    # Wait and check
+    sleep 5
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+        echo "✅ Application responding on port $PORT (HTTP $HTTP_CODE)"
+    else
+        echo "⚠️  Application may still be starting... (HTTP $HTTP_CODE)"
+        echo "   Logs: docker logs ${DOCKER_NAME}"
+    fi
+
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo "✅ Sellf installed! (Docker mode)"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "📋 Useful commands:"
+    echo "   docker ps                           - container status"
+    echo "   docker logs ${DOCKER_NAME}          - logs"
+    echo "   cd $STACK_DIR && docker compose restart  - restart"
+    echo ""
+
+else
+
+    # -------------------------------------------------------------------------
+    # PM2 MODE (default)
+    # -------------------------------------------------------------------------
+
+    echo "📋 Configuring standalone server..."
+
+    STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
+
+    if [ -d "$STANDALONE_DIR" ]; then
+        cp "$ENV_FILE" "$STANDALONE_DIR/.env.local"
+        cp -r "$INSTALL_DIR/admin-panel/.next/static" "$STANDALONE_DIR/.next/" 2>/dev/null || true
+        cp -r "$INSTALL_DIR/admin-panel/public" "$STANDALONE_DIR/" 2>/dev/null || true
+        echo "✅ Standalone configured (env + static files)"
+    else
+        echo "⚠️  No standalone folder - using standard start"
+    fi
+
+    echo "🚀 Starting Sellf..."
+
+    pm2 delete "$PM2_NAME" 2>/dev/null || true
+
+    if [ -f "$STANDALONE_DIR/server.js" ]; then
+        cd "$STANDALONE_DIR"
+
+        # Prefer /usr/bin/node (system Node.js) to avoid bun->node symlink issues
+        if [ -x "/usr/bin/node" ]; then
+            NODE_BIN="/usr/bin/node"
+        else
+            NODE_BIN="$(command -v node)"
+        fi
+
+        # Generate PM2 ecosystem file with env vars baked in so they persist
+        # across daemon restarts and server reboots (unlike shell `source`).
+        ECOSYSTEM_FILE="$STANDALONE_DIR/ecosystem.config.js"
+
+        ENV_JS=""
+        while IFS='=' read -r key val; do
+            [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+            val="${val%\"}"; val="${val#\"}"
+            val="${val%\'}"; val="${val#\'}"
+            val="${val//\\/\\\\}"; val="${val//\'/\\\'}"
+            ENV_JS="${ENV_JS}    '${key}': '${val}',\n"
+        done < .env.local
+
+        cat > "$ECOSYSTEM_FILE" <<ECOEOF
 module.exports = {
   apps: [{
     name: '$PM2_NAME',
@@ -483,46 +571,41 @@ $(printf '%b' "$ENV_JS")
 }
 ECOEOF
 
-    pm2 start "$ECOSYSTEM_FILE"
-else
-    # Fallback to bun run start
-    cd "$INSTALL_DIR/admin-panel"
-    pm2 start server.js --name $PM2_NAME --interpreter bun
+        pm2 start "$ECOSYSTEM_FILE"
+    else
+        cd "$INSTALL_DIR/admin-panel"
+        pm2 start server.js --name "$PM2_NAME" --interpreter bun
+    fi
+
+    pm2 save
+
+    sleep 3
+
+    if pm2 list | grep -q "$PM2_NAME.*online"; then
+        echo "✅ Sellf is running!"
+    else
+        echo "❌ Problem starting. Logs:"
+        pm2 logs "$PM2_NAME" --lines 20
+        exit 1
+    fi
+
+    sleep 2
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+        echo "✅ Application responding on port $PORT (HTTP $HTTP_CODE)"
+    else
+        echo "⚠️  Application may still be starting... (HTTP $HTTP_CODE)"
+    fi
+
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo "✅ Sellf installed!"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "📋 Useful commands:"
+    echo "   pm2 status              - application status"
+    echo "   pm2 logs $PM2_NAME - logs"
+    echo "   pm2 restart $PM2_NAME - restart"
+    echo ""
+
 fi
-
-pm2 save
-
-# Wait and check
-sleep 3
-
-if pm2 list | grep -q "$PM2_NAME.*online"; then
-    echo "✅ Sellf is running!"
-else
-    echo "❌ Problem starting. Logs:"
-    pm2 logs $PM2_NAME --lines 20
-    exit 1
-fi
-
-# Health check
-sleep 2
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" 2>/dev/null || echo "000")
-if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
-    echo "✅ Application responding on port $PORT (HTTP $HTTP_CODE)"
-else
-    echo "⚠️  Application may still be starting... (HTTP $HTTP_CODE)"
-fi
-
-# =============================================================================
-# 8. SUMMARY (abbreviated - full info in deploy.sh after domain assignment)
-# =============================================================================
-
-echo ""
-echo "════════════════════════════════════════════════════════════════"
-echo "✅ Sellf installed!"
-echo "════════════════════════════════════════════════════════════════"
-echo ""
-echo "📋 Useful commands:"
-echo "   pm2 status              - application status"
-echo "   pm2 logs $PM2_NAME - logs"
-echo "   pm2 restart $PM2_NAME - restart"
-echo ""

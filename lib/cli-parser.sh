@@ -96,6 +96,7 @@ export DOMAIN="${DOMAIN:-}"
 export DOMAIN_TYPE="${DOMAIN_TYPE:-}"
 export SUPABASE_PROJECT="${SUPABASE_PROJECT:-}"
 export SUPABASE_MODE="${SUPABASE_MODE:-cloud}"
+export RUNTIME="${RUNTIME:-pm2}"
 export INSTANCE="${INSTANCE:-}"
 export APP_PORT="${APP_PORT:-}"
 export YES_MODE="${YES_MODE:-false}"
@@ -165,6 +166,10 @@ parse_args() {
             --supabase-project=*) SUPABASE_PROJECT="${1#*=}" ;;
             --supabase-project) SUPABASE_PROJECT="$2"; shift ;;
 
+            # Runtime (for Sellf: pm2 or docker)
+            --runtime=*) RUNTIME="${1#*=}" ;;
+            --runtime) RUNTIME="$2"; shift ;;
+
             # Multi-instance
             --instance=*) INSTANCE="${1#*=}" ;;
             --instance) INSTANCE="$2"; shift ;;
@@ -198,7 +203,7 @@ parse_args() {
     # Export variables
     export SSH_ALIAS DB_SOURCE DB_HOST DB_PORT DB_NAME DB_SCHEMA DB_USER DB_PASS
     export DOMAIN DOMAIN_TYPE SUPABASE_PROJECT INSTANCE APP_PORT
-    export YES_MODE DRY_RUN UPDATE_MODE RESTART_ONLY BUILD_FILE
+    export YES_MODE DRY_RUN UPDATE_MODE RESTART_ONLY BUILD_FILE RUNTIME
 }
 
 # =============================================================================

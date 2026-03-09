@@ -897,6 +897,9 @@ EXTRA_ENV=""
 
 # For Sellf - add variables to EXTRA_ENV (collected earlier in PHASE 1.5)
 if [ "$APP_NAME" = "sellf" ]; then
+    # Runtime mode (pm2 = default, docker = containerized)
+    EXTRA_ENV="$EXTRA_ENV RUNTIME='${RUNTIME:-pm2}'"
+
     # Supabase mode + keys
     EXTRA_ENV="$EXTRA_ENV SUPABASE_MODE='${SUPABASE_MODE:-cloud}'"
     if [ -n "$SUPABASE_URL" ]; then
