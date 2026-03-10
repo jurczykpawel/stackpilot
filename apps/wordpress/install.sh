@@ -216,7 +216,7 @@ else
         echo "   WordPress will connect to existing data (old site)."
         echo "   The setup wizard will NOT appear — the old site will load."
         echo ""
-        if [ -t 0 ] && [ "$YES_MODE" != true ]; then
+        if [ "$YES_MODE" != true ]; then
             read -p "Continue with the existing database? [y/N]: " DB_CONFIRM
             if [[ ! "$DB_CONFIRM" =~ ^[Yy]$ ]]; then
                 echo "Cancelled."

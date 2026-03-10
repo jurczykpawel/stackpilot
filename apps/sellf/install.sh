@@ -377,7 +377,7 @@ if grep -q "SITE_URL=https://" "$ENV_FILE" 2>/dev/null; then
 else
     if [ -n "$DOMAIN" ]; then
         SITE_URL="https://$DOMAIN"
-    elif [ -t 0 ]; then
+    elif [ -z "$YES_MODE" ]; then
         echo ""
         read -p "Application domain (e.g. app.example.com): " DOMAIN
         SITE_URL="https://$DOMAIN"

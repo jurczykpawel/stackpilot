@@ -32,7 +32,7 @@ fi
 
 # Admin panel (interactive, disabled by default)
 ADMIN_TOKEN_LINE=""
-if [ -z "$YES" ] && [ -t 0 ]; then
+if [ -z "$YES" ] && [ -z "$YES_MODE" ]; then
     echo ""
     read -p "🔐 Enable admin panel /admin? (N/y): " ENABLE_ADMIN
     if [[ "$ENABLE_ADMIN" =~ ^[yY]$ ]]; then
