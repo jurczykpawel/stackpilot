@@ -1380,6 +1380,8 @@ MSG_CADDY_DONE_EXPOSE="✅ 'sp-expose' tool installed."
 MSG_CADDY_DONE_USAGE="   Usage: sp-expose app.domain.com 5000"
 
 # ── system/docker-setup.sh ───────────────────────────────────
+MSG_DOCKER_MISSING="🐳 Docker not found — installing automatically..."
+MSG_DOCKER_INSTALL_FAILED="❌ Docker installation failed. Install Docker manually: curl -fsSL https://get.docker.com | sh"
 MSG_DOCKER_STEP1="--- 1. Running official NOOBS Docker installation ---"
 MSG_DOCKER_STEP2="--- 2. Applying VPS-specific optimizations (Log Rotation) ---"
 MSG_DOCKER_STEP3="--- 3. Restarting Docker to apply changes ---"

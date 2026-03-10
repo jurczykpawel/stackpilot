@@ -960,6 +960,15 @@ if [ "$DRY_RUN" = true ]; then
     exit 0
 fi
 
+# Auto-install Docker if missing (skip for sellf pm2 mode — doesn't need Docker)
+if [ "$APP_NAME" != "sellf" ] || [ "${RUNTIME:-pm2}" = "docker" ]; then
+    if ! server_exec "command -v docker >/dev/null 2>&1"; then
+        echo ""
+        msg "$MSG_DOCKER_MISSING"
+        server_exec "bash -s" < "$REPO_ROOT/system/docker-setup.sh" || { msg "$MSG_DOCKER_INSTALL_FAILED"; exit 1; }
+    fi
+fi
+
 # Upload script to server and execute
 msg "$MSG_EXEC_STARTING"
 echo ""

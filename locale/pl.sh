@@ -1379,6 +1379,8 @@ MSG_CADDY_DONE_EXPOSE="✅ Narzędzie 'sp-expose' zainstalowane."
 MSG_CADDY_DONE_USAGE="   Użycie: sp-expose app.domena.pl 5000"
 
 # ── system/docker-setup.sh ───────────────────────────────────
+MSG_DOCKER_MISSING="🐳 Docker nie znaleziony — instaluję automatycznie..."
+MSG_DOCKER_INSTALL_FAILED="❌ Instalacja Dockera nie powiodła się. Zainstaluj ręcznie: curl -fsSL https://get.docker.com | sh"
 MSG_DOCKER_STEP1="--- 1. Uruchamianie oficjalnej instalacji Docker (NOOBS) ---"
 MSG_DOCKER_STEP2="--- 2. Stosowanie optymalizacji VPS (rotacja logów) ---"
 MSG_DOCKER_STEP3="--- 3. Restartowanie Dockera w celu zastosowania zmian ---"
