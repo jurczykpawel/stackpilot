@@ -908,10 +908,10 @@ suite_static_hosting() {
     # Create a test HTML file on the server before running the script
     ssh "$E2E_SSH" "sudo mkdir -p '$web_root' && echo '<html><body>StackPilot E2E OK</body></html>' | sudo tee '$web_root/index.html' > /dev/null" 2>/dev/null
 
-    # Run add-static-hosting.sh
-    echo "  Running add-static-hosting.sh $test_domain hanna $web_root..."
+    # Run add-static-hosting.sh — no LOCAL_DIR, files are already on the server
+    echo "  Running add-static-hosting.sh $test_domain $E2E_SSH (no upload, files already on server)..."
     local setup_output setup_exit
-    setup_output=$("$E2E_REPO/local/add-static-hosting.sh" "$test_domain" "$E2E_SSH" "$web_root" 2>&1) && setup_exit=0 || setup_exit=$?
+    setup_output=$("$E2E_REPO/local/add-static-hosting.sh" "$test_domain" "$E2E_SSH" "" "$web_root" 2>&1) && setup_exit=0 || setup_exit=$?
 
     if [ "$setup_exit" -ne 0 ]; then
         echo -e "  ${E2E_RED}FAIL: static hosting setup failed (exit $setup_exit)${E2E_NC}"
