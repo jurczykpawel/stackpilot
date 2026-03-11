@@ -7,7 +7,7 @@
 E2E_SSH="${E2E_SSH:-vps}"
 
 # Timeouts
-E2E_DEPLOY_TIMEOUT=120       # max seconds for deploy
+E2E_DEPLOY_TIMEOUT=600       # max seconds for deploy (heavy apps pull 1-2GB images)
 E2E_HEALTH_TIMEOUT=60        # max seconds for health check
 E2E_HEALTH_TIMEOUT_HEAVY=120 # for heavy apps (stirling-pdf, wordpress, etc.)
 
