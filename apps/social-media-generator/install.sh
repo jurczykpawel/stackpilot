@@ -148,6 +148,7 @@ EOF
 # Build and start
 echo "Building Docker image (this may take a few minutes)..."
 sudo docker compose build --quiet 2>/dev/null || sudo docker compose build
+sudo docker builder prune -f >/dev/null 2>&1 || true
 sudo docker compose up -d
 
 # Health check - Chromium needs time to start

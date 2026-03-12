@@ -952,6 +952,7 @@ sudo chown -R 82:82 "$STACK_DIR/wp-content"
 echo ""
 echo "🔨 Building WordPress image (redis extension + WP-CLI)..."
 sudo docker compose build --quiet 2>/dev/null || sudo docker compose build
+sudo docker builder prune -f >/dev/null 2>&1 || true
 
 echo "🚀 Starting WordPress (FPM + Nginx + Redis)..."
 sudo docker compose up -d

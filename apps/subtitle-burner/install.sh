@@ -355,6 +355,7 @@ fi
 # Buduj i uruchamiaj
 echo "🔨 Buduję obrazy Docker (to może potrwać kilka minut)..."
 sudo docker compose build --quiet 2>/dev/null || sudo docker compose build
+sudo docker builder prune -f >/dev/null 2>&1 || true
 
 # Start bundled DB first
 if [ "$USE_BUNDLED_PG" = true ]; then

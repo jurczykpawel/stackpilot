@@ -133,6 +133,7 @@ EOF
 # Buduj i uruchamiaj
 echo "🔨 Buduję obraz Docker (to może potrwać kilka minut)..."
 sudo docker compose build --quiet 2>/dev/null || sudo docker compose build
+sudo docker builder prune -f >/dev/null 2>&1 || true
 sudo docker compose up -d
 
 # Health check
