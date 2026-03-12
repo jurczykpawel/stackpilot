@@ -394,6 +394,9 @@ ssh vps 'docker stats --no-stream'
 **What VPS providers are supported?**
 Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH. If you use [Mikrus](https://mikr.us) (a popular Polish VPS), StackPilot auto-detects it and unlocks extra features: free `.byst.re` subdomains, shared databases via API, and 200MB free backup.
 
+**Can I achieve Lighthouse 100/100/100/100 on a budget VPS?**
+Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN can achieve perfect Lighthouse scores (Performance, Accessibility, Best Practices, SEO — all 100). The key is proper development: defer non-critical resources (fonts, analytics) after `window.load`, avoid CPU-intensive CSS like SVG `feTurbulence`, inline small assets as base64 to eliminate LCP from external network requests, and use `font-display: optional` to prevent font-swap LCP spikes.
+
 **How much RAM do I need?**
 512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 8GB+.
 
