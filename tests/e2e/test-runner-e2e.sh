@@ -258,7 +258,6 @@ suite_deploy_postgres() {
         # postiz: returns 307 redirect (to setup page) — expected
         e2e_test "postiz"                 "5000" "200 302 301 307" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "social-media-generator" "8000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
-        e2e_test "subtitle-burner"        "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes" "/" "2000"
         # affine last — large image (~750MB), may exhaust disk; disk-check will prune if needed
         e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
     fi

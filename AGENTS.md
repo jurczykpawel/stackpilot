@@ -263,7 +263,7 @@ MCP: `deploy_site` with a PHP project (detects `index.php` or `.php` files).
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, typebot, redis, wordpress, convertx, postiz, crawl4ai, cap, sellf, minio, gotenberg, cookie-hub, mcp-docker, social-media-generator, subtitle-burner, routepix, coolify, supabase
+n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, typebot, redis, wordpress, convertx, postiz, crawl4ai, cap, sellf, minio, gotenberg, cookie-hub, mcp-docker, social-media-generator, routepix, coolify, supabase
 
 Details for a specific app (ports, requirements, DB) -> `apps/<app>/README.md` or `GUIDE.md`
 

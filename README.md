@@ -88,7 +88,6 @@ cd stackpilot
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
 | [Cap](apps/cap/) | Loom | Screen recording and video sharing. |
-| [Subtitle Burner](apps/subtitle-burner/) | Kapwing / VEED | Burn animated subtitles into video. 8 templates, AI transcription, REST API. |
 | [Cookie Hub](apps/cookie-hub/) | Cookiebot | Centralized GDPR consent server for all your sites. |
 | [Social Media Generator](apps/social-media-generator/) | Canva (basic) | Generate brand-consistent social media graphics from HTML templates. |
 
