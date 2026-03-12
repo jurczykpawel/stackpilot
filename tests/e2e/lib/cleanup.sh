@@ -18,8 +18,9 @@ cleanup_app() {
         ssh "$E2E_SSH" "cd /opt/dockge 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/dockge" 2>/dev/null
     fi
 
-    # Prune only dangling (untagged) images — keep named images for reuse
-    ssh "$E2E_SSH" "docker image prune -f" >/dev/null 2>&1
+    # Prune stopped containers (frees RAM held by exited containers) + dangling images
+    # --rmi all is intentionally omitted — named images stay for cache reuse
+    ssh "$E2E_SSH" "docker container prune -f && docker image prune -f" >/dev/null 2>&1
 
     # Aggressive prune for large apps: if disk < 3GB after cleanup, remove all unused images
     # This prevents disk exhaustion from accumulating large images (affine ~750MB, etc.)

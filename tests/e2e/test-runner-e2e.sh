@@ -47,6 +47,7 @@ e2e_test() {
     local timeout="${4:-$E2E_HEALTH_TIMEOUT}"
     local flags="${5:---domain-type=local --yes}"
     local health_path="${6:-/}"
+    local min_ram="${7:-$E2E_MIN_RAM}"
 
     # Apply app filter
     if [ -n "$APP_FILTER" ] && [ "$app" != "$APP_FILTER" ]; then
@@ -60,8 +61,8 @@ e2e_test() {
     # Resource pre-check: RAM
     local avail_ram
     avail_ram=$(get_server_ram)
-    if [ -n "$avail_ram" ] && [ "$avail_ram" -lt "$E2E_MIN_RAM" ]; then
-        echo -e "  ${E2E_YELLOW}SKIP: only ${avail_ram}MB RAM available (need ${E2E_MIN_RAM}MB)${E2E_NC}"
+    if [ -n "$avail_ram" ] && [ "$avail_ram" -lt "$min_ram" ]; then
+        echo -e "  ${E2E_YELLOW}SKIP: only ${avail_ram}MB RAM available (need ${min_ram}MB)${E2E_NC}"
         E2E_RESULTS+=("SKIP|$app|insufficient RAM (${avail_ram}MB)")
         E2E_SKIP=$((E2E_SKIP + 1))
         return 0
@@ -257,7 +258,7 @@ suite_deploy_postgres() {
         # postiz: returns 307 redirect (to setup page) — expected
         e2e_test "postiz"                 "5000" "200 302 301 307" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "social-media-generator" "8000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
-        e2e_test "subtitle-burner"        "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "subtitle-burner"        "3000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes" "/" "2000"
         # affine last — large image (~750MB), may exhaust disk; disk-check will prune if needed
         e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
     fi
