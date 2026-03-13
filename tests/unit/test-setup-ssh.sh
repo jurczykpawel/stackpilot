@@ -96,7 +96,11 @@ test_write_config_creates_file_if_missing() {
 test_write_config_permissions() {
     write_ssh_config "$TEST_CONFIG" "vps" "1.2.3.4" "22" "root" "$HOME/.ssh/id_ed25519"
     local perms
-    perms=$(stat -f "%OLp" "$TEST_CONFIG" 2>/dev/null || stat -c "%a" "$TEST_CONFIG" 2>/dev/null)
+    if [ "$(uname)" = "Darwin" ]; then
+        perms=$(stat -f "%OLp" "$TEST_CONFIG")
+    else
+        perms=$(stat -c "%a" "$TEST_CONFIG")
+    fi
     assert_eq "600" "$perms" "config file has 600 permissions"
 }
 
