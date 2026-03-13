@@ -222,6 +222,9 @@ run_tests() {
         if [ "$_TR_TEST_FAILED" = true ] || [ "$test_exit" -ne 0 ]; then
             echo -e "  ${_TR_RED}✗${_TR_NC} $test_name"
             fail=$((fail + 1))
+        elif [ "$_TR_TOTAL" -eq 0 ]; then
+            echo -e "  ${_TR_YELLOW}✗${_TR_NC} $test_name ${_TR_YELLOW}(no assertions — test is a no-op)${_TR_NC}"
+            fail=$((fail + 1))
         else
             echo -e "  ${_TR_GREEN}✓${_TR_NC} $test_name"
             pass=$((pass + 1))

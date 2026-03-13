@@ -98,5 +98,9 @@ maybe_cleanup() {
         never)
             echo -e "  ${E2E_YELLOW}Keeping $app (cleanup=never)${E2E_NC}"
             ;;
+        *)
+            echo -e "  ${E2E_RED}ERROR: unknown E2E_CLEANUP value '$E2E_CLEANUP' — defaulting to always${E2E_NC}" >&2
+            cleanup_app "$app"
+            ;;
     esac
 }

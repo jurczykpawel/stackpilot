@@ -77,22 +77,31 @@ else
 fi
 
 # 4. Configure ~/.ssh/config
-CONFIG_FILE="$HOME/.ssh/config"
-[ ! -f "$CONFIG_FILE" ] && touch "$CONFIG_FILE" && chmod 600 "$CONFIG_FILE"
 
-if grep -q "^Host $ALIAS$" "$CONFIG_FILE"; then
-    msg "$MSG_SSHC_ALIAS_EXISTS" "$ALIAS"
-else
-    cat >> "$CONFIG_FILE" <<EOF
+# write_ssh_config CONFIG_FILE ALIAS HOST PORT USER KEY_PATH
+# Returns 0 on success, 1 if alias already exists.
+write_ssh_config() {
+    local config_file="$1" alias="$2" host="$3" port="$4" user="$5" key_path="$6"
+    [ ! -f "$config_file" ] && touch "$config_file" && chmod 600 "$config_file"
+    if grep -q "^Host $alias$" "$config_file"; then
+        return 1
+    fi
+    cat >> "$config_file" <<EOF
 
-Host $ALIAS
-    HostName $HOST
-    Port $PORT
-    User $USER
-    IdentityFile $KEY_PATH
+Host $alias
+    HostName $host
+    Port $port
+    User $user
+    IdentityFile $key_path
     ServerAliveInterval 60
 EOF
+}
+
+CONFIG_FILE="$HOME/.ssh/config"
+if write_ssh_config "$CONFIG_FILE" "$ALIAS" "$HOST" "$PORT" "$USER" "$KEY_PATH"; then
     msg "$MSG_SSHC_ALIAS_ADDED" "$ALIAS"
+else
+    msg "$MSG_SSHC_ALIAS_EXISTS" "$ALIAS"
 fi
 
 echo ""

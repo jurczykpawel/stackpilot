@@ -38,7 +38,9 @@ assert_http() {
 # Usage: assert_container CONTAINER_NAME_PATTERN
 assert_container() {
     local pattern="$1"
-    ssh "$E2E_SSH" "docker ps --format '{{.Names}}' | grep -q '$pattern'" 2>/dev/null
+    # Use grep -x for exact full-line match on the primary container name,
+    # then fall back to anchored prefix match for compose-suffixed names (e.g. app-1).
+    ssh "$E2E_SSH" "docker ps --format '{{.Names}}' | grep -qE '^${pattern}(-[0-9]+)?$'" 2>/dev/null
 }
 
 # Check if a port is listening on the server

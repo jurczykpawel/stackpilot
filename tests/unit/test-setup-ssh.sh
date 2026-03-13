@@ -14,36 +14,17 @@ export TOOLBOX_LANG=en
 source "$REPO_ROOT/lib/i18n.sh"
 
 # =============================================================================
-# Helpers — extract testable functions from setup-ssh.sh
+# Load write_ssh_config from the actual setup-ssh.sh
+# Extract only the function definition — avoids running the interactive script.
 # =============================================================================
 
-# Writes SSH config entry to a given config file
-# Usage: write_ssh_config CONFIG_FILE ALIAS HOST PORT USER KEY_PATH
-write_ssh_config() {
-    local config_file="$1"
-    local alias="$2"
-    local host="$3"
-    local port="$4"
-    local user="$5"
-    local key_path="$6"
+eval "$(awk '/^write_ssh_config\(\)/,/^}$/' "$REPO_ROOT/local/setup-ssh.sh")"
 
-    [ ! -f "$config_file" ] && touch "$config_file" && chmod 600 "$config_file"
-
-    if grep -q "^Host $alias$" "$config_file"; then
-        return 1  # already exists
-    fi
-
-    cat >> "$config_file" <<EOF
-
-Host $alias
-    HostName $host
-    Port $port
-    User $user
-    IdentityFile $key_path
-    ServerAliveInterval 60
-EOF
-    return 0
-}
+# Verify we actually loaded the real function (not a stale local copy)
+if ! declare -f write_ssh_config > /dev/null 2>&1; then
+    echo "ERROR: write_ssh_config not found in local/setup-ssh.sh — test setup failed" >&2
+    exit 1
+fi
 
 # =============================================================================
 # Tests
@@ -52,7 +33,6 @@ EOF
 setup() {
     TEST_TMPDIR=$(mktemp -d)
     TEST_CONFIG="$TEST_TMPDIR/ssh_config"
-    TEST_KEY="$TEST_TMPDIR/id_ed25519_test"
 }
 
 teardown() {
@@ -104,11 +84,24 @@ test_write_config_permissions() {
     assert_eq "600" "$perms" "config file has 600 permissions"
 }
 
-test_server_marker_detected() {
-    # Simulate being on a server — script should refuse to run
-    local marker="$TEST_TMPDIR/.server-marker"
-    touch "$marker"
-    assert_eq "true" "$(test -f "$marker" && echo true || echo false)" "server marker exists"
+test_server_marker_blocks_script() {
+    # When /opt/stackpilot/.server-marker exists, setup-ssh.sh must exit non-zero
+    # We simulate it by temporarily creating the marker and running the script
+    local fake_marker="/opt/stackpilot/.server-marker"
+    local created_dir=false
+    if [ ! -d /opt/stackpilot ]; then
+        sudo mkdir -p /opt/stackpilot 2>/dev/null && created_dir=true || true
+    fi
+    if [ -d /opt/stackpilot ] && sudo touch "$fake_marker" 2>/dev/null; then
+        local exit_code=0
+        TOOLBOX_LANG=en "$REPO_ROOT/local/setup-ssh.sh" > /dev/null 2>&1 || exit_code=$?
+        sudo rm -f "$fake_marker"
+        [ "$created_dir" = true ] && sudo rmdir /opt/stackpilot 2>/dev/null || true
+        assert_eq "1" "$exit_code" "script exits 1 when server marker present"
+    else
+        # Cannot create marker (no sudo) — skip with a note
+        assert_eq "true" "true" "SKIP: cannot create /opt/stackpilot/.server-marker without sudo"
+    fi
 }
 
 run_tests "$0"

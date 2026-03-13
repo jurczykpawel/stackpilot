@@ -779,11 +779,12 @@ suite_cytrus_domain() {
             E2E_PASS=$((E2E_PASS + 1))
         fi
     else
-        # No domain extracted from output — but deploy succeeded and port is up
-        echo -e "  ${E2E_YELLOW}Domain not extracted from output — checking API directly...${E2E_NC}"
-        # Still count as pass if local is working
-        E2E_RESULTS+=("PASS|cytrus-domain|local OK (domain in deploy output)")
-        E2E_PASS=$((E2E_PASS + 1))
+        # No domain extracted from output — cannot verify domain registration
+        echo -e "  ${E2E_RED}FAIL: could not extract Cytrus domain from deploy output${E2E_NC}"
+        echo -e "  ${E2E_YELLOW}Deploy output (last 5 lines):${E2E_NC}"
+        echo "$deploy_output" | tail -5 | sed 's/^/    /'
+        E2E_RESULTS+=("FAIL|cytrus-domain|domain not found in deploy output")
+        E2E_FAIL=$((E2E_FAIL + 1))
     fi
 
     maybe_cleanup "$app" true
@@ -834,6 +835,10 @@ suite_backup_flow() {
     local backup_dir="/opt/backups/db"
     local run_output
 
+    # Create a sentinel file BEFORE running backup — only files newer than this are valid
+    local sentinel="/tmp/sp_backup_sentinel_$$"
+    ssh "$E2E_SSH" "touch '$sentinel'" 2>/dev/null
+
     # If backup script exists, run it; otherwise create a quick pg_dump manually
     run_output=$(ssh "$E2E_SSH" "
         if [ -f '$backup_script' ]; then
@@ -852,13 +857,10 @@ suite_backup_flow() {
         fi
     " 2>&1) || true
 
-    # Check that a backup file was created
+    # Check that a backup file was created AFTER the sentinel — no false positive from old files
     local backup_file
-    backup_file=$(ssh "$E2E_SSH" "find '$backup_dir' -name '*.sql.gz' -newer /tmp -o -name '*.sql.gz' 2>/dev/null | head -1" 2>/dev/null)
-    if [ -z "$backup_file" ]; then
-        # Try broader search — file may have been created before /tmp timestamp
-        backup_file=$(ssh "$E2E_SSH" "ls -t '$backup_dir'/*.sql.gz 2>/dev/null | head -1" 2>/dev/null)
-    fi
+    backup_file=$(ssh "$E2E_SSH" "find '$backup_dir' -name '*.sql.gz' -newer '$sentinel' 2>/dev/null | head -1" 2>/dev/null)
+    ssh "$E2E_SSH" "rm -f '$sentinel'" 2>/dev/null
 
     if [ -n "$backup_file" ]; then
         local file_size
@@ -1251,18 +1253,17 @@ suite_setup_ssh() {
         return 1
     fi
 
-    # Step 5: verify passwordless SSH connection works
+    # Step 5: verify SSH works via the alias written to ~/.ssh/config (not via -i key directly)
+    # This is the real test: setup-ssh.sh must have written a correct config entry.
     local connect_ok=false
     local connect_out
     connect_out=$(ssh -o BatchMode=yes -o ConnectTimeout=10 \
-        -i "$test_key" \
-        -p "$server_port" \
-        "${test_user}@${server_host}" \
+        "$test_alias" \
         "echo OK" 2>/dev/null) && connect_ok=true
 
     if [ "$connect_ok" = true ] && [ "$connect_out" = "OK" ]; then
-        echo -e "  ${E2E_GREEN}PASS: passwordless SSH works via test user${E2E_NC}"
-        E2E_RESULTS+=("PASS|setup-ssh|key deployed, alias written, SSH verified")
+        echo -e "  ${E2E_GREEN}PASS: passwordless SSH works via alias '$test_alias'${E2E_NC}"
+        E2E_RESULTS+=("PASS|setup-ssh|key deployed, alias written and functional, SSH via alias verified")
         E2E_PASS=$((E2E_PASS + 1))
     else
         echo -e "  ${E2E_RED}FAIL: SSH connection failed after setup${E2E_NC}"
