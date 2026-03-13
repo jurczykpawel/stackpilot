@@ -155,7 +155,7 @@ e2e_test_tcp() {
     local app="$1"
     local port="$2"
     local flags="${3:---domain-type=local --yes}"
-    local check_cmd="${4:-}"  # e.g., "redis-cli -p PORT PING"
+
 
     if [ -n "$APP_FILTER" ] && [ "$app" != "$APP_FILTER" ]; then
         return 0
@@ -832,7 +832,7 @@ suite_backup_flow() {
     # Trigger the backup script directly (don't wait for cron)
     local backup_script="/opt/stackpilot/scripts/db-backup.sh"
     local backup_dir="/opt/backups/db"
-    local run_output run_exit
+    local run_output
 
     # If backup script exists, run it; otherwise create a quick pg_dump manually
     run_output=$(ssh "$E2E_SSH" "
@@ -850,7 +850,7 @@ suite_backup_flow() {
                 exit 1
             fi
         fi
-    " 2>&1) && run_exit=0 || run_exit=$?
+    " 2>&1) || true
 
     # Check that a backup file was created
     local backup_file
