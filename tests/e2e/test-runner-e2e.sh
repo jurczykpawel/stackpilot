@@ -1154,6 +1154,131 @@ suite_i18n() {
     LANG_TEST=""
 }
 
+suite_setup_ssh() {
+    echo ""
+    echo -e "${E2E_BOLD}━━━ Suite: setup-ssh ━━━${E2E_NC}"
+
+    local test_num=$((E2E_PASS + E2E_FAIL + E2E_SKIP + 1))
+    local test_user="e2etest"
+    local test_alias="e2etest-sp-$(date +%s)"
+    local test_key="$HOME/.ssh/id_ed25519_e2etest_sp"
+
+    # Get SSH connection details for target server
+    local server_host server_port server_user
+    server_host=$(ssh -G "$E2E_SSH" 2>/dev/null | awk '/^hostname / {print $2}')
+    server_port=$(ssh -G "$E2E_SSH" 2>/dev/null | awk '/^port / {print $2}')
+    server_user=$(ssh -G "$E2E_SSH" 2>/dev/null | awk '/^user / {print $2}')
+
+    if [ -z "$server_host" ] || [ -z "$server_port" ]; then
+        echo -e "  ${E2E_YELLOW}SKIP: cannot resolve SSH config for $E2E_SSH${E2E_NC}"
+        E2E_RESULTS+=("SKIP|setup-ssh|cannot resolve SSH config")
+        E2E_SKIP=$((E2E_SKIP + 1))
+        return 0
+    fi
+
+    # Cleanup function — always runs
+    _cleanup_setup_ssh() {
+        # Remote: remove test user
+        ssh "$E2E_SSH" "userdel -r $test_user 2>/dev/null; true" 2>/dev/null || true
+        # Local: remove test key pair
+        rm -f "$test_key" "${test_key}.pub"
+        # Local: remove test alias from ~/.ssh/config
+        if grep -q "^Host $test_alias$" "$HOME/.ssh/config" 2>/dev/null; then
+            # Remove the Host block (Host line + next 6 lines)
+            local tmp
+            tmp=$(mktemp)
+            awk "/^Host $test_alias$/{skip=7} skip>0{skip--; next} {print}" \
+                "$HOME/.ssh/config" > "$tmp" && mv "$tmp" "$HOME/.ssh/config"
+        fi
+    }
+
+    echo ""
+    echo -e "${E2E_BLUE}▸ [$test_num] setup-ssh: create user → deploy key → verify → cleanup${E2E_NC}"
+
+    # Step 1: generate test key pair locally
+    ssh-keygen -t ed25519 -f "$test_key" -N "" -C "e2etest_sp" -q 2>/dev/null
+    if [ ! -f "$test_key" ]; then
+        echo -e "  ${E2E_RED}FAIL: could not generate test key${E2E_NC}"
+        E2E_RESULTS+=("FAIL|setup-ssh|key generation failed")
+        E2E_FAIL=$((E2E_FAIL + 1))
+        return 1
+    fi
+
+    # Step 2: create test user on server and deploy key via existing root connection
+    local pub_key
+    pub_key=$(cat "${test_key}.pub")
+    ssh "$E2E_SSH" "
+        useradd -m -s /bin/bash $test_user 2>/dev/null || true
+        mkdir -p /home/$test_user/.ssh
+        echo '$pub_key' > /home/$test_user/.ssh/authorized_keys
+        chmod 700 /home/$test_user/.ssh
+        chmod 600 /home/$test_user/.ssh/authorized_keys
+        chown -R $test_user:$test_user /home/$test_user/.ssh
+    " 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo -e "  ${E2E_RED}FAIL: could not create test user on server${E2E_NC}"
+        E2E_RESULTS+=("FAIL|setup-ssh|user creation failed")
+        E2E_FAIL=$((E2E_FAIL + 1))
+        _cleanup_setup_ssh
+        return 1
+    fi
+
+    # Step 3: run setup-ssh.sh non-interactively (key already deployed — skip ssh-copy-id)
+    local setup_output setup_exit
+    setup_output=$(
+        SSHC_HOST="$server_host" \
+        SSHC_PORT="$server_port" \
+        SSHC_USER="$test_user" \
+        SSHC_ALIAS="$test_alias" \
+        SSHC_KEY_PATH="$test_key" \
+        SSHC_SKIP_COPY="1" \
+        "$E2E_REPO/local/setup-ssh.sh" 2>&1
+    ) && setup_exit=0 || setup_exit=$?
+
+    if [ "$setup_exit" -ne 0 ]; then
+        echo -e "  ${E2E_RED}FAIL: setup-ssh.sh exited $setup_exit${E2E_NC}"
+        echo "$setup_output" | tail -5 | sed 's/^/    /'
+        E2E_RESULTS+=("FAIL|setup-ssh|setup-ssh.sh failed (exit $setup_exit)")
+        E2E_FAIL=$((E2E_FAIL + 1))
+        _cleanup_setup_ssh
+        return 1
+    fi
+
+    # Step 4: verify alias was added to ~/.ssh/config
+    if ! grep -q "^Host $test_alias$" "$HOME/.ssh/config" 2>/dev/null; then
+        echo -e "  ${E2E_RED}FAIL: alias '$test_alias' not found in ~/.ssh/config${E2E_NC}"
+        E2E_RESULTS+=("FAIL|setup-ssh|alias not written to config")
+        E2E_FAIL=$((E2E_FAIL + 1))
+        _cleanup_setup_ssh
+        return 1
+    fi
+
+    # Step 5: verify passwordless SSH connection works
+    local connect_ok=false
+    local connect_out
+    connect_out=$(ssh -o BatchMode=yes -o ConnectTimeout=10 \
+        -i "$test_key" \
+        -p "$server_port" \
+        "${test_user}@${server_host}" \
+        "echo OK" 2>/dev/null) && connect_ok=true
+
+    if [ "$connect_ok" = true ] && [ "$connect_out" = "OK" ]; then
+        echo -e "  ${E2E_GREEN}PASS: passwordless SSH works via test user${E2E_NC}"
+        E2E_RESULTS+=("PASS|setup-ssh|key deployed, alias written, SSH verified")
+        E2E_PASS=$((E2E_PASS + 1))
+    else
+        echo -e "  ${E2E_RED}FAIL: SSH connection failed after setup${E2E_NC}"
+        E2E_RESULTS+=("FAIL|setup-ssh|SSH connection failed")
+        E2E_FAIL=$((E2E_FAIL + 1))
+        _cleanup_setup_ssh
+        return 1
+    fi
+
+    # Cleanup
+    _cleanup_setup_ssh
+    echo -e "  ${E2E_GREEN}Cleanup: test user removed, local key and alias deleted${E2E_NC}"
+}
+
 suite_sellf() {
     echo ""
     echo -e "${E2E_BOLD}━━━ Suite: sellf ━━━${E2E_NC}"
@@ -1284,6 +1409,7 @@ if [ -n "$SUITE_FILTER" ]; then
         health-check)   suite_health_check ;;
         i18n)           suite_i18n ;;
         sellf)          suite_sellf ;;
+        setup-ssh)      suite_setup_ssh ;;
         *)
             echo -e "${E2E_RED}Unknown suite: $SUITE_FILTER${E2E_NC}"
             exit 1
@@ -1305,6 +1431,7 @@ else
     suite_health_check
     suite_update_flow
     suite_i18n
+    suite_setup_ssh
 fi
 
 END_TIME=$(date +%s)

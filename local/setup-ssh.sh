@@ -35,12 +35,12 @@ echo ""
 msg "$MSG_SSHC_PREPARE"
 echo ""
 
-# 1. Collect data
-read -p "$(msg_n "$MSG_SSHC_PROMPT_HOST")" HOST
-read -p "$(msg_n "$MSG_SSHC_PROMPT_PORT")" PORT
-read -p "$(msg_n "$MSG_SSHC_PROMPT_USER")" USER
+# 1. Collect data (env vars override interactive prompts — used for testing/automation)
+if [ -z "$SSHC_HOST" ]; then read -p "$(msg_n "$MSG_SSHC_PROMPT_HOST")" HOST; else HOST="$SSHC_HOST"; fi
+if [ -z "$SSHC_PORT" ]; then read -p "$(msg_n "$MSG_SSHC_PROMPT_PORT")" PORT; else PORT="$SSHC_PORT"; fi
+if [ -z "$SSHC_USER" ]; then read -p "$(msg_n "$MSG_SSHC_PROMPT_USER")" USER; else USER="$SSHC_USER"; fi
 USER=${USER:-root}
-read -p "$(msg_n "$MSG_SSHC_PROMPT_ALIAS")" ALIAS
+if [ -z "$SSHC_ALIAS" ]; then read -p "$(msg_n "$MSG_SSHC_PROMPT_ALIAS")" ALIAS; else ALIAS="$SSHC_ALIAS"; fi
 ALIAS=${ALIAS:-vps}
 
 if [[ -z "$HOST" || -z "$PORT" ]]; then
@@ -51,7 +51,7 @@ fi
 echo ""
 
 # 2. Generate SSH key (if it doesn't exist)
-KEY_PATH="$HOME/.ssh/id_ed25519"
+KEY_PATH="${SSHC_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 if [ ! -f "$KEY_PATH" ]; then
     msg "$MSG_SSHC_KEY_GENERATING"
     mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
@@ -66,11 +66,14 @@ echo ""
 msg "$MSG_SSHC_COPY_KEY"
 echo ""
 
-ssh-copy-id -i "$KEY_PATH.pub" -p "$PORT" "$USER@$HOST"
-
-if [ $? -ne 0 ]; then
-    msg "$MSG_SSHC_COPY_FAIL"
-    exit 1
+if [ "${SSHC_SKIP_COPY:-}" != "1" ]; then
+    ssh-copy-id -i "$KEY_PATH.pub" -p "$PORT" "$USER@$HOST"
+    if [ $? -ne 0 ]; then
+        msg "$MSG_SSHC_COPY_FAIL"
+        exit 1
+    fi
+else
+    echo "  (key already deployed — skipping ssh-copy-id)"
 fi
 
 # 4. Configure ~/.ssh/config
