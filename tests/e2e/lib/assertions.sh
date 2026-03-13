@@ -193,16 +193,30 @@ cf_dns_delete() {
 caddy_cleanup() {
     local domain="$1"
     ssh "$E2E_SSH" "
-        if grep -q '$domain' /etc/caddy/Caddyfile 2>/dev/null; then
-            # Use Python to reliably remove the domain block (handles multi-line blocks)
+        if grep -qF '$domain' /etc/caddy/Caddyfile 2>/dev/null; then
+            # Use Python to reliably remove the domain block.
+            # Track brace depth to handle nested blocks (e.g. reverse_proxy { ... }).
             python3 -c \"
-import re, sys
+import re
+domain = '$domain'
 with open('/etc/caddy/Caddyfile', 'r') as f:
-    content = f.read()
-# Remove block starting with domain name
-pattern = r'(?m)^${domain}\s*\{[^}]*\}\n?'
-content = re.sub(pattern, '', content)
-# Also strip consecutive blank lines left behind
+    lines = f.readlines()
+result = []
+skip = False
+depth = 0
+for line in lines:
+    stripped = line.rstrip()
+    if not skip and stripped.startswith(domain) and '{' in stripped:
+        skip = True
+        depth = stripped.count('{') - stripped.count('}')
+        continue
+    if skip:
+        depth += stripped.count('{') - stripped.count('}')
+        if depth <= 0:
+            skip = False
+        continue
+    result.append(line)
+content = ''.join(result)
 content = re.sub(r'\n{3,}', '\n\n', content)
 with open('/tmp/caddy-cleaned', 'w') as f:
     f.write(content)

@@ -121,7 +121,10 @@ e2e_test() {
             if echo "$deploy_output" | grep -qE "Wdrażanie|Konfiguracja|Sprawdzanie|Gotowe|Sukces"; then
                 echo -e "  ${E2E_GREEN}i18n: Polish output confirmed${E2E_NC}"
             else
-                echo -e "  ${E2E_YELLOW}i18n: no Polish strings detected in output${E2E_NC}"
+                echo -e "  ${E2E_RED}FAIL: i18n broken — no Polish strings in deploy output (TOOLBOX_LANG=pl not working)${E2E_NC}"
+                echo "$deploy_output" | tail -5 | sed 's/^/    /'
+                E2E_RESULTS+=("FAIL|i18n-pl|no Polish strings in deploy output")
+                E2E_FAIL=$((E2E_FAIL + 1))
             fi
         fi
     fi
@@ -772,11 +775,10 @@ suite_cytrus_domain() {
             E2E_RESULTS+=("PASS|cytrus-domain|$cytrus_domain → HTTP $cytrus_code")
             E2E_PASS=$((E2E_PASS + 1))
         else
-            # Cytrus may take longer — still PASS if local is up and domain was registered
-            echo -e "  ${E2E_YELLOW}PASS (partial): domain registered but not yet propagated ($cytrus_code)${E2E_NC}"
-            echo -e "  ${E2E_GREEN}Domain assigned: $cytrus_domain${E2E_NC}"
-            E2E_RESULTS+=("PASS|cytrus-domain|assigned $cytrus_domain (propagation pending)")
-            E2E_PASS=$((E2E_PASS + 1))
+            # Domain assigned but not yet reachable — cannot verify correctness
+            echo -e "  ${E2E_YELLOW}SKIP: domain assigned ($cytrus_domain) but not reachable within timeout ($cytrus_code)${E2E_NC}"
+            E2E_RESULTS+=("SKIP|cytrus-domain|assigned $cytrus_domain (propagation unverified)")
+            E2E_SKIP=$((E2E_SKIP + 1))
         fi
     else
         # No domain extracted from output — cannot verify domain registration
@@ -1071,15 +1073,17 @@ suite_health_check() {
 
     echo -e "  Apps WITH healthcheck:    $apps_with_hc"
     echo -e "  Apps WITHOUT healthcheck: $apps_without_hc"
-    echo -e "  Apps with healthcheck: ${apps_with_hc_list[*]}"
+    echo -e "  Apps with healthcheck: ${apps_with_hc_list[*]:-none}"
 
-    if [ "$apps_with_hc" -gt 0 ]; then
-        echo -e "  ${E2E_GREEN}PASS: $apps_with_hc apps define healthcheck${E2E_NC}"
+    # Require at least 3 apps to define healthcheck (prevents passing with a single comment match)
+    local hc_min=3
+    if [ "$apps_with_hc" -ge "$hc_min" ]; then
+        echo -e "  ${E2E_GREEN}PASS: $apps_with_hc apps define healthcheck (min $hc_min required)${E2E_NC}"
         E2E_RESULTS+=("PASS|health-check-static|$apps_with_hc apps define healthcheck")
         E2E_PASS=$((E2E_PASS + 1))
     else
-        echo -e "  ${E2E_RED}FAIL: no apps define healthcheck${E2E_NC}"
-        E2E_RESULTS+=("FAIL|health-check-static|no apps define healthcheck")
+        echo -e "  ${E2E_RED}FAIL: only $apps_with_hc apps define healthcheck (min $hc_min required)${E2E_NC}"
+        E2E_RESULTS+=("FAIL|health-check-static|only $apps_with_hc apps define healthcheck (min $hc_min)")
         E2E_FAIL=$((E2E_FAIL + 1))
     fi
 
@@ -1132,11 +1136,19 @@ suite_health_check() {
         local final_status
         final_status=$(ssh "$E2E_SSH" "docker ps --filter 'name=ntfy' --format '{{.Status}}' 2>/dev/null" 2>/dev/null)
         echo -e "  ${E2E_YELLOW}INFO: ntfy status after 60s: $final_status${E2E_NC}"
-        # ntfy may not define HEALTHCHECK — still pass if container is running
         if echo "$final_status" | grep -qi "up"; then
-            echo -e "  ${E2E_GREEN}PASS: ntfy running (no HEALTHCHECK defined — Up state is OK)${E2E_NC}"
-            E2E_RESULTS+=("PASS|health-check-runtime|ntfy Up (no HEALTHCHECK)")
-            E2E_PASS=$((E2E_PASS + 1))
+            # Container is Up but not healthy — check if HEALTHCHECK is actually defined
+            local hc_def
+            hc_def=$(ssh "$E2E_SSH" "docker inspect ntfy --format '{{json .Config.Healthcheck}}' 2>/dev/null" 2>/dev/null)
+            if [ -z "$hc_def" ] || [ "$hc_def" = "null" ] || [ "$hc_def" = "{}" ]; then
+                echo -e "  ${E2E_YELLOW}SKIP: ntfy has no HEALTHCHECK defined — cannot verify health state${E2E_NC}"
+                E2E_RESULTS+=("SKIP|health-check-runtime|ntfy has no HEALTHCHECK")
+                E2E_SKIP=$((E2E_SKIP + 1))
+            else
+                echo -e "  ${E2E_RED}FAIL: ntfy HEALTHCHECK defined but not reached healthy state after 60s${E2E_NC}"
+                E2E_RESULTS+=("FAIL|health-check-runtime|ntfy unhealthy after 60s")
+                E2E_FAIL=$((E2E_FAIL + 1))
+            fi
         else
             echo -e "  ${E2E_RED}FAIL: ntfy not running${E2E_NC}"
             E2E_RESULTS+=("FAIL|health-check-runtime|ntfy not running")

@@ -120,11 +120,10 @@ test_parse_combined_flags() {
 
 test_parse_unknown_flag_exits() {
     _reset_vars
-    local output
-    output=$(parse_args --unknown-flag 2>&1) || true
-    # Unknown flags should cause exit 1 — but since we run in subshell-like context,
-    # we just check it didn't silently succeed
+    local output rc
+    output=$(parse_args --unknown-flag 2>&1); rc=$?
     assert_not_eq "" "$output" "unknown flag produces error output"
+    assert_not_eq "0" "$rc" "unknown flag exits non-zero"
 }
 
 # =============================================================================

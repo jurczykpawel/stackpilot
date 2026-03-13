@@ -45,6 +45,7 @@ test_write_config_creates_entry() {
     assert_true grep -q "HostName 1.2.3.4" "$TEST_CONFIG" "HostName set"
     assert_true grep -q "Port 22" "$TEST_CONFIG" "Port set"
     assert_true grep -q "User root" "$TEST_CONFIG" "User set"
+    assert_true grep -q "IdentitiesOnly yes" "$TEST_CONFIG" "identities-only set"
     assert_true grep -q "ServerAliveInterval 60" "$TEST_CONFIG" "keepalive set"
 }
 
@@ -99,8 +100,7 @@ test_server_marker_blocks_script() {
         [ "$created_dir" = true ] && sudo rmdir /opt/stackpilot 2>/dev/null || true
         assert_eq "1" "$exit_code" "script exits 1 when server marker present"
     else
-        # Cannot create marker (no sudo) — skip with a note
-        assert_eq "true" "true" "SKIP: cannot create /opt/stackpilot/.server-marker without sudo"
+        skip_test "cannot create /opt/stackpilot/.server-marker without sudo"
     fi
 }
 

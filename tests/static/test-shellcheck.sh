@@ -15,8 +15,8 @@ NC='\033[0m'
 
 # Check if shellcheck is available
 if ! command -v shellcheck &>/dev/null; then
-    echo -e "${YELLOW}SKIP — shellcheck not installed${NC}"
-    exit 0
+    echo -e "${RED}FAIL — shellcheck not installed (required in CI)${NC}"
+    exit 1
 fi
 
 # Exclusions:

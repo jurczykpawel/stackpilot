@@ -18,14 +18,14 @@ NC='\033[0m'
 
 # Check if docker is available
 if ! command -v docker &>/dev/null; then
-    echo -e "${YELLOW}SKIP — docker not installed${NC}"
-    exit 0
+    echo -e "${RED}FAIL — docker not installed (required in CI)${NC}"
+    exit 1
 fi
 
 # Check docker compose plugin
 if ! docker compose version &>/dev/null 2>&1; then
-    echo -e "${YELLOW}SKIP — docker compose plugin not available${NC}"
-    exit 0
+    echo -e "${RED}FAIL — docker compose plugin not available (required in CI)${NC}"
+    exit 1
 fi
 
 # Apps that don't have extractable compose files or have complex heredoc patterns

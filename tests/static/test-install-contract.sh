@@ -66,8 +66,8 @@ for install_sh in "$REPO_ROOT"/apps/*/install.sh; do
         errors+=("missing STACK_DIR=")
     fi
 
-    # Check: docker compose (at least one call)
-    if ! grep -q 'docker compose' "$install_sh"; then
+    # Check: docker compose (at least one call, not in a comment)
+    if ! grep -v '^\s*#' "$install_sh" | grep -q 'docker compose'; then
         errors+=("missing 'docker compose'")
     fi
 

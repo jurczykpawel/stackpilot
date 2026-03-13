@@ -33,6 +33,7 @@ _TR_SKIP=0
 _TR_TOTAL=0
 _TR_CURRENT_TEST=""
 _TR_TEST_FAILED=false
+_TR_SKIP_TEST=false
 
 # Temp directory for the current test
 TEST_TMPDIR=""
@@ -140,6 +141,13 @@ assert_true() {
     fi
 }
 
+# skip_test REASON — mark the current test as skipped (no PASS/FAIL)
+skip_test() {
+    local reason="${1:-no reason given}"
+    echo "    SKIP: $reason" >&2
+    _TR_SKIP_TEST=true
+}
+
 assert_false() {
     local message="assert_false ($*)"
     _TR_TOTAL=$((_TR_TOTAL + 1))
@@ -204,6 +212,7 @@ run_tests() {
 
         _TR_CURRENT_TEST="$test_name"
         _TR_TEST_FAILED=false
+        _TR_SKIP_TEST=false
         _TR_TOTAL=0
 
         # Setup
@@ -219,7 +228,10 @@ run_tests() {
         teardown
 
         # Evaluate result
-        if [ "$_TR_TEST_FAILED" = true ] || [ "$test_exit" -ne 0 ]; then
+        if [ "$_TR_SKIP_TEST" = true ]; then
+            echo -e "  ${_TR_YELLOW}~${_TR_NC} $test_name ${_TR_YELLOW}(skipped)${_TR_NC}"
+            _TR_SKIP=$((_TR_SKIP + 1))
+        elif [ "$_TR_TEST_FAILED" = true ] || [ "$test_exit" -ne 0 ]; then
             echo -e "  ${_TR_RED}✗${_TR_NC} $test_name"
             fail=$((fail + 1))
         elif [ "$_TR_TOTAL" -eq 0 ]; then
@@ -233,8 +245,8 @@ run_tests() {
 
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    local total=$((pass + fail))
-    echo -e "  ${_TR_GREEN}$pass passed${_TR_NC}, ${_TR_RED}$fail failed${_TR_NC} (total: $total)"
+    local total=$((pass + fail + _TR_SKIP))
+    echo -e "  ${_TR_GREEN}$pass passed${_TR_NC}, ${_TR_RED}$fail failed${_TR_NC}, ${_TR_YELLOW}$_TR_SKIP skipped${_TR_NC} (total: $total)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 

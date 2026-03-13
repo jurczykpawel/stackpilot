@@ -26,10 +26,25 @@ export -f is_on_server server_exec
 
 source "$REPO_ROOT/lib/db-setup.sh"
 
-# Reset DB variables
+# Reset DB variables and all test-affecting globals
 _reset_db() {
     unset DB_HOST DB_PORT DB_NAME DB_SCHEMA DB_USER DB_PASS DB_SOURCE BUNDLED_DB_TYPE
     export DB_HOST="" DB_PORT="" DB_NAME="" DB_SCHEMA="" DB_USER="" DB_PASS="" DB_SOURCE="" BUNDLED_DB_TYPE=""
+}
+
+# Per-test setup/teardown — ensure no state leaks between tests
+setup() {
+    TEST_TMPDIR=$(mktemp -d)
+    _reset_db
+    unset YES_MODE
+}
+
+teardown() {
+    unset YES_MODE
+    _reset_db
+    if [ -n "$TEST_TMPDIR" ] && [ -d "$TEST_TMPDIR" ]; then
+        rm -rf "$TEST_TMPDIR"
+    fi
 }
 
 # =============================================================================

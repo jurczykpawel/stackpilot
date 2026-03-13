@@ -93,6 +93,7 @@ Host $alias
     Port $port
     User $user
     IdentityFile $key_path
+    IdentitiesOnly yes
     ServerAliveInterval 60
 EOF
 }
