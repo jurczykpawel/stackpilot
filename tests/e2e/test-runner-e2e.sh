@@ -1160,14 +1160,14 @@ suite_setup_ssh() {
 
     local test_num=$((E2E_PASS + E2E_FAIL + E2E_SKIP + 1))
     local test_user="e2etest"
-    local test_alias="e2etest-sp-$(date +%s)"
+    local test_alias
+    test_alias="e2etest-sp-$(date +%s)"
     local test_key="$HOME/.ssh/id_ed25519_e2etest_sp"
 
     # Get SSH connection details for target server
-    local server_host server_port server_user
+    local server_host server_port
     server_host=$(ssh -G "$E2E_SSH" 2>/dev/null | awk '/^hostname / {print $2}')
     server_port=$(ssh -G "$E2E_SSH" 2>/dev/null | awk '/^port / {print $2}')
-    server_user=$(ssh -G "$E2E_SSH" 2>/dev/null | awk '/^user / {print $2}')
 
     if [ -z "$server_host" ] || [ -z "$server_port" ]; then
         echo -e "  ${E2E_YELLOW}SKIP: cannot resolve SSH config for $E2E_SSH${E2E_NC}"
@@ -1178,16 +1178,18 @@ suite_setup_ssh() {
 
     # Cleanup function — always runs
     _cleanup_setup_ssh() {
-        # Remote: remove test user
-        ssh "$E2E_SSH" "userdel -r $test_user 2>/dev/null; true" 2>/dev/null || true
+        # Remote: remove test user (passed via stdin to avoid shell injection)
+        ssh "$E2E_SSH" 'userdel -r '"$test_user"' 2>/dev/null; true' 2>/dev/null || true
         # Local: remove test key pair
         rm -f "$test_key" "${test_key}.pub"
         # Local: remove test alias from ~/.ssh/config
-        if grep -q "^Host $test_alias$" "$HOME/.ssh/config" 2>/dev/null; then
+        if grep -qF "Host $test_alias" "$HOME/.ssh/config" 2>/dev/null; then
             # Remove the Host block (Host line + next 6 lines)
+            # Use awk -v to pass alias as a variable (no regex injection)
             local tmp
             tmp=$(mktemp)
-            awk "/^Host $test_alias$/{skip=7} skip>0{skip--; next} {print}" \
+            awk -v alias="$test_alias" \
+                '$0 == "Host " alias {skip=7} skip>0{skip--; next} {print}' \
                 "$HOME/.ssh/config" > "$tmp" && mv "$tmp" "$HOME/.ssh/config"
         fi
     }
@@ -1205,16 +1207,12 @@ suite_setup_ssh() {
     fi
 
     # Step 2: create test user on server and deploy key via existing root connection
-    local pub_key
-    pub_key=$(cat "${test_key}.pub")
-    ssh "$E2E_SSH" "
-        useradd -m -s /bin/bash $test_user 2>/dev/null || true
-        mkdir -p /home/$test_user/.ssh
-        echo '$pub_key' > /home/$test_user/.ssh/authorized_keys
-        chmod 700 /home/$test_user/.ssh
-        chmod 600 /home/$test_user/.ssh/authorized_keys
-        chown -R $test_user:$test_user /home/$test_user/.ssh
-    " 2>/dev/null
+    # Use single-quoted remote commands + pass variables via env (-o SendEnv) is not reliable,
+    # so we split into: (a) create user via ssh with hardcoded-safe name, (b) deploy key via stdin.
+    ssh "$E2E_SSH" 'useradd -m -s /bin/bash '"$test_user"' 2>/dev/null || true; mkdir -p /home/'"$test_user"'/.ssh; chmod 700 /home/'"$test_user"'/.ssh; chown '"$test_user"':'"$test_user"' /home/'"$test_user"'/.ssh' 2>/dev/null
+    # Deploy public key via stdin — no interpolation of key content in shell string
+    ssh "$E2E_SSH" 'tee /home/'"$test_user"'/.ssh/authorized_keys > /dev/null && chmod 600 /home/'"$test_user"'/.ssh/authorized_keys && chown '"$test_user"':'"$test_user"' /home/'"$test_user"'/.ssh/authorized_keys' \
+        < "${test_key}.pub" 2>/dev/null
     if [ $? -ne 0 ]; then
         echo -e "  ${E2E_RED}FAIL: could not create test user on server${E2E_NC}"
         E2E_RESULTS+=("FAIL|setup-ssh|user creation failed")
