@@ -125,6 +125,16 @@ e2e_test() {
             return 0
         fi
 
+        # Check for Docker daemon / containerd infrastructure errors (transient, not code bugs)
+        if echo "$deploy_output" | grep -qiE "mount callback failed|lease does not exist|failed to extract layer|failed to commit snapshot|containerd.*not found|overlayfs.*error|no such file or directory.*containerd"; then
+            echo -e "  ${E2E_YELLOW}SKIP: Docker/containerd infrastructure error (transient)${E2E_NC}"
+            echo "$deploy_output" | grep -iE "mount callback|lease does not|failed to extract|failed to commit" | tail -2 | sed 's/^/    /'
+            E2E_RESULTS+=("SKIP|$app|Docker infra error (containerd)")
+            E2E_SKIP=$((E2E_SKIP + 1))
+            maybe_cleanup "$app" true
+            return 0
+        fi
+
         echo -e "  ${E2E_RED}FAIL: deploy failed (exit $deploy_exit)${E2E_NC}"
         echo "$deploy_output" | tail -10 | sed 's/^/    /'
         E2E_RESULTS+=("FAIL|$app|deploy failed (exit $deploy_exit)")
