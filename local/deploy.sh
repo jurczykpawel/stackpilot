@@ -1080,6 +1080,11 @@ if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
     fi
 fi
 
+# Provider post-deploy hook (e.g. Mikrus Cytrus domain registration)
+if declare -f provider_post_deploy > /dev/null 2>&1; then
+    provider_post_deploy "$APP_NAME" "$APP_PORT" "${DOMAIN:-}" "${DOMAIN_TYPE:-}"
+fi
+
 # DOMAIN_PUBLIC configuration (for FileBrowser and similar)
 if [ -n "$DOMAIN_PUBLIC" ]; then
     echo ""

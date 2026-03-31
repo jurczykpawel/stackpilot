@@ -106,6 +106,15 @@ e2e_test() {
             return 0
         fi
 
+        # Check for git clone / repo access failures (private or non-existent repo)
+        if echo "$deploy_output" | grep -qiE "fatal:.*git|could not read Username|repository not found|Authentication failed.*github|remote: Repository.*not found"; then
+            echo -e "  ${E2E_YELLOW}SKIP: git repo not accessible (private or missing)${E2E_NC}"
+            E2E_RESULTS+=("SKIP|$app|git repo not accessible")
+            E2E_SKIP=$((E2E_SKIP + 1))
+            maybe_cleanup "$app" true
+            return 0
+        fi
+
         echo -e "  ${E2E_RED}FAIL: deploy failed (exit $deploy_exit)${E2E_NC}"
         echo "$deploy_output" | tail -10 | sed 's/^/    /'
         E2E_RESULTS+=("FAIL|$app|deploy failed (exit $deploy_exit)")

@@ -387,6 +387,11 @@ configure_domain() {
         return $?
     fi
 
+    # Cytrus — registered via provider_post_deploy hook
+    if [ "$DOMAIN_TYPE" = "cytrus" ]; then
+        return 0
+    fi
+
     msg "$MSG_DOM_UNKNOWN_TYPE" "$DOMAIN_TYPE"
     return 1
 }
@@ -571,7 +576,7 @@ configure_domain_cloudflare() {
 wait_for_domain() {
     local TIMEOUT="${1:-60}"  # default 60 seconds
 
-    if [ -z "$DOMAIN" ] || [ "$DOMAIN_TYPE" = "local" ]; then
+    if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "-" ] || [ "$DOMAIN_TYPE" = "local" ] || [ "$DOMAIN_TYPE" = "cytrus" ]; then
         return 0
     fi
 

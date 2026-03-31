@@ -73,7 +73,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 400M
+          memory: 1024M
 EOF
 
 # Append bundled database service if using bundled DB

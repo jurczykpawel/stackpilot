@@ -24,7 +24,10 @@ cat <<EOF | sudo tee docker-compose.yaml
 services:
   mcp-docker:
     image: mcp/docker:latest
+    container_name: mcp-docker
     restart: always
+    stdin_open: true
+    tty: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:
