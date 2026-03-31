@@ -70,7 +70,7 @@ e2e_test() {
 
     # Resource pre-check: Disk — read IMAGE_SIZE_MB from install.sh for per-app requirement
     local image_size_mb
-    image_size_mb=$(grep -m1 '^# IMAGE_SIZE_MB=' "$E2E_REPO/apps/$app/install.sh" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+    image_size_mb=$(grep -m1 '^# IMAGE_SIZE_MB=' "$E2E_REPO/apps/$app/install.sh" 2>/dev/null | sed 's/^# IMAGE_SIZE_MB=\([0-9]*\).*/\1/' || echo "0")
     local min_disk
     if [ -n "$image_size_mb" ] && [ "$image_size_mb" -gt 0 ]; then
         # Require image size + 1GB buffer (for extracted layers, compose volumes, etc.)
