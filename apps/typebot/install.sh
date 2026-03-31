@@ -103,7 +103,7 @@ $([ -n "$BUNDLED_DB_TYPE" ] && echo "      - db")
     deploy:
       resources:
         limits:
-          memory: 300M
+          memory: 512M
 
   typebot-viewer:
     image: baptistearno/typebot-viewer:latest
@@ -119,7 +119,7 @@ $([ -n "$BUNDLED_DB_TYPE" ] && printf '    depends_on:\n      - db\n')
     deploy:
       resources:
         limits:
-          memory: 300M
+          memory: 512M
 EOF
 
 # Append bundled database service if using bundled DB

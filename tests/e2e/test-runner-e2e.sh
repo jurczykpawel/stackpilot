@@ -68,16 +68,26 @@ e2e_test() {
         return 0
     fi
 
-    # Resource pre-check: Disk — prune dangling images if low, skip if still too low
+    # Resource pre-check: Disk — read IMAGE_SIZE_MB from install.sh for per-app requirement
+    local image_size_mb
+    image_size_mb=$(grep -m1 '^# IMAGE_SIZE_MB=' "$E2E_REPO/apps/$app/install.sh" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+    local min_disk
+    if [ -n "$image_size_mb" ] && [ "$image_size_mb" -gt 0 ]; then
+        # Require image size + 1GB buffer (for extracted layers, compose volumes, etc.)
+        min_disk=$(( image_size_mb + 1000 ))
+        [ "$min_disk" -lt "$E2E_MIN_DISK" ] && min_disk="$E2E_MIN_DISK"
+    else
+        min_disk="$E2E_MIN_DISK"
+    fi
     local avail_disk
     avail_disk=$(get_server_disk)
-    if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$E2E_MIN_DISK" ]; then
-        echo -e "  ${E2E_YELLOW}Disk low (${avail_disk}MB) — pruning dangling images...${E2E_NC}"
+    if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$min_disk" ]; then
+        echo -e "  ${E2E_YELLOW}Disk low (${avail_disk}MB, need ${min_disk}MB) — pruning dangling images...${E2E_NC}"
         ssh "$E2E_SSH" "docker image prune -f" >/dev/null 2>&1
         avail_disk=$(get_server_disk)
-        if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$E2E_MIN_DISK" ]; then
-            echo -e "  ${E2E_YELLOW}SKIP: only ${avail_disk}MB disk available (need ${E2E_MIN_DISK}MB)${E2E_NC}"
-            E2E_RESULTS+=("SKIP|$app|insufficient disk (${avail_disk}MB)")
+        if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$min_disk" ]; then
+            echo -e "  ${E2E_YELLOW}SKIP: only ${avail_disk}MB disk available (need ${min_disk}MB)${E2E_NC}"
+            E2E_RESULTS+=("SKIP|$app|insufficient disk (${avail_disk}MB, need ${min_disk}MB)")
             E2E_SKIP=$((E2E_SKIP + 1))
             return 0
         fi

@@ -47,6 +47,12 @@ services:
       - ./cache:/var/cache/ntfy
     ports:
       - "$PORT:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost/v1/health | grep -q healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
