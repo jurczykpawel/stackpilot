@@ -195,7 +195,14 @@ echo "✅ Docker Compose generated (4 containers)"
 echo "   Starting stack..."
 echo ""
 
-sudo docker compose up -d
+if ! sudo docker compose up -d; then
+    echo ""
+    echo "Migration job logs:"
+    sudo docker logs affine_migration_job 2>&1 | tail -30 || true
+    echo ""
+    echo "❌ Installation FAILED! See migration logs above."
+    exit 1
+fi
 
 # Health check - migration + app startup takes time
 echo "⏳ Waiting for AFFiNE to start (~60-120s, database migration + app startup)..."
