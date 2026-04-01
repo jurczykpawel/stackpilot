@@ -125,6 +125,15 @@ e2e_test() {
             return 0
         fi
 
+        # Check for disk full errors during image pull
+        if echo "$deploy_output" | grep -qiE "no space left on device|write.*containerd.*no space|Quota exceeded|disk quota exceeded"; then
+            echo -e "  ${E2E_YELLOW}SKIP: disk full during image pull${E2E_NC}"
+            E2E_RESULTS+=("SKIP|$app|disk full during pull")
+            E2E_SKIP=$((E2E_SKIP + 1))
+            maybe_cleanup "$app" true
+            return 0
+        fi
+
         # Check for Docker daemon / containerd infrastructure errors (transient, not code bugs)
         if echo "$deploy_output" | grep -qiE "mount callback failed|lease does not exist|failed to extract layer|failed to commit snapshot|containerd.*not found|overlayfs.*error|no such file or directory.*containerd"; then
             echo -e "  ${E2E_YELLOW}SKIP: Docker/containerd infrastructure error (transient)${E2E_NC}"

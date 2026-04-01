@@ -16,7 +16,7 @@ E2E_CLEANUP="always"
 
 # Resource thresholds (MB) — skip app if below
 E2E_MIN_RAM=250     # available RAM to attempt any deploy
-E2E_MIN_DISK=500    # available disk (MB)
+E2E_MIN_DISK=3000   # available disk (MB) — 3GB baseline to leave OS room
 
 # Repo root
 E2E_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
