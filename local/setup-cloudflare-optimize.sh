@@ -71,11 +71,19 @@ if [ -z "$FULL_DOMAIN" ]; then
     exit 1
 fi
 
-# Validate --app
-if [ -n "$APP_TYPE" ] && [ "$APP_TYPE" != "wordpress" ] && [ "$APP_TYPE" != "nextjs" ] && [ "$APP_TYPE" != "countdown-timer" ]; then
-    msg "$MSG_CFO_UNKNOWN_APP" "$APP_TYPE"
-    msg "$MSG_CFO_APP_AVAIL"
-    exit 1
+# Validate --app (supported app presets for cache rules)
+VALID_APP_TYPES=(wordpress nextjs countdown-timer)
+
+if [ -n "$APP_TYPE" ]; then
+    valid=false
+    for t in "${VALID_APP_TYPES[@]}"; do
+        [ "$APP_TYPE" = "$t" ] && valid=true && break
+    done
+    if [ "$valid" = false ]; then
+        msg "$MSG_CFO_UNKNOWN_APP" "$APP_TYPE"
+        msg "$MSG_CFO_APP_AVAIL"
+        exit 1
+    fi
 fi
 
 # Check configuration
