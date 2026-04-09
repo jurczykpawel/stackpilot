@@ -489,8 +489,9 @@ configure_domain_cloudflare() {
         # Map APP_NAME to --app preset (if known)
         local CF_APP_FLAG=""
         case "${APP_NAME:-}" in
-            wordpress) CF_APP_FLAG="--app=wordpress" ;;
-            sellf)  CF_APP_FLAG="--app=nextjs" ;;
+            wordpress)        CF_APP_FLAG="--app=wordpress" ;;
+            sellf)            CF_APP_FLAG="--app=nextjs" ;;
+            countdown-timer)  CF_APP_FLAG="--app=countdown-timer" ;;
         esac
         bash "$OPTIMIZE_SCRIPT" "$DOMAIN" $CF_APP_FLAG || msg "$MSG_DOM_CF_OPT_SKIPPED"
     fi

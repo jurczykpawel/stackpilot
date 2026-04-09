@@ -56,8 +56,9 @@ if [ -z "$FULL_DOMAIN" ]; then
     echo "  - Early Hints"
     echo ""
     echo "Cache Rules (optional, requires --app):"
-    echo "  --app=wordpress   Bypass wp-admin/wp-login, cache WP static assets"
-    echo "  --app=nextjs      Cache /_next/static/*, bypass /api/*"
+    echo "  --app=wordpress        Bypass wp-admin/wp-login, cache WP static assets"
+    echo "  --app=nextjs           Cache /_next/static/*, bypass /api/*"
+    echo "  --app=countdown-timer  Cache GIFs, respect origin TTL"
     echo ""
     echo "Rules are scoped per hostname - safe for multiple apps on one domain."
     echo ""
@@ -71,7 +72,7 @@ if [ -z "$FULL_DOMAIN" ]; then
 fi
 
 # Validate --app
-if [ -n "$APP_TYPE" ] && [ "$APP_TYPE" != "wordpress" ] && [ "$APP_TYPE" != "nextjs" ]; then
+if [ -n "$APP_TYPE" ] && [ "$APP_TYPE" != "wordpress" ] && [ "$APP_TYPE" != "nextjs" ] && [ "$APP_TYPE" != "countdown-timer" ]; then
     msg "$MSG_CFO_UNKNOWN_APP" "$APP_TYPE"
     msg "$MSG_CFO_APP_AVAIL"
     exit 1
@@ -274,6 +275,27 @@ get_nextjs_rules() {
 RULES
 }
 
+get_countdown_timer_rules() {
+    cat <<'RULES'
+[
+    {
+      "expression": "(http.request.uri.query contains \"preset=\" or http.request.uri.query contains \"time=\" or http.request.uri.query contains \"evergreen=\")",
+      "description": "Cache countdown timer GIFs (respect origin TTL)",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "respect_origin"
+        },
+        "browser_ttl": {
+          "mode": "respect_origin"
+        }
+      }
+    }
+]
+RULES
+}
+
 # Scope rules per hostname and tag in description
 # Input: JSON rules array (stdin), $1 = hostname
 scope_rules_to_host() {
@@ -299,8 +321,9 @@ if [ -n "$APP_TYPE" ]; then
     else
         # Get rules for selected app and scope per hostname
         case "$APP_TYPE" in
-            wordpress) NEW_RULES=$(get_wordpress_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
-            nextjs)    NEW_RULES=$(get_nextjs_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
+            wordpress)        NEW_RULES=$(get_wordpress_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
+            nextjs)           NEW_RULES=$(get_nextjs_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
+            countdown-timer)  NEW_RULES=$(get_countdown_timer_rules | scope_rules_to_host "$FULL_DOMAIN") ;;
         esac
 
         # Check if ruleset already exists
