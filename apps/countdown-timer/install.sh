@@ -13,6 +13,12 @@
 
 set -e
 
+# Domain is required for Caddy PHP hosting
+if [ -z "$DOMAIN" ]; then
+    echo "Error: DOMAIN is required. Use --domain=timer.example.com"
+    exit 1
+fi
+
 APP_NAME="countdown-timer"
 WEB_ROOT="/var/www/countdown-timer"
 REPO_URL="https://github.com/jurczykpawel/countdown-timer.git"
