@@ -77,7 +77,7 @@ if [ ! -f "$WEB_ROOT/keys.json" ]; then
 KEYSEOF
     chmod 600 "$WEB_ROOT/keys.json"
     echo "  Master API key generated: $MASTER_KEY"
-    echo "  SAVE THIS KEY - it won't be shown again!"
+    echo "  (also stored in $WEB_ROOT/keys.json)"
 else
     echo "  keys.json already exists, keeping it"
 fi
