@@ -409,16 +409,23 @@ configure_domain_caddy() {
         return 1
     fi
 
-    # Check if this is a static site (look for /tmp/APP_webroot file, not domain_public_webroot)
+    # Check if this is a static/PHP site (look for /tmp/APP_webroot file, not domain_public_webroot)
     local WEBROOT=$(server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
+    # Check for PHP mode marker (e.g. /tmp/countdown-timer_mode containing "php")
+    local SITE_MODE=$(server_exec "ls /tmp/*_mode 2>/dev/null | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
 
     if [ -n "$WEBROOT" ]; then
-        # Static site (littlelink, etc.) - use file_server mode
-        msg "$MSG_DOM_CADDY_STATIC" "$WEBROOT"
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' static"; then
+        local EXPOSE_MODE="${SITE_MODE:-static}"
+        if [ "$EXPOSE_MODE" = "php" ]; then
+            msg "$MSG_DOM_CADDY_STATIC" "$WEBROOT (PHP)"
+        else
+            msg "$MSG_DOM_CADDY_STATIC" "$WEBROOT"
+        fi
+        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' '$EXPOSE_MODE'"; then
             msg "$MSG_DOM_CADDY_FS_OK"
-            # Remove marker (don't remove domain_public_webroot!)
+            # Remove markers (don't remove domain_public_webroot!)
             server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
+            server_exec "rm -f /tmp/*_mode" 2>/dev/null
         else
             msg "$MSG_DOM_CADDY_EXPOSE_NA"
         fi
