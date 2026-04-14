@@ -248,7 +248,7 @@ Each application accepts environment variables. deploy.sh automatically passes t
 
 ### Database Applications (PostgreSQL)
 
-**n8n, listmonk, umami, nocodb, typebot**
+**n8n, listmonk, keila, umami, nocodb, typebot**
 
 ```bash
 DB_HOST=...     # Database host

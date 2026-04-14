@@ -92,6 +92,7 @@ Applications are located in `apps/<name>/install.sh`:
 | **umami** | Web analytics (alt. Google Analytics) | PostgreSQL* | 3000 |
 | **nocodb** | Database (alt. Airtable) | PostgreSQL | 8080 |
 | **listmonk** | Newsletter and mailing | PostgreSQL* | 9000 |
+| **keila** | Email marketing (alt. Mailchimp/Brevo) | PostgreSQL | 4500 |
 | **typebot** | Chatbot builder | PostgreSQL* | 8081/8082 |
 | **vaultwarden** | Password manager (Bitwarden) | SQLite | 8088 |
 | **linkstack** | Link page (alt. Linktree) | SQLite | 8090 |
