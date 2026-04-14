@@ -11,10 +11,11 @@
 #   - docker compose  (unless special deployment)
 #
 # Known exceptions (non-standard deploy):
-#   - coolify:     uses curl|bash installer, no STACK_DIR
-#   - sellf:       PM2/Bun deployment, no docker compose
-#   - littlelink:  static site, no docker compose, no STACK_DIR
-#   - cookie-hub:  JS snippet, no docker compose
+#   - coolify:          uses curl|bash installer, no STACK_DIR
+#   - sellf:            PM2/Bun deployment, no docker compose
+#   - littlelink:       static site, no docker compose, no STACK_DIR
+#   - cookie-hub:       JS snippet, no docker compose
+#   - countdown-timer:  PHP-only app (PHP-FPM + Caddy), no docker compose
 
 set -e
 
@@ -28,7 +29,7 @@ NC='\033[0m'
 
 # Apps exempt from standard contract checks
 # dockge uses DOCKGE_DIR instead of STACK_DIR and has its own naming conventions
-EXEMPT_APPS="coolify sellf littlelink cookie-hub dockge"
+EXEMPT_APPS="coolify sellf littlelink cookie-hub dockge countdown-timer"
 
 echo "--- Install Script Contract ---"
 echo ""
