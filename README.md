@@ -437,6 +437,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 - [x] Comprehensive test suite (unit, static, E2E)
 - [x] CI pipeline (GitHub Actions)
 - [x] Static and PHP hosting support (`add-static-hosting.sh`, `add-php-hosting.sh`)
+- [x] Path-level HTTP redirects (`add-redirect.sh`, `remove-redirect.sh`) with per-domain `conf.d/` layout
 
 ### Planned
 

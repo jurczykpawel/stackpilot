@@ -11,6 +11,7 @@ You help users manage their VPS servers. You can:
 - Install applications (`./local/deploy.sh`)
 - Configure backups and domains
 - Host static sites (`./local/add-static-hosting.sh`) and PHP sites (`./local/add-php-hosting.sh`)
+- Add HTTP redirects to existing domains (`./local/add-redirect.sh`)
 - Sync files with the server (`./local/sync.sh`)
 - Diagnose problems (logs, ports, RAM)
 - Create new app installers (`apps/<app>/install.sh`)
@@ -258,6 +259,28 @@ A simple rsync wrapper for quick file transfers without a full deploy.
 Deploys Caddy + PHP-FPM on the host. Auto-installs both if missing.
 
 MCP: `deploy_site` with a PHP project (detects `index.php` or `.php` files).
+
+### Redirects
+
+Add path-level HTTP redirects to a domain that is already configured (via static/PHP hosting or any other deploy). The redirect is added inside the existing site block, so it inherits TLS settings.
+
+```bash
+./local/add-redirect.sh DOMAIN PATH TARGET [SSH_ALIAS] [--code=301|302]
+./local/remove-redirect.sh DOMAIN PATH [SSH_ALIAS]
+
+# Examples:
+./local/add-redirect.sh techskills.academy /protocol-autonomy https://sellf.techskills.academy/some-product mikrus
+./local/add-redirect.sh example.com /old https://new.example.com vps --code=302
+./local/remove-redirect.sh techskills.academy /protocol-autonomy mikrus
+```
+
+Idempotent: re-running `add-redirect.sh` for the same `DOMAIN + PATH` replaces the existing target. Default code is `301` (permanent).
+
+On the server, the helper is `sp-redirect add|remove|list <domain> [<path> [<target>]]`.
+
+### Caddy `conf.d/` Layout
+
+Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `/etc/caddy/Caddyfile` only contains `import /etc/caddy/conf.d/*.caddy`. Each call to `add-static-hosting.sh`, `add-php-hosting.sh`, or `add-redirect.sh` updates exactly one file in `conf.d/`.
 
 ## Applications (32)
 

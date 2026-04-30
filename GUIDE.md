@@ -126,6 +126,8 @@ Applications are located in `apps/<name>/install.sh`:
 | `dns-add.sh` | Add Cloudflare DNS record | `./local/dns-add.sh DOMAIN [SSH]` |
 | `add-static-hosting.sh` | Static file hosting | `./local/add-static-hosting.sh DOMAIN [SSH] [LOCAL_DIR] [REMOTE_DIR]` |
 | `add-php-hosting.sh` | PHP site hosting | `./local/add-php-hosting.sh DOMAIN [SSH] [DIR]` |
+| `add-redirect.sh` | Add HTTP redirect to domain | `./local/add-redirect.sh DOMAIN PATH TARGET [SSH] [--code=301\|302]` |
+| `remove-redirect.sh` | Remove a redirect | `./local/remove-redirect.sh DOMAIN PATH [SSH]` |
 | `setup-backup.sh` | Configure backups | `./local/setup-backup.sh [SSH]` |
 | `restore.sh` | Restore from backup | `./local/restore.sh [SSH]` |
 | `setup-cloudflare.sh` | Configure Cloudflare API | `./local/setup-cloudflare.sh` |
@@ -224,6 +226,32 @@ A simple rsync wrapper for quick file transfers. Ideal for:
 ```
 
 Deploys Caddy + PHP-FPM on the host. Auto-installs both if missing.
+
+---
+
+### add-redirect.sh / remove-redirect.sh - HTTP Redirects
+
+```bash
+./local/add-redirect.sh DOMAIN PATH TARGET [SSH_ALIAS] [--code=301|302]
+./local/remove-redirect.sh DOMAIN PATH [SSH_ALIAS]
+
+# Examples:
+./local/add-redirect.sh techskills.academy /protocol-autonomy https://sellf.techskills.academy/some-product mikrus
+./local/add-redirect.sh example.com /old https://new.example.com vps --code=302
+./local/remove-redirect.sh techskills.academy /protocol-autonomy mikrus
+```
+
+The redirect is added inside the existing site block for `DOMAIN`, so it inherits TLS settings (e.g. `tls internal` for Cloudflare Full mode). The domain must already be configured (via `add-static-hosting.sh`, `add-php-hosting.sh`, or any other deploy that registers a Caddy block).
+
+Idempotent: re-running with the same `DOMAIN + PATH` replaces the existing target. Default code is `301` (permanent).
+
+On the server, the helper is `sp-redirect`:
+
+```bash
+sp-redirect add <domain> <path> <target> [--code=301|302]
+sp-redirect remove <domain> <path>
+sp-redirect list [<domain>]
+```
 
 ---
 

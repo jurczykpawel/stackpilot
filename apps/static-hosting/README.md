@@ -50,6 +50,21 @@ Each domain is independent — add as many as disk space allows:
 
 Each site gets its own directory under `/var/www/` and its own Caddy block with auto-HTTPS. No extra RAM per site — Caddy handles all of them from a single process.
 
+## Redirects
+
+Add path-level redirects to a hosted domain (lead-magnet links, vanity URLs, product slugs):
+
+```bash
+./local/add-redirect.sh DOMAIN PATH TARGET [SSH_ALIAS] [--code=301|302]
+./local/remove-redirect.sh DOMAIN PATH [SSH_ALIAS]
+
+# Examples:
+./local/add-redirect.sh techskills.academy /protocol-autonomy https://sellf.techskills.academy/some-product mikrus
+./local/add-redirect.sh example.com /old https://new.example.com vps --code=302
+```
+
+Idempotent: re-running with the same `DOMAIN + PATH` swaps the target — handy when a campaign or product slug changes. The redirect lands inside the existing Caddy site block so it inherits TLS settings.
+
 ## Updating Files
 
 Re-run the same command — rsync uploads only changed files:
