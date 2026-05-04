@@ -102,16 +102,25 @@ mount_tmpfs() {
     fi
     mount "$target" || echo "  (mount failed for $target — will mount on next boot)"
 }
+# ratelimit is high-frequency (every request) and ephemeral by design
+# (1-min sliding window), so tmpfs is the right call.
+# apikeys stays on disk — daily quota counters MUST survive reboot,
+# otherwise abuse keys get a free reset every restart.
 mount_tmpfs "$CACHE_DIR/ratelimit" 64M
-mount_tmpfs "$CACHE_DIR/apikeys" 64M
 
 # Set web root permissions
 chown -R www-data:www-data "$WEB_ROOT"
 
 # ── 4b. PHP-FPM pool + OPcache tuning ───────────────────────────────────────
+#
+# Use a dedicated pool [countdown-timer] with its own socket so we never
+# conflict with the default [www] pool from www.conf (PHP-FPM behavior with
+# duplicate pool names is undefined). The Caddy site block is patched
+# below to point php_fastcgi at this pool's socket.
 
 echo "[4b] Tuning PHP-FPM pool + OPcache..."
 PHP_FPM_DIR="/etc/php/${PHP_VER}/fpm"
+COUNTDOWN_SOCK="/run/php/php${PHP_VER}-fpm-countdown.sock"
 if [ -d "$PHP_FPM_DIR" ]; then
     # Size pool from RAM: 50% of RAM / 40MB per worker, clamped 4..64
     TOTAL_MB=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 1024)
@@ -125,8 +134,16 @@ if [ -d "$PHP_FPM_DIR" ]; then
     [ "$MAX_SPARE" -lt 4 ] && MAX_SPARE=4
 
     cat > "$PHP_FPM_DIR/pool.d/countdown-timer.conf" << POOLEOF
-; StackPilot countdown-timer pool overrides (sized for $TOTAL_MB MB RAM)
-[www]
+; StackPilot countdown-timer dedicated pool (sized for $TOTAL_MB MB RAM).
+; Isolated from [www] in www.conf — own socket, own opcache settings via
+; conf.d/99-countdown-opcache.ini (applies process-wide per pool master).
+[countdown-timer]
+user = www-data
+group = www-data
+listen = $COUNTDOWN_SOCK
+listen.owner = www-data
+listen.group = www-data
+listen.mode = 0660
 pm = dynamic
 pm.max_children = $MAX_CHILDREN
 pm.start_servers = $START_SERVERS
@@ -134,10 +151,13 @@ pm.min_spare_servers = $MIN_SPARE
 pm.max_spare_servers = $MAX_SPARE
 pm.max_requests = 1000
 request_terminate_timeout = 30s
+catch_workers_output = yes
 POOLEOF
 
     cat > "$PHP_FPM_DIR/conf.d/99-countdown-opcache.ini" << OPCACHEEOF
-; StackPilot countdown-timer OPcache tuning
+; StackPilot countdown-timer OPcache tuning (applies to all pools but
+; matters most for the countdown-timer pool — other pools stay unaffected
+; in behavior since they don't run timer code).
 opcache.enable=1
 opcache.enable_cli=0
 opcache.memory_consumption=128
@@ -151,9 +171,14 @@ realpath_cache_size=4096K
 realpath_cache_ttl=600
 OPCACHEEOF
 
-    systemctl restart "php${PHP_VER}-fpm" 2>/dev/null || true
-    echo "  pool: max_children=$MAX_CHILDREN (RAM=${TOTAL_MB}MB)"
-    echo "  opcache: validate_timestamps=0 (run: systemctl reload php${PHP_VER}-fpm after deploy)"
+    # Validate config before restart — fail loud if pool conflicts
+    if ! php-fpm${PHP_VER} -tt 2>&1 | tail -5; then
+        echo "  ERROR: php-fpm config validation failed — leaving service untouched"
+    else
+        systemctl restart "php${PHP_VER}-fpm" 2>/dev/null || true
+        echo "  pool [countdown-timer] -> $COUNTDOWN_SOCK (max_children=$MAX_CHILDREN, RAM=${TOTAL_MB}MB)"
+        echo "  opcache: validate_timestamps=0 (run: systemctl reload php${PHP_VER}-fpm after deploy)"
+    fi
 else
     echo "  PHP-FPM dir not found at $PHP_FPM_DIR — skipping tuning"
 fi
@@ -282,30 +307,64 @@ echo "OK: $DOMAIN locked to Cloudflare IPs only."
 SPCFEOF
 chmod +x /usr/local/bin/sp-cf-lock
 
+# Helper: rebind a Caddy site block to the dedicated countdown-timer FPM socket.
+# sp-expose auto-detects the default unversioned PHP socket; this script
+# rewrites that line to the per-pool socket created above.
+cat > /usr/local/bin/sp-countdown-bind << SPCDEOF
+#!/bin/bash
+# sp-countdown-bind <domain>
+# Rebind the Caddy site block for <domain> to the countdown-timer FPM pool socket.
+set -e
+DOMAIN="\${1:?usage: sp-countdown-bind <domain>}"
+TARGET_SOCK="$COUNTDOWN_SOCK"
+PRIMARY="\${DOMAIN%%,*}"
+PRIMARY="\${PRIMARY// /}"
+PRIMARY="\${PRIMARY#http://}"
+PRIMARY="\${PRIMARY#https://}"
+PRIMARY="\${PRIMARY//\\//_}"
+FILE="/etc/caddy/conf.d/\$PRIMARY.caddy"
+[ -f "\$FILE" ] || { echo "ERROR: \$FILE not found. Deploy first." >&2; exit 1; }
+[ -S "\$TARGET_SOCK" ] || { echo "ERROR: \$TARGET_SOCK socket missing. Restart php-fpm." >&2; exit 1; }
+if grep -q "php_fastcgi unix/\$TARGET_SOCK" "\$FILE"; then
+    echo "Already bound: \$FILE -> \$TARGET_SOCK"; exit 0
+fi
+sed -i "s|php_fastcgi unix//run/php/php[^ ]*-fpm[^ ]*\\.sock|php_fastcgi unix/\$TARGET_SOCK|" "\$FILE"
+if ! grep -q "php_fastcgi unix/\$TARGET_SOCK" "\$FILE"; then
+    echo "ERROR: could not patch \$FILE — check php_fastcgi line." >&2
+    exit 1
+fi
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || {
+    echo "ERROR: Caddy validation failed after patch." >&2
+    exit 1
+}
+systemctl reload caddy
+echo "OK: \$DOMAIN bound to \$TARGET_SOCK"
+SPCDEOF
+chmod +x /usr/local/bin/sp-countdown-bind
+
 # ── Signal to deploy.sh: PHP app with webroot ───────────────────────────────
 
 # deploy.sh reads this to configure Caddy with sp-expose in PHP mode
 echo "$WEB_ROOT" > /tmp/countdown-timer_webroot
 echo "php" > /tmp/countdown-timer_mode
 
-# Post-deploy hook: if domain type is cloudflare, lock to CF IPs after sp-expose runs
-if [ "${DOMAIN_TYPE:-}" = "cloudflare" ]; then
-    echo "$DOMAIN" > /tmp/countdown-timer_cf_lock_pending
-fi
-
 echo ""
 echo "=== Countdown Timer Installed ==="
 echo ""
 echo "  Files:     $WEB_ROOT"
 echo "  Cache:     $CACHE_DIR"
+echo "  FPM pool:  $COUNTDOWN_SOCK"
 echo ""
 echo "  Next: configure domain (deploy.sh will do this automatically)"
-echo "  Then: open https://YOUR_DOMAIN/ to see the landing page"
+echo ""
+echo "  AFTER deploy completes — required follow-up steps:"
+echo "    ssh \$SSH_ALIAS 'sp-countdown-bind $DOMAIN'"
+echo "      # rebinds the Caddy site block to the dedicated FPM pool"
+echo "      # (sp-expose defaults to the shared www socket)"
 if [ "${DOMAIN_TYPE:-}" = "cloudflare" ]; then
-    echo ""
-    echo "  IMPORTANT: After deploy completes, lock origin to Cloudflare IPs:"
     echo "    ssh \$SSH_ALIAS 'sp-cf-lock $DOMAIN'"
-    echo "  Without this, attackers hitting the IP directly can spoof"
-    echo "  CF-Connecting-IP and bypass per-IP rate limiting."
+    echo "      # restricts origin to Cloudflare IPs (prevents CF-IP spoofing)"
 fi
+echo ""
+echo "  Then: open https://YOUR_DOMAIN/ to see the landing page"
 echo ""
