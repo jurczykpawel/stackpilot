@@ -16,6 +16,7 @@
 #   - littlelink:       static site, no docker compose, no STACK_DIR
 #   - cookie-hub:       JS snippet, no docker compose
 #   - countdown-timer:  PHP-only app (PHP-FPM + Caddy), no docker compose
+#   - captions-cli:     one-shot Docker CLI wrapper, no docker compose service
 
 set -e
 
@@ -29,7 +30,7 @@ NC='\033[0m'
 
 # Apps exempt from standard contract checks
 # dockge uses DOCKGE_DIR instead of STACK_DIR and has its own naming conventions
-EXEMPT_APPS="coolify sellf littlelink cookie-hub dockge countdown-timer"
+EXEMPT_APPS="coolify sellf littlelink cookie-hub dockge countdown-timer captions-cli"
 
 echo "--- Install Script Contract ---"
 echo ""
