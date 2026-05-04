@@ -35,11 +35,16 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
+source "$SCRIPT_DIR/../lib/validation.sh"
 
 _ASH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -z "${TOOLBOX_LANG+x}" ]; then
     source "$_ASH_DIR/../lib/i18n.sh"
 fi
+
+sp_validate_domain "$DOMAIN" || exit 1
+sp_validate_ssh_alias "$SSH_ALIAS" || exit 1
+sp_validate_absolute_path "$REMOTE_DIR" || exit 1
 
 msg ""
 msg "$MSG_ASH_HEADER"

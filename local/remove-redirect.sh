@@ -27,6 +27,11 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
+source "$SCRIPT_DIR/../lib/validation.sh"
+
+sp_validate_domain "$DOMAIN" || exit 1
+sp_validate_redirect_path "$RPATH" || exit 1
+sp_validate_ssh_alias "$SSH_ALIAS" || exit 1
 
 echo ""
 echo "🗑️  StackPilot - Remove Redirect"
