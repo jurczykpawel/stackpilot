@@ -161,13 +161,10 @@ async function setupStaticViaScript(
   // Ensure Caddy + sp-expose are installed on server
   await ensureCaddy(alias, lines);
 
-  // Find a free port for the static hosting container
-  const port = config.port ?? (await findFreePort(alias, 8096));
-
   lines.push(`Setting up static hosting for ${siteDomain}...`);
   const result = await execLocalScript(
     script,
-    [siteDomain, alias, webRoot, String(port)],
+    [siteDomain, alias, "", webRoot],
     120_000
   );
 
