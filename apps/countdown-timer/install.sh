@@ -171,13 +171,19 @@ realpath_cache_size=4096K
 realpath_cache_ttl=600
 OPCACHEEOF
 
-    # Validate config before restart — fail loud if pool conflicts
-    if ! php-fpm${PHP_VER} -tt 2>&1 | tail -5; then
-        echo "  ERROR: php-fpm config validation failed — leaving service untouched"
+    # Validate config before restart — fail loud if pool conflicts.
+    # `|| FPM_TEST_RC=$?` is required because `set -e` at top of script
+    # would otherwise abort here on non-zero. Piping to tail would also
+    # mask php-fpm's exit code (pipeline takes tail's, always 0).
+    FPM_TEST_RC=0
+    FPM_TEST_OUT=$(php-fpm${PHP_VER} -tt 2>&1) || FPM_TEST_RC=$?
+    echo "$FPM_TEST_OUT" | tail -5
+    if [ "$FPM_TEST_RC" -ne 0 ]; then
+        echo "  ERROR: php-fpm config validation failed (exit $FPM_TEST_RC) — leaving service untouched"
     else
         systemctl restart "php${PHP_VER}-fpm" 2>/dev/null || true
         echo "  pool [countdown-timer] -> $COUNTDOWN_SOCK (max_children=$MAX_CHILDREN, RAM=${TOTAL_MB}MB)"
-        echo "  opcache: validate_timestamps=0 (run: systemctl reload php${PHP_VER}-fpm after deploy)"
+        echo "  opcache: validate_timestamps=0 (update.sh reloads FPM automatically)"
     fi
 else
     echo "  PHP-FPM dir not found at $PHP_FPM_DIR — skipping tuning"
