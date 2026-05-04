@@ -118,6 +118,7 @@ cd stackpilot
 | [Stirling PDF](apps/stirling-pdf/) | Adobe Acrobat | Edit, merge, sign PDFs in the browser. |
 | [Gotenberg](apps/gotenberg/) | - | Document conversion API (HTML/DOCX/ODT to PDF). ~150MB RAM. |
 | [ConvertX](apps/convertx/) | CloudConvert | Convert 800+ file formats in the browser. |
+| [captions-cli](apps/captions-cli/) | Submagic / CapCut Pro | Burn karaoke captions onto videos via SSH. Local Whisper + ffmpeg. ~870 MB image (slim). |
 | [NocoDB](apps/nocodb/) | Airtable | Spreadsheet-style database. CRM, projects, orders. |
 | [Supabase](apps/supabase/) | Firebase / Neon | Self-hosted PostgreSQL + Auth + Storage + Realtime + Studio. |
 | [MCP Docker](apps/mcp-docker/) | - | Let AI assistants manage Docker containers on your server. |
@@ -180,6 +181,8 @@ iwr -useb https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/local/s
 
 The script generates an SSH key, configures `~/.ssh/config` with the alias `vps`, and copies the key to your server.
 
+> **Windows users without Git Bash / WSL?** PowerShell has native `ssh` and `scp`, but the `./local/*.sh` scripts are bash. After step 1 above, **skip step 2** and use the server-side flow instead — see [Windows / no bash locally](#windows--no-bash-locally) below.
+
 ### 2. Clone the toolkit
 
 ```bash
@@ -196,6 +199,39 @@ cd stackpilot
 ```
 
 `deploy.sh` handles everything: checks server resources, prompts for domain and database configuration, deploys the app, and verifies it is running.
+
+### Windows / no bash locally
+
+If you only have PowerShell (no WSL, no Git Bash), the local `./local/*.sh` scripts won't run on your machine. Use the dual-mode flow: SSH into the server first, then run StackPilot directly on it.
+
+```powershell
+# In PowerShell — connect to your server
+ssh vps
+```
+
+```bash
+# On the server (one-time bootstrap — clones StackPilot into /opt/stackpilot and adds to PATH)
+curl -fsSL https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/system/bootstrap.sh | bash
+
+# Reload shell so the commands are on PATH, then deploy as usual
+exec $SHELL
+deploy.sh system/docker-setup.sh
+deploy.sh system/caddy-install.sh
+deploy.sh n8n --domain-type=cloudflare --domain=n8n.example.com --db-source=bundled
+```
+
+For commands that take a local directory (e.g. `add-static-hosting.sh ./my-site`), upload the directory first with `scp` (built into PowerShell):
+
+```powershell
+scp -r .\my-site\ vps:/tmp/my-site/
+ssh vps
+```
+
+```bash
+add-static-hosting.sh lm.example.com /tmp/my-site /var/www/lm.example.com
+```
+
+To update StackPilot later, re-run the bootstrap one-liner.
 
 ### 4. Set up backups
 

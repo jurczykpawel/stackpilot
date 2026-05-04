@@ -74,14 +74,16 @@ ssh vps
 deploy.sh uptime-kuma
 ```
 
-Install the toolbox on the server: `./local/install-toolbox.sh [ssh_alias]`
+Install the toolbox on the server, two options:
+- `./local/install-toolbox.sh [ssh_alias]` (Linux/macOS, uses local rsync)
+- `curl -fsSL https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/system/bootstrap.sh | bash` (run **on the server** after `ssh vps` — for Windows/PowerShell users without local bash, or any time you want to skip the rsync step)
 
 The `lib/server-exec.sh` library provides transparent wrappers:
 - `server_exec "cmd"` -> ssh or bash -c
 - `server_copy src dst` -> scp or cp
 - `server_hostname` -> ssh -G or hostname
 
-Local-only scripts (do not run on the server): `setup-ssh.sh`, `sync.sh`
+Local-only scripts (do not run on the server): `setup-ssh.sh` (has Windows equivalent `setup-ssh.ps1`), `sync.sh` (Windows users: use `scp -r` directly).
 
 ## Initial Server Setup
 
@@ -169,7 +171,7 @@ Only manual step: open the site in a browser for the WordPress setup wizard.
 
 ### Sellf (flagship product)
 
-Digital products sales platform (Gumroad/EasyCart alternative). Does not use Docker -- runs on Bun + PM2 (Next.js standalone).
+Digital products sales platform (Gumroad/EasyCart alternative). Sells one-time products and recurring subscriptions/memberships, with built-in waitlists for pre-launch validation. Does not use Docker -- runs on Bun + PM2 (Next.js standalone).
 
 **Requirements:** Supabase (cloud or self-hosted), optionally Stripe (payments).
 
@@ -211,7 +213,9 @@ Digital products sales platform (Gumroad/EasyCart alternative). Does not use Doc
 
 **After installation:**
 - First registered user = admin
-- Stripe webhooks: `https://DOMAIN/api/webhooks/stripe` (events: checkout.session.completed, payment_intent.succeeded)
+- Stripe webhooks: `https://DOMAIN/api/webhooks/stripe`
+  - One-time products: `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+  - Subscriptions (only if seller plans to sell recurring products): `customer.subscription.created/updated/deleted`, `customer.subscription.trial_will_end`, `invoice.payment_succeeded`, `invoice.payment_failed`
 - Turnstile CAPTCHA: optional, `./local/setup-turnstile.sh DOMAIN SSH_ALIAS`
 - Multi-instance: each domain = separate directory (`/opt/stacks/sellf-{subdomain}/`)
 
@@ -282,11 +286,11 @@ On the server, the helper is `sp-redirect add|remove|list <domain> [<path> [<tar
 
 Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `/etc/caddy/Caddyfile` only contains `import /etc/caddy/conf.d/*.caddy`. Each call to `add-static-hosting.sh`, `add-php-hosting.sh`, or `add-redirect.sh` updates exactly one file in `conf.d/`.
 
-## Applications (32)
+## Applications (33)
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, keila, typebot, redis, wordpress, convertx, postiz, crawl4ai, cap, sellf, minio, gotenberg, cookie-hub, mcp-docker, social-media-generator, routepix, coolify, supabase
+n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, keila, typebot, redis, wordpress, convertx, captions-cli, postiz, crawl4ai, cap, sellf, minio, gotenberg, cookie-hub, mcp-docker, social-media-generator, routepix, coolify, supabase
 
 Details for a specific app (ports, requirements, DB) -> `apps/<app>/README.md` or `GUIDE.md`
 

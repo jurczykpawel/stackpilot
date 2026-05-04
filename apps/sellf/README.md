@@ -1,7 +1,7 @@
 # Sellf - Your Own Digital Products Sales System
 
 Open source alternative to Gumroad, EasyCart, Teachable.
-Sell e-books, courses, templates and licenses without monthly fees or platform commissions.
+Sell e-books, courses, templates, licenses, and recurring subscriptions or memberships, without monthly fees or platform commissions. Built-in waitlists let you validate demand before you build the product.
 
 **RAM:** ~130MB | **Disk:** ~500MB | **Plan:** Mikrus 1.0+ (35 PLN/year)
 
@@ -64,7 +64,8 @@ Switch modes by passing `--runtime=docker` or `--runtime=pm2` to deploy.sh.
 2. Register — the **first registered user gets admin access**
 3. Configure Stripe in the admin panel (or set up webhooks now):
    - Webhook URL: `https://shop.example.com/api/webhooks/stripe`
-   - Events: `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+   - One-time payment events: `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+   - Subscription events (only needed if you sell recurring products): `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.trial_will_end`, `invoice.payment_succeeded`, `invoice.payment_failed`
    - Copy `whsec_...` signing secret to the panel
 4. Optional CAPTCHA: `./local/setup-turnstile.sh shop.example.com ALIAS`
 
@@ -153,7 +154,7 @@ We tested Sellf on the cheapest Mikrus plan (384 MB RAM, 35 PLN/year), simulatin
 
 For comparison: most small online shops have a handful of concurrent visitors. 100 concurrent is a viral post or ad campaign scenario. Even then — it works.
 
-> Sellf on Mikrus 1.0 at 35 PLN/year is a real choice for a digital creator with a list of a few thousand subscribers who wants to sell e-books, courses, or templates without paying platform commissions.
+> Sellf on Mikrus 1.0 at 35 PLN/year is a real choice for a digital creator with a list of a few thousand subscribers who wants to sell e-books, courses, templates, or run a recurring membership without paying platform commissions.
 
 ## Is free Supabase enough?
 

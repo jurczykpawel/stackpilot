@@ -81,16 +81,21 @@ Or sync manually:
 
 ## Cost Comparison
 
+Pricing as of May 2026. Verify current prices on the providers' websites — vendors change plan structures regularly (Netlify dropped per-seat billing in April 2026, Tiiny.host reorganized plans in early 2026).
+
 | Solution | Price/year | Sites |
 |---|---|---|
-| Netlify Pro | $228/yr | unlimited (but bandwidth limits) |
-| Vercel Pro | $240/yr | unlimited (but bandwidth limits) |
+| Vercel Pro | ~$240/yr ($20/mo annual) | "unlimited" (bandwidth + compute limits, overage applies) |
+| Netlify Pro | ~$240/yr ($20/mo, credit-based) | "unlimited" (3,000 credits/mo, overage applies) |
 | GitHub Pages | free | 1 per repo (public only) |
-| Tiiny.host Pro | ~$120/yr | 10 sites |
-| Tiiny.host Business | ~$300/yr | 50 sites |
+| Tiiny.host Tiny | ~$60/yr ($5/mo annual) | 1 site |
+| Tiiny.host Solo | ~$118/yr ($18/mo, popular) | few sites |
+| Tiiny.host Pro | ~$372/yr ($31/mo annual) | many sites |
 | **Static Hosting + Mikrus 1.0** | **35 PLN/yr (~$9)** | **unlimited** |
 
 **Thousands of static sites for 35 PLN/year.** The only limit is disk space (5GB on Mikrus 1.0, easily expandable).
+
+Sources: [vercel.com/pricing](https://vercel.com/pricing), [netlify.com/pricing](https://www.netlify.com/pricing/), [tiiny.host/pricing](https://tiiny.host/pricing).
 
 ## Use Cases
 
