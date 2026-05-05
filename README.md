@@ -1,9 +1,9 @@
 # StackPilot
 
-**The AI-native self-hosting toolkit. Deploy 31+ production-optimized Docker apps to any VPS with a single command.**
+**The AI-native self-hosting toolkit. Deploy 33+ production-optimized Docker apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS with a single command.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Apps: 31+](https://img.shields.io/badge/Apps-31%2B-blue)
+![Apps: 33+](https://img.shields.io/badge/Apps-33%2B-blue)
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
 [![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
@@ -396,7 +396,7 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | **GitHub stars** | New | ~50k | ~32k | ~14k |
 | **Min. RAM** | 512MB | 2GB+ | 1GB+ | 512MB |
 | **AI integration** | Native MCP server | No | No | No |
-| **Pre-built apps** | 31 production-optimized | 280+ (community) | Via plugins | None (bring your own) |
+| **Pre-built apps** | 33 production-optimized + static site hosting | 280+ (community) | Via plugins | None (bring your own) |
 | **Complexity** | Single deploy command | Web dashboard | CLI + buildpacks | YAML config files |
 | **Dependencies** | Bash, SSH, Docker | Docker, Traefik, PostgreSQL, Redis | Docker, Nginx, buildpacks | Docker, Ruby |
 | **Domain/SSL** | Caddy auto-HTTPS or Cloudflare | Traefik + Let's Encrypt | Nginx + Let's Encrypt | Traefik or manual |

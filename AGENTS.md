@@ -290,7 +290,9 @@ Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-n8n, ntfy, uptime-kuma, filebrowser, dockge, stirling-pdf, vaultwarden, linkstack, littlelink, nocodb, umami, listmonk, keila, typebot, redis, wordpress, convertx, captions-cli, postiz, crawl4ai, cap, sellf, minio, gotenberg, cookie-hub, mcp-docker, social-media-generator, routepix, coolify, supabase
+affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, keila, linkstack, listmonk, littlelink, mcp-docker, minio, n8n, nocodb, ntfy, picoclaw, postiz, redis, routepix, sellf, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, wordpress
+
+Plus static site hosting (Astro, Next.js static export, Hugo, Eleventy, SvelteKit, Gatsby, Docusaurus, VitePress, MkDocs) via `local/deploy-static.sh` — see GUIDE.md.
 
 Details for a specific app (ports, requirements, DB) -> `apps/<app>/README.md` or `GUIDE.md`
 
