@@ -125,6 +125,7 @@ Applications are located in `apps/<name>/install.sh`:
 | `deploy.sh` | Install applications | `./local/deploy.sh APP [options]` |
 | `dns-add.sh` | Add Cloudflare DNS record | `./local/dns-add.sh DOMAIN [SSH]` |
 | `add-static-hosting.sh` | Static file hosting | `./local/add-static-hosting.sh DOMAIN [SSH] [LOCAL_DIR] [REMOTE_DIR]` |
+| `deploy-static.sh` | Auto-detect SSG, build, and deploy | `./local/deploy-static.sh DOMAIN [SSH] [PROJECT_DIR]` |
 | `add-php-hosting.sh` | PHP site hosting | `./local/add-php-hosting.sh DOMAIN [SSH] [DIR]` |
 | `add-redirect.sh` | Add HTTP redirect to domain | `./local/add-redirect.sh DOMAIN PATH TARGET [SSH] [--code=301\|302]` |
 | `remove-redirect.sh` | Remove a redirect | `./local/remove-redirect.sh DOMAIN PATH [SSH]` |
@@ -212,6 +213,110 @@ A simple rsync wrapper for quick file transfers. Ideal for:
 ./local/add-static-hosting.sh cdn.example.com vps ./dist            # upload ./dist -> /var/www/cdn.example.com
 ./local/add-static-hosting.sh cdn.example.com vps ./dist /var/www/assets  # upload ./dist -> /var/www/assets
 ```
+
+#### Deploying Static Site Frameworks (Astro, Next.js export, Hugo, Eleventy)
+
+`add-static-hosting.sh` deploys any framework that produces a plain `dist/` (or equivalent) folder of static HTML/CSS/JS. This is a self-hosted alternative to Cloudflare Pages, Netlify, or Vercel — same UX, your own VPS, your own domain, no vendor lock-in.
+
+**Two ways to deploy:**
+
+- **`deploy-static.sh`** — auto-detects the framework, builds, and deploys in one command (recommended)
+- **`add-static-hosting.sh`** — low-level script if you want to control the build manually
+
+##### Option 1: `deploy-static.sh` (one command, auto-detects framework)
+
+```bash
+cd my-astro-site
+./local/deploy-static.sh my-site.com vps
+```
+
+Auto-detects: **Astro, Next.js (static export), Hugo, Eleventy, SvelteKit (static), Gatsby, Docusaurus, VitePress, MkDocs**. Runs the framework's build command, verifies the output, then delegates to `add-static-hosting.sh`.
+
+```bash
+# From the project directory:
+./local/deploy-static.sh DOMAIN [SSH_ALIAS] [PROJECT_DIR]
+
+# Examples:
+cd my-astro-site && /path/to/stackpilot/local/deploy-static.sh my-site.com vps
+./local/deploy-static.sh my-site.com mikrus ./my-astro-site
+```
+
+Detection rules (config-file based):
+
+| Framework | Detected via | Build command | Output dir |
+| :--- | :--- | :--- | :--- |
+| Astro | `astro.config.{mjs,ts,js,cjs}` | `npm run build` | `./dist` |
+| Next.js (static) | `next.config.*` containing `output: 'export'` | `npm run build` | `./out` |
+| Hugo | `hugo.{toml,yaml,yml}` or `config.{toml,yaml,yml}` + `content/` dir | `hugo --minify` | `./public` |
+| Eleventy | `.eleventy.js` or `eleventy.config.{js,mjs,cjs}` | `npx @11ty/eleventy` | `./_site` |
+| SvelteKit (static) | `svelte.config.{js,ts}` | `npm run build` | `./build` |
+| Gatsby | `gatsby-config.{js,ts}` | `npm run build` | `./public` |
+| Docusaurus | `docusaurus.config.{js,ts}` | `npm run build` | `./build` |
+| VitePress | `.vitepress/` directory | `npm run docs:build` | `./.vitepress/dist` |
+| MkDocs | `mkdocs.{yml,yaml}` | `mkdocs build` | `./site` |
+
+For a Next.js project without `output: 'export'`, the script exits with a hint to add it — Next.js with SSR cannot be deployed via static hosting.
+
+##### Option 2: `add-static-hosting.sh` (manual build, then deploy)
+
+**The pattern:** build locally → upload `dist/` → Caddy serves with auto-SSL.
+
+**Astro** ([astro.build](https://astro.build/)):
+
+```bash
+cd my-astro-site
+npm run build                                                # output: ./dist
+./local/add-static-hosting.sh my-site.com vps ./dist
+```
+
+**Next.js (static export):**
+
+```bash
+# Requires "output: 'export'" in next.config.js
+cd my-next-site
+npm run build                                                # output: ./out
+./local/add-static-hosting.sh my-site.com vps ./out
+```
+
+**Hugo:**
+
+```bash
+cd my-hugo-site
+hugo --minify                                                # output: ./public
+./local/add-static-hosting.sh my-site.com vps ./public
+```
+
+**Eleventy (11ty):**
+
+```bash
+cd my-11ty-site
+npx @11ty/eleventy                                           # output: ./_site
+./local/add-static-hosting.sh my-site.com vps ./_site
+```
+
+**SvelteKit (static adapter), Gatsby, VitePress, Docusaurus, MkDocs** — same pattern, just point to the framework's output directory (`build/`, `public/`, `.vitepress/dist/`, `build/`, `site/` respectively).
+
+**What `add-static-hosting.sh` handles automatically:**
+
+- Uploads the local directory via `rsync` (delta-only, fast on subsequent deploys)
+- Configures Caddy reverse proxy with `file_server`
+- Provisions Let's Encrypt SSL certificate (or `tls internal` for Cloudflare Full mode)
+- Adds Cloudflare DNS record if `setup-cloudflare.sh` was run beforehand
+- Per-domain Caddy block lives in `/etc/caddy/conf.d/<domain>.caddy` — re-running the script updates that single file
+
+**Subsequent deploys (faster — only uploads changes):**
+
+```bash
+npm run build && ./local/add-static-hosting.sh my-site.com vps ./dist
+```
+
+**Why this works for any framework:** static site generators output plain files. There is no Node.js / Bun / PHP runtime needed on the server — Caddy just serves the files directly, with HTTP/2, gzip, and caching headers. The same VPS can host dozens of static sites alongside Docker apps (n8n, Listmonk, etc.) without resource conflicts.
+
+**Notes:**
+
+- Build runs **locally**, not on the server. Saves server RAM (Astro/Next builds peak at 512MB+).
+- For automated deploys (build on git push, à la Cloudflare Pages), wire a GitHub Actions workflow that runs the build and calls `add-static-hosting.sh` over SSH.
+- Custom 404 pages, redirects, and headers can be added by editing `/etc/caddy/conf.d/<domain>.caddy` after first deploy. Use `add-redirect.sh` for path-level redirects.
 
 ---
 
