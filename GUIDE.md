@@ -214,6 +214,8 @@ A simple rsync wrapper for quick file transfers. Ideal for:
 ./local/add-static-hosting.sh cdn.example.com vps ./dist /var/www/assets  # upload ./dist -> /var/www/assets
 ```
 
+> **Mikrus "frog" (free tier)?** The script supports frog servers but they need a one-time Cloudflare Tunnel setup before the first deploy — see [docs/frog-setup.md](docs/frog-setup.md). After that, the same `add-static-hosting.sh` command works (DNS is managed by the tunnel, the script skips its own DNS step automatically).
+
 #### Deploying Static Site Frameworks (Astro, Next.js export, Hugo, Eleventy)
 
 `add-static-hosting.sh` deploys any framework that produces a plain `dist/` (or equivalent) folder of static HTML/CSS/JS. This is a self-hosted alternative to Cloudflare Pages, Netlify, or Vercel — same UX, your own VPS, your own domain, no vendor lock-in.

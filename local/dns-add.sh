@@ -39,7 +39,8 @@ RECORD_TYPE="AAAA"
 PROXY="true"
 msg "$MSG_DNS_CF_MODE"
 msg "$MSG_DNS_FETCH_IPV6" "$SSH_ALIAS"
-    IP_ADDRESS=$(server_exec "ip -6 addr show scope global | grep -oP '(?<=inet6 )[0-9a-f:]+' | head -1" 2>/dev/null)
+    # Portable: BusyBox grep on Alpine doesn't support -P (Perl lookbehind).
+    IP_ADDRESS=$(server_exec "ip -6 addr show scope global | grep -oE 'inet6 [0-9a-fA-F:]+' | head -1 | cut -d' ' -f2" 2>/dev/null)
 
 if [ -z "$IP_ADDRESS" ]; then
     msg "$MSG_DNS_NO_IPV6" "$SSH_ALIAS"

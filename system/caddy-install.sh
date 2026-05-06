@@ -29,16 +29,29 @@ done
 if [ "$TOOLS_ONLY" = false ]; then
     msg "$MSG_CADDY_STEP1"
 
-    # Prerequisites
-    sudo apt install -y -q debian-keyring debian-archive-keyring apt-transport-https curl
+    if [ -f /etc/alpine-release ]; then
+        # Alpine: caddy is in the community repo. Ensure community is enabled.
+        if ! grep -qE '^[^#]*\bcommunity\b' /etc/apk/repositories 2>/dev/null; then
+            ALPINE_BRANCH=$(awk -F= '/^VERSION_ID=/{gsub(/"/,"",$2); split($2,v,"."); print "v"v[1]"."v[2]}' /etc/os-release 2>/dev/null)
+            [ -z "$ALPINE_BRANCH" ] && ALPINE_BRANCH="latest-stable"
+            echo "https://dl-cdn.alpinelinux.org/alpine/${ALPINE_BRANCH}/community" | sudo tee -a /etc/apk/repositories > /dev/null
+        fi
+        sudo apk update
+        sudo apk add --no-cache caddy curl
+        # OpenRC integration (no-op on already-enabled service)
+        sudo rc-update add caddy default 2>/dev/null || true
+    else
+        # Debian/Ubuntu: install via Cloudsmith repo
+        sudo apt install -y -q debian-keyring debian-archive-keyring apt-transport-https curl
 
-    # Add Key & Repo
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg --yes
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null
+        # Add Key & Repo
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg --yes
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null
 
-    # Install
-    sudo apt update
-    sudo apt install caddy -y
+        # Install
+        sudo apt update
+        sudo apt install caddy -y
+    fi
 
     # Replace default Caddyfile (default :80 block prevents self-signed certs for CF-proxied domains).
     # Per-domain configuration lives in /etc/caddy/conf.d/<domain>.caddy and is imported here.
@@ -147,7 +160,8 @@ if [ -d "$CONF_D" ] && grep -hE "^[[:space:]]*([^{}#]*[[:space:],])?${DOMAIN}([[
 fi
 
 if [ "$MODE" = "php" ]; then
-    PHP_SOCK=$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1)
+    # Debian/Ubuntu: /run/php/php*-fpm.sock — Alpine: /run/php-fpm*/php-fpm.sock or /run/php*/php-fpm.sock
+    PHP_SOCK=$(ls /run/php/php*-fpm.sock /run/php-fpm*/php-fpm.sock /run/php*/php-fpm.sock 2>/dev/null | head -1)
     if [ -z "$PHP_SOCK" ]; then
         echo "❌ PHP-FPM socket not found. Install php-fpm first."
         exit 1
@@ -181,12 +195,24 @@ $SITE_ADDR {
 CONFIG
 fi
 
-# Ensure Caddy is running and reload
-if ! systemctl is-active --quiet caddy; then
-    sudo systemctl start caddy
-    sudo systemctl enable caddy 2>/dev/null
+# Ensure Caddy is running and reload (portable: systemd or OpenRC)
+if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+    if ! systemctl is-active --quiet caddy; then
+        sudo systemctl start caddy
+        sudo systemctl enable caddy 2>/dev/null
+    else
+        sudo systemctl reload caddy
+    fi
+elif command -v rc-service >/dev/null 2>&1; then
+    if sudo rc-service caddy status >/dev/null 2>&1; then
+        sudo rc-service caddy reload 2>/dev/null || sudo rc-service caddy restart
+    else
+        sudo rc-service caddy start
+        sudo rc-update add caddy default 2>/dev/null || true
+    fi
 else
-    sudo systemctl reload caddy
+    echo "❌ Neither systemctl nor rc-service found — start caddy manually."
+    exit 1
 fi
 
 echo "✅ Done! Your site should be live at https://$DOMAIN"
@@ -215,6 +241,18 @@ cat <<'EOF' | sudo tee /usr/local/bin/sp-redirect > /dev/null
 set -e
 
 CONF_D="/etc/caddy/conf.d"
+
+# Portable Caddy reload: systemd or OpenRC
+caddy_reload() {
+    if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+        sudo systemctl reload caddy
+    elif command -v rc-service >/dev/null 2>&1; then
+        sudo rc-service caddy reload 2>/dev/null || sudo rc-service caddy restart
+    else
+        echo "❌ Neither systemctl nor rc-service found — reload caddy manually."
+        return 1
+    fi
+}
 
 usage() {
     awk 'NR==1 {next} /^# ?/ {sub(/^# ?/, ""); print; next} {exit}' "$0"
@@ -367,7 +405,7 @@ cmd_add() {
         echo "❌ Caddy validation failed. See: caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile"
         exit 1
     fi
-    sudo systemctl reload caddy
+    caddy_reload
 
     echo "✅ Redirect added: https://$DOMAIN$RPATH -> $TARGET ($CODE_WORD)"
 }
@@ -397,7 +435,7 @@ cmd_remove() {
         echo "❌ Caddy validation failed after removal."
         exit 1
     fi
-    sudo systemctl reload caddy
+    caddy_reload
 
     echo "✅ Redirect removed: $DOMAIN$RPATH"
 }

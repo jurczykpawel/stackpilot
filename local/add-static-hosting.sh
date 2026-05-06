@@ -83,13 +83,47 @@ else
     msg "$MSG_ASH_CADDY_ALREADY"
 fi
 
-# Configure DNS via Cloudflare if available
-if [ -f "$SCRIPT_DIR/dns-add.sh" ]; then
-    "$SCRIPT_DIR/dns-add.sh" "$DOMAIN" "$SSH_ALIAS" || msg "$MSG_ASH_DNS_MAYBE_EXISTS"
+# Detect "frog" — Mikrus free tier (Alpine, IPv6-only, no /klucz_api, no Cytrus API).
+# Mikrus blocks incoming IPv6:80 from the internet for frog (no Cloudflare whitelist),
+# so the standard "AAAA + Cloudflare proxy" flow returns 521 from CF. Frog must use a
+# Cloudflare Tunnel: cloudflared dials out on port 7844 (allowed by Mikrus), traffic
+# enters via the tunnel. DNS (CNAME to <tunnel>.cfargotunnel.com) is managed by CF
+# itself when you add a Public Hostname in the Tunnel dashboard, so we skip dns-add.sh.
+IS_FROG=false
+if server_exec "[ -f /etc/alpine-release ] && [ ! -f /klucz_api ]" 2>/dev/null; then
+    IS_FROG=true
 fi
 
-# Configure Caddy (with remote path)
-server_exec "sp-expose '$DOMAIN' '$REMOTE_DIR' static"
+if [ "$IS_FROG" = true ]; then
+    if ! server_exec "rc-service cloudflared status >/dev/null 2>&1"; then
+        echo ""
+        echo "❌ frog server detected but cloudflared tunnel is not running."
+        echo ""
+        echo "   Frog (Mikrus free tier) cannot accept inbound traffic on port 80,"
+        echo "   so the standard Cloudflare-proxy flow does not work."
+        echo "   You need to set up a Cloudflare Tunnel once per server."
+        echo ""
+        echo "   Instructions: docs/frog-setup.md"
+        echo ""
+        echo "   After cloudflared is running, re-run this script."
+        exit 1
+    fi
+    echo "   🐸 frog detected — using cloudflared tunnel (DNS managed by CF Tunnel dashboard)"
+    # HTTP-only block: tunnel terminates TLS at the Cloudflare edge.
+    # Without this flag Caddy auto-redirects HTTP→HTTPS on its own bare site, causing
+    # an infinite redirect loop because the tunnel always sends HTTP to origin.
+    EXPOSE_FLAGS="--cloudflare"
+else
+    # Standard path: configure Cloudflare DNS (AAAA + proxy) so traffic reaches the server.
+    if [ -f "$SCRIPT_DIR/dns-add.sh" ]; then
+        "$SCRIPT_DIR/dns-add.sh" "$DOMAIN" "$SSH_ALIAS" || msg "$MSG_ASH_DNS_MAYBE_EXISTS"
+    fi
+    EXPOSE_FLAGS=""
+fi
+
+# Configure Caddy (with remote path).
+# For frog: HTTP-only block is fine — cloudflared terminates TLS at the Cloudflare edge.
+server_exec "sp-expose '$DOMAIN' '$REMOTE_DIR' static $EXPOSE_FLAGS"
 
 msg "$MSG_ASH_CADDY_CONFIGURED"
 
