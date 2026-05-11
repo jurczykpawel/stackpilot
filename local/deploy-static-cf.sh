@@ -64,7 +64,11 @@ Configuration:
     CLOUDFLARE_API_TOKEN   API token with "Cloudflare Pages → Edit" scope
     CLOUDFLARE_ACCOUNT_ID  Your Cloudflare account ID
 
-  Missing setup → the script prints step-by-step instructions and exits.
+  First-time setup (interactive wizard):
+    ./local/setup-cloudflare-pages.sh
+
+  Missing setup → this script prints step-by-step instructions and exits.
+  Detailed reference → docs/cloudflare-pages-deploy.md
 
 Supported frameworks (auto-detected):
   Astro, Next.js (static export), Hugo, Eleventy,
@@ -374,13 +378,29 @@ echo -e "${GREEN}✅ Deploy uploaded${NC}"
 echo ""
 echo -e "${BLUE}🌐 Attaching custom domain '$DOMAIN'...${NC}"
 
+# Skip attach for the default Cloudflare subdomain — it's reserved by CF
+# and only used here as the project name. The default URL works out of the box.
+if [[ "$DOMAIN" == *.pages.dev ]]; then
+    echo -e "${GREEN}   ✓ Skipped — '*.pages.dev' is Cloudflare's default host${NC}"
+    echo ""
+    echo -e "${GREEN}🎉 Done.${NC}"
+    echo ""
+    echo "   Default URL:  https://$PROJECT_NAME.pages.dev"
+    echo "   Dashboard:    https://dash.cloudflare.com/$ACCOUNT_ID/pages/view/$PROJECT_NAME"
+    echo ""
+    exit 0
+fi
+
+# --- Step 10a: attach domain (idempotent) ---
 DOMAIN_CHECK=$(curl -sS -o /tmp/sp-cf-pages-dom.$$.json -w "%{http_code}" \
     "$CF_API/accounts/$ACCOUNT_ID/pages/projects/$PROJECT_NAME/domains/$DOMAIN" \
     -H "Authorization: Bearer $API_TOKEN") || DOMAIN_CHECK="000"
 rm -f /tmp/sp-cf-pages-dom.$$.json
 
+DOMAIN_ATTACHED=0
 if [ "$DOMAIN_CHECK" = "200" ]; then
     echo -e "${GREEN}   ✓ Domain already attached${NC}"
+    DOMAIN_ATTACHED=1
 elif [ "$DOMAIN_CHECK" = "404" ]; then
     ATTACH_OUT=$(curl -sS -o /tmp/sp-cf-pages-att.$$.json -w "%{http_code}" \
         "$CF_API/accounts/$ACCOUNT_ID/pages/projects/$PROJECT_NAME/domains" \
@@ -392,18 +412,7 @@ elif [ "$DOMAIN_CHECK" = "404" ]; then
 
     if [ "$ATTACH_OUT" = "200" ] || [ "$ATTACH_OUT" = "201" ]; then
         echo -e "${GREEN}   ✓ Domain attached${NC}"
-        echo ""
-        echo -e "${YELLOW}⚠️  DNS step (one-time per domain):${NC}"
-        echo "   Cloudflare Pages issues a TLS certificate after DNS points at it."
-        echo "   In Cloudflare DNS settings, add a CNAME:"
-        echo ""
-        echo "       Type:    CNAME"
-        echo "       Name:    $DOMAIN  (or subdomain part, e.g. 'www')"
-        echo "       Target:  $PROJECT_NAME.pages.dev"
-        echo "       Proxy:   ON (orange cloud)"
-        echo ""
-        echo "   If the domain is on Cloudflare in this account and the token has"
-        echo "   Zone → DNS → Edit, Pages will auto-create the CNAME."
+        DOMAIN_ATTACHED=1
     else
         echo -e "${YELLOW}⚠️  Couldn't auto-attach domain (HTTP $ATTACH_OUT).${NC}"
         echo "   Body: ${ATTACH_BODY:0:300}"
@@ -415,6 +424,70 @@ else
     echo -e "${YELLOW}⚠️  Unexpected response while checking domain (HTTP $DOMAIN_CHECK).${NC}"
     echo "   Attach manually in dashboard:"
     echo "   https://dash.cloudflare.com/$ACCOUNT_ID/pages/view/$PROJECT_NAME/domains"
+fi
+
+# --- Step 10b: ensure CNAME exists (Zone:DNS:Edit needed) ---
+# Runs both for freshly-attached domains and for already-attached ones,
+# so it heals manually-deleted DNS records on re-runs.
+if [ "$DOMAIN_ATTACHED" = "1" ]; then
+    CNAME_TARGET="$PROJECT_NAME.pages.dev"
+    ZONE_ID=""
+    APEX_TRY="$DOMAIN"
+    while true; do
+        ZONE_LOOKUP=$(curl -fsS "$CF_API/zones?name=$APEX_TRY" \
+            -H "Authorization: Bearer $API_TOKEN" 2>/dev/null) || ZONE_LOOKUP=""
+        if [ -n "$ZONE_LOOKUP" ] && echo "$ZONE_LOOKUP" | grep -q '"success":true'; then
+            ZONE_ID=$(echo "$ZONE_LOOKUP" | grep -oE '"id":"[a-f0-9]{32}"' | head -1 | sed 's/.*"id":"\([a-f0-9]\{32\}\)".*/\1/')
+            if [ -n "$ZONE_ID" ]; then break; fi
+        fi
+        if [[ "$APEX_TRY" != *.* ]]; then break; fi
+        APEX_TRY="${APEX_TRY#*.}"
+    done
+
+    if [ -n "$ZONE_ID" ]; then
+        EXISTING=$(curl -fsS "$CF_API/zones/$ZONE_ID/dns_records?name=$DOMAIN" \
+            -H "Authorization: Bearer $API_TOKEN" 2>/dev/null || true)
+        if echo "$EXISTING" | grep -q "\"content\":\"$CNAME_TARGET\""; then
+            echo -e "${GREEN}   ✓ CNAME already points at $CNAME_TARGET${NC}"
+        elif echo "$EXISTING" | grep -q '"result":\[\]'; then
+            CNAME_OUT=$(curl -sS -o /tmp/sp-cf-pages-cname.$$.json -w "%{http_code}" \
+                "$CF_API/zones/$ZONE_ID/dns_records" \
+                -H "Authorization: Bearer $API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "{\"type\":\"CNAME\",\"name\":\"$DOMAIN\",\"content\":\"$CNAME_TARGET\",\"proxied\":true,\"ttl\":1}") \
+                || CNAME_OUT="000"
+            CNAME_BODY="$(cat /tmp/sp-cf-pages-cname.$$.json 2>/dev/null || true)"
+            rm -f /tmp/sp-cf-pages-cname.$$.json
+
+            if [ "$CNAME_OUT" = "200" ]; then
+                echo -e "${GREEN}   ✓ CNAME created: $DOMAIN → $CNAME_TARGET (proxied)${NC}"
+                echo "     TLS cert will issue within ~30s."
+            else
+                echo -e "${YELLOW}   ⚠ Couldn't auto-create CNAME (HTTP $CNAME_OUT).${NC}"
+                echo "     Token may be missing Zone → DNS → Edit. Add the CNAME manually:"
+                echo ""
+                echo "       Type:    CNAME"
+                echo "       Name:    $DOMAIN"
+                echo "       Target:  $CNAME_TARGET"
+                echo "       Proxy:   ON (orange cloud)"
+                echo "     Body: ${CNAME_BODY:0:200}"
+            fi
+        else
+            echo -e "${YELLOW}   ⚠ A different DNS record already exists for $DOMAIN.${NC}"
+            echo "     Review and edit it in the dashboard:"
+            echo "     https://dash.cloudflare.com/$ACCOUNT_ID/$APEX_TRY/dns/records"
+        fi
+    else
+        echo ""
+        echo -e "${YELLOW}⚠️  $DOMAIN is not in a Cloudflare zone on this account.${NC}"
+        echo "   Add the CNAME at your existing DNS provider (Namecheap, OVH, Porkbun, …):"
+        echo ""
+        echo "       Type:    CNAME"
+        echo "       Name:    $DOMAIN   (or '@' / 'www' depending on provider)"
+        echo "       Target:  $CNAME_TARGET"
+        echo ""
+        echo "   Once that record exists, Cloudflare Pages auto-issues a TLS cert."
+    fi
 fi
 
 echo ""

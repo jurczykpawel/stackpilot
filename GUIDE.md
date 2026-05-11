@@ -262,14 +262,18 @@ For a Next.js project without `output: 'export'`, the script exits with a hint t
 
 ##### Option 2: `deploy-static-cf.sh` (one command, deploys to Cloudflare Pages)
 
-Same framework auto-detection, but the output goes to **Cloudflare Pages** instead of your VPS. Zero hosting cost, global CDN, free SSL, no server to maintain.
+Same framework auto-detection, but the output goes to **Cloudflare Pages** instead of your VPS. Zero hosting cost, global CDN, free SSL, no server to maintain. Full reference: [`docs/cloudflare-pages-deploy.md`](docs/cloudflare-pages-deploy.md).
 
 ```bash
+# First time only — interactive credentials wizard:
+./local/setup-cloudflare-pages.sh
+
+# Every time — deploy:
 cd my-astro-site
 ./local/deploy-static-cf.sh my-site.com
 ```
 
-**One-time setup:** the script needs a Cloudflare API token with `Account → Cloudflare Pages → Edit` and your `Account ID`. If either is missing it prints a step-by-step setup guide (token creation, scopes, where to find the Account ID, where to save credentials) and exits.
+**One-time setup:** the script needs a Cloudflare API token with `Account → Cloudflare Pages → Edit` and your `Account ID`. Either run the wizard above or set `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` manually. If either is missing the deploy script prints a step-by-step setup guide and exits before doing any work.
 
 ```bash
 ./local/deploy-static-cf.sh DOMAIN [PROJECT_NAME] [PROJECT_DIR]

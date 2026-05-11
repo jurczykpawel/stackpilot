@@ -259,7 +259,13 @@ cd my-astro-site && ./local/deploy-static-cf.sh my-site.com
 ./local/add-static-hosting.sh cdn.example.com vps ./dist
 ```
 
-`deploy-static-cf.sh` needs `CLOUDFLARE_API_TOKEN` (Pages:Edit scope) and `CLOUDFLARE_ACCOUNT_ID` — when missing, the script prints a full step-by-step setup guide and exits.
+`deploy-static-cf.sh` needs `CLOUDFLARE_API_TOKEN` (Pages:Edit scope) and `CLOUDFLARE_ACCOUNT_ID`. First-time setup wizard:
+
+```bash
+./local/setup-cloudflare-pages.sh   # opens browser, validates token, saves creds
+```
+
+Detailed flow + custom domain scenarios: `docs/cloudflare-pages-deploy.md`.
 
 ### PHP Hosting
 
