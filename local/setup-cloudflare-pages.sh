@@ -10,6 +10,33 @@
 
 set -e
 
+# Help flag handler — surfaces what the wizard does without running it.
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    cat <<EOF
+Usage: $0
+
+Interactive credentials wizard for ./local/deploy-static-cf.sh (Cloudflare Pages).
+
+What it does:
+  1. Opens https://dash.cloudflare.com/profile/api-tokens with a preset
+     scope template (Account → Cloudflare Pages → Edit).
+  2. Reads your token (hidden input) and verifies it against the CF API.
+  3. Auto-detects your Account ID when the token has Account:Read;
+     otherwise prompts you for it and validates the format.
+  4. Probes Pages:Edit permission to confirm the token actually works.
+  5. Saves credentials where you choose:
+       a) shell rc (persistent, recommended)
+       b) ~/.config/cloudflare/config
+       c) print-only (you copy & paste into your shell)
+
+Re-running with existing working credentials is a no-op — the wizard
+detects, verifies, and exits without prompting.
+
+Full reference: docs/cloudflare-pages-deploy.md
+EOF
+    exit 0
+fi
+
 # Colors
 RED="\033[0;31m"
 GREEN="\033[0;32m"

@@ -14,6 +14,7 @@ Complete command-line interface documentation for StackPilot.
 - [Config File](#config-file)
 - [Per-Application Environment Variables](#per-application-environment-variables)
 - [Examples](#examples)
+- [Static Site Deployment](#static-site-deployment)
 
 ---
 
@@ -472,6 +473,62 @@ Git Bash with the default MinTTY terminal has issues with interactive SSH sessio
 4. **WSL2 (best option)** - install Ubuntu from the Microsoft Store
 
 **The `--yes` mode works without issues** on Git Bash since it requires no interactive prompts.
+
+---
+
+## Static Site Deployment
+
+Three sibling scripts share the same framework auto-detection (Astro, Next.js static export, Hugo, Eleventy, SvelteKit static, Gatsby, Docusaurus, VitePress, MkDocs) and differ only in deploy target.
+
+### `deploy-static.sh` — to your VPS (Caddy + auto-SSL)
+
+```bash
+./local/deploy-static.sh DOMAIN [SSH_ALIAS] [PROJECT_DIR]
+
+# Examples:
+cd my-astro-site
+./local/deploy-static.sh my-site.com vps
+./local/deploy-static.sh my-site.com mikrus ./my-astro-site
+```
+
+Detects framework, builds, delegates to `add-static-hosting.sh` for upload + Caddy + SSL. See [GUIDE.md → Static Site Hosting](../GUIDE.md#static-site-deployment-deploy-static-sites-astro-nextjs-hugo--in-one-command).
+
+### `deploy-static-cf.sh` — to Cloudflare Pages (zero cost, global CDN)
+
+```bash
+./local/deploy-static-cf.sh DOMAIN [PROJECT_NAME] [PROJECT_DIR]
+
+# Examples:
+cd my-astro-site
+./local/deploy-static-cf.sh my-site.com
+./local/deploy-static-cf.sh blog.my-site.com my-blog ./blog-source
+./local/deploy-static-cf.sh my-slug.pages.dev    # default-host only, no custom domain
+```
+
+| Argument       | Required | Default                                              |
+| -------------- | -------- | ---------------------------------------------------- |
+| `DOMAIN`       | yes      | —                                                    |
+| `PROJECT_NAME` | no       | Derived from `DOMAIN` (`.` → `-`, lowercase, ≤58 ch) |
+| `PROJECT_DIR`  | no       | `.` (current directory)                              |
+
+**Credentials** (env vars first, fallback to `~/.config/cloudflare/config`):
+
+- `CLOUDFLARE_API_TOKEN` — needs `Account → Cloudflare Pages → Edit` (and optionally `Zone → DNS → Edit` for auto-CNAME on custom domains)
+- `CLOUDFLARE_ACCOUNT_ID` — 32 hex chars from CF dashboard sidebar
+
+Missing credentials → the script prints step-by-step setup instructions and exits before any build runs.
+
+Custom domain attach is idempotent; if the token has `Zone:DNS:Edit` and the domain lives in a CF zone on the same account, the CNAME is auto-created. Full reference: [`docs/cloudflare-pages-deploy.md`](./cloudflare-pages-deploy.md).
+
+### `setup-cloudflare-pages.sh` — first-time credentials wizard
+
+```bash
+./local/setup-cloudflare-pages.sh
+```
+
+Interactive flow: opens the CF token-creation page with the right scope template preselected, validates the token against `/user/tokens/verify`, auto-fetches the Account ID when possible, probes `Pages:Edit`, then offers three save locations (shell rc, `~/.config/cloudflare/config`, or print-only).
+
+Re-running on existing working credentials is a no-op.
 
 ---
 

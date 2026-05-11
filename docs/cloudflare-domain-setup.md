@@ -129,3 +129,9 @@ Wait 5-10 minutes. Cloudflare is fast, but propagation can take a moment.
 ## Alternative: Cloudflare Registrar
 
 You can also transfer your entire domain to Cloudflare Registrar - this keeps everything in one place and is often cheaper. The option is available under Cloudflare -> Domain Registration -> Transfer Domains.
+
+---
+
+## Related: Cloudflare Pages
+
+This guide covers DNS automation for sites you host on your **VPS** (Caddy + auto-SSL). If you'd rather skip the VPS and host static sites directly on Cloudflare's global CDN (free, no server to maintain), see [`cloudflare-pages-deploy.md`](./cloudflare-pages-deploy.md) for the one-command flow using `deploy-static-cf.sh`.

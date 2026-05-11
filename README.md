@@ -1,6 +1,6 @@
 # StackPilot
 
-**The AI-native self-hosting toolkit. Deploy 33+ production-optimized Docker apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS with a single command.**
+**The AI-native self-hosting toolkit. Deploy 33+ production-optimized Docker apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS — or to Cloudflare Pages — with a single command.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Apps: 33+](https://img.shields.io/badge/Apps-33%2B-blue)
@@ -473,6 +473,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 - [x] Comprehensive test suite (unit, static, E2E)
 - [x] CI pipeline (GitHub Actions)
 - [x] Static and PHP hosting support (`add-static-hosting.sh`, `add-php-hosting.sh`)
+- [x] One-command static deploy to Cloudflare Pages (`deploy-static-cf.sh`, see [docs](docs/cloudflare-pages-deploy.md))
 - [x] Path-level HTTP redirects (`add-redirect.sh`, `remove-redirect.sh`) with per-domain `conf.d/` layout
 
 ### Planned
