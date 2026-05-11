@@ -241,14 +241,25 @@ A simple rsync wrapper for quick file transfers without a full deploy.
 
 ### Static Hosting
 
+Three deploy targets:
+
 ```bash
+# 1. Auto-detect framework, build, deploy to YOUR VPS (Caddy + auto-SSL)
+./local/deploy-static.sh DOMAIN [SSH_ALIAS] [PROJECT_DIR]
+
+# 2. Auto-detect framework, build, deploy to CLOUDFLARE PAGES (free, global CDN)
+./local/deploy-static-cf.sh DOMAIN [PROJECT_NAME] [PROJECT_DIR]
+
+# 3. Low-level: upload pre-built files to VPS
 ./local/add-static-hosting.sh DOMAIN [SSH_ALIAS] [LOCAL_DIR] [REMOTE_DIR]
 
 # Examples:
-./local/add-static-hosting.sh cdn.example.com vps                        # files already on server at /var/www/cdn.example.com
-./local/add-static-hosting.sh cdn.example.com vps ./dist                 # upload ./dist -> /var/www/cdn.example.com
-./local/add-static-hosting.sh cdn.example.com vps ./dist /var/www/assets # upload ./dist -> /var/www/assets
+cd my-astro-site && ./local/deploy-static.sh my-site.com vps
+cd my-astro-site && ./local/deploy-static-cf.sh my-site.com
+./local/add-static-hosting.sh cdn.example.com vps ./dist
 ```
+
+`deploy-static-cf.sh` needs `CLOUDFLARE_API_TOKEN` (Pages:Edit scope) and `CLOUDFLARE_ACCOUNT_ID` — when missing, the script prints a full step-by-step setup guide and exits.
 
 ### PHP Hosting
 

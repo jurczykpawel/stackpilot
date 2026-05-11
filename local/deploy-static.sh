@@ -51,6 +51,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../lib/validation.sh"
+source "$SCRIPT_DIR/../lib/framework-detect.sh"
 
 if [ -z "${TOOLBOX_LANG+x}" ]; then
     source "$SCRIPT_DIR/../lib/i18n.sh"
@@ -67,75 +68,7 @@ fi
 ABS_PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 cd "$ABS_PROJECT_DIR"
 
-FRAMEWORK=""
-BUILD_CMD=""
-OUTPUT_DIR=""
-
-# Astro: astro.config.{mjs,ts,js,cjs}
-if compgen -G "astro.config.*" >/dev/null; then
-    FRAMEWORK="Astro"
-    BUILD_CMD="npm run build"
-    OUTPUT_DIR="./dist"
-
-# Next.js: detect static export — requires output:'export' in config or default 'export' script
-elif compgen -G "next.config.*" >/dev/null; then
-    if grep -E -r --include='next.config.*' "output:[[:space:]]*['\"]export['\"]" . >/dev/null 2>&1; then
-        FRAMEWORK="Next.js (static export)"
-        BUILD_CMD="npm run build"
-        OUTPUT_DIR="./out"
-    else
-        echo "⚠️  Detected Next.js, but \"output: 'export'\" is missing from next.config.*"
-        echo "   This deploys static sites only. Add to your next.config:"
-        echo ""
-        echo "       module.exports = { output: 'export' }"
-        echo ""
-        echo "   Or run a regular Next.js deploy — that requires Node.js runtime, not static hosting."
-        exit 1
-    fi
-
-# Hugo: hugo.{toml,yaml,yml} or config.{toml,yaml,yml} — also require content/ to avoid false positives
-elif { [ -f "hugo.toml" ] || [ -f "hugo.yaml" ] || [ -f "hugo.yml" ] || [ -f "config.toml" ] || [ -f "config.yaml" ] || [ -f "config.yml" ]; } && [ -d "content" ]; then
-    FRAMEWORK="Hugo"
-    BUILD_CMD="hugo --minify"
-    OUTPUT_DIR="./public"
-
-# Eleventy: .eleventy.js or eleventy.config.{js,mjs,cjs}
-elif [ -f ".eleventy.js" ] || compgen -G "eleventy.config.*" >/dev/null; then
-    FRAMEWORK="Eleventy (11ty)"
-    BUILD_CMD="npx @11ty/eleventy"
-    OUTPUT_DIR="./_site"
-
-# SvelteKit (static adapter): svelte.config.{js,ts}
-elif compgen -G "svelte.config.*" >/dev/null; then
-    FRAMEWORK="SvelteKit (static)"
-    BUILD_CMD="npm run build"
-    OUTPUT_DIR="./build"
-
-# Gatsby: gatsby-config.{js,ts}
-elif compgen -G "gatsby-config.*" >/dev/null; then
-    FRAMEWORK="Gatsby"
-    BUILD_CMD="npm run build"
-    OUTPUT_DIR="./public"
-
-# Docusaurus: docusaurus.config.{js,ts}
-elif compgen -G "docusaurus.config.*" >/dev/null; then
-    FRAMEWORK="Docusaurus"
-    BUILD_CMD="npm run build"
-    OUTPUT_DIR="./build"
-
-# VitePress: .vitepress/ directory
-elif [ -d ".vitepress" ]; then
-    FRAMEWORK="VitePress"
-    BUILD_CMD="npm run docs:build"
-    OUTPUT_DIR="./.vitepress/dist"
-
-# MkDocs: mkdocs.{yml,yaml}
-elif [ -f "mkdocs.yml" ] || [ -f "mkdocs.yaml" ]; then
-    FRAMEWORK="MkDocs"
-    BUILD_CMD="mkdocs build"
-    OUTPUT_DIR="./site"
-
-else
+if ! sp_detect_static_framework "$ABS_PROJECT_DIR"; then
     echo "❌ Could not detect a static site framework in: $ABS_PROJECT_DIR"
     echo ""
     echo "Supported: Astro, Next.js (static export), Hugo, Eleventy, SvelteKit (static),"
@@ -147,6 +80,10 @@ else
     echo "    ./local/add-static-hosting.sh $DOMAIN $SSH_ALIAS ./your-output-dir"
     exit 1
 fi
+
+FRAMEWORK="$SP_FRAMEWORK"
+BUILD_CMD="$SP_BUILD_CMD"
+OUTPUT_DIR="$SP_OUTPUT_DIR"
 
 echo ""
 echo "🚀 StackPilot — Deploy Static Site"

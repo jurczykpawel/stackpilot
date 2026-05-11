@@ -220,9 +220,10 @@ A simple rsync wrapper for quick file transfers. Ideal for:
 
 `add-static-hosting.sh` deploys any framework that produces a plain `dist/` (or equivalent) folder of static HTML/CSS/JS. This is a self-hosted alternative to Cloudflare Pages, Netlify, or Vercel — same UX, your own VPS, your own domain, no vendor lock-in.
 
-**Two ways to deploy:**
+**Three ways to deploy:**
 
-- **`deploy-static.sh`** — auto-detects the framework, builds, and deploys in one command (recommended)
+- **`deploy-static.sh`** — auto-detects the framework, builds, and deploys to your VPS (recommended for self-hosting)
+- **`deploy-static-cf.sh`** — same auto-detection, but deploys to **Cloudflare Pages** (zero-cost hosting, global CDN, no VPS needed)
 - **`add-static-hosting.sh`** — low-level script if you want to control the build manually
 
 ##### Option 1: `deploy-static.sh` (one command, auto-detects framework)
@@ -259,7 +260,37 @@ Detection rules (config-file based):
 
 For a Next.js project without `output: 'export'`, the script exits with a hint to add it — Next.js with SSR cannot be deployed via static hosting.
 
-##### Option 2: `add-static-hosting.sh` (manual build, then deploy)
+##### Option 2: `deploy-static-cf.sh` (one command, deploys to Cloudflare Pages)
+
+Same framework auto-detection, but the output goes to **Cloudflare Pages** instead of your VPS. Zero hosting cost, global CDN, free SSL, no server to maintain.
+
+```bash
+cd my-astro-site
+./local/deploy-static-cf.sh my-site.com
+```
+
+**One-time setup:** the script needs a Cloudflare API token with `Account → Cloudflare Pages → Edit` and your `Account ID`. If either is missing it prints a step-by-step setup guide (token creation, scopes, where to find the Account ID, where to save credentials) and exits.
+
+```bash
+./local/deploy-static-cf.sh DOMAIN [PROJECT_NAME] [PROJECT_DIR]
+
+# Examples:
+cd my-astro-site && /path/to/stackpilot/local/deploy-static-cf.sh my-site.com
+./local/deploy-static-cf.sh my-site.com my-cf-slug ./my-astro-site
+```
+
+What it does end-to-end:
+
+1. Loads `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (env vars take priority, falls back to `~/.config/cloudflare/config`).
+2. Verifies the token is valid and has the **Cloudflare Pages → Edit** scope (probes `GET /accounts/{id}/pages/projects`).
+3. Auto-detects the framework, builds the project.
+4. Creates the Pages project if it doesn't exist (`production_branch=main`).
+5. Uploads via `npx wrangler@latest pages deploy` (no global wrangler install needed).
+6. Attaches the custom domain to the project (idempotent — skips if already attached).
+
+If the token only has `Pages:Edit` (no `Zone:DNS`), the script prints exact CNAME instructions instead of auto-creating the DNS record.
+
+##### Option 3: `add-static-hosting.sh` (manual build, then deploy)
 
 **The pattern:** build locally → upload `dist/` → Caddy serves with auto-SSL.
 
