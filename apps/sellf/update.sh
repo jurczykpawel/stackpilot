@@ -208,6 +208,15 @@ else
     echo "📋 Restart mode - skipped file update"
 fi
 
+# Ensure CHECKOUT_BINDING_SECRET exists (production refuses to boot
+# without it). Self-hosters upgrading from an older Sellf may not have one
+# yet — generate on first update so the next boot does not fail closed.
+# Existing values left alone so in-flight checkout sessions stay valid.
+if [ -f "$ENV_FILE" ] && ! grep -q "^CHECKOUT_BINDING_SECRET=" "$ENV_FILE"; then
+    printf "\nCHECKOUT_BINDING_SECRET=%s\n" "$(openssl rand -base64 32)" >> "$ENV_FILE"
+    echo "   🔐 generated CHECKOUT_BINDING_SECRET (rotate via incident response only)"
+fi
+
 # Copy to standalone (always, both in update and restart)
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 if [ -d "$STANDALONE_DIR" ]; then

@@ -312,6 +312,12 @@ SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
 # Encryption key for integrations (Stripe UI wizard, GUS, Currency API)
 # AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
 APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
+
+# Server-side HMAC secret that binds checkout metadata mutations to the
+# (user_id, product_id) tuple the Stripe session was created for. Rotating
+# invalidates in-flight checkout sessions — only do it during incident
+# response. Production refuses to boot without this set.
+CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
 ENVEOF
     else
         echo "❌ Missing Supabase configuration!"
@@ -335,6 +341,20 @@ if ! grep -q "APP_ENCRYPTION_KEY=" "$ENV_FILE" 2>/dev/null; then
 # Encryption key for integrations (Stripe UI wizard, GUS, Currency API)
 # AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
 APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
+ENVEOF
+fi
+
+# Make sure CHECKOUT_BINDING_SECRET exists (for installations created
+# before this secret existed). Production refuses to boot without it.
+if ! grep -q "^CHECKOUT_BINDING_SECRET=" "$ENV_FILE" 2>/dev/null; then
+    echo "🔐 Generating checkout binding secret..."
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# Server-side HMAC secret that binds checkout metadata mutations to the
+# (user_id, product_id) tuple the Stripe session was created for. Rotating
+# invalidates in-flight checkout sessions — only do it during incident
+# response.
+CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
 ENVEOF
 fi
 
