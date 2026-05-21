@@ -318,6 +318,11 @@ APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
 # invalidates in-flight checkout sessions — only do it during incident
 # response. Production refuses to boot without this set.
 CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
+
+# HMAC secret for the per-product login-wall handoff token. Rotating
+# invalidates in-flight loginwall tokens — visitors transparently get a
+# fresh one via /loginwall/protect.
+LOGINWALL_SECRET=$(openssl rand -hex 32)
 ENVEOF
     else
         echo "❌ Missing Supabase configuration!"
@@ -355,6 +360,19 @@ if ! grep -q "^CHECKOUT_BINDING_SECRET=" "$ENV_FILE" 2>/dev/null; then
 # invalidates in-flight checkout sessions — only do it during incident
 # response.
 CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
+ENVEOF
+fi
+
+# Make sure LOGINWALL_SECRET exists (for installations created before
+# the login wall feature shipped).
+if ! grep -q "^LOGINWALL_SECRET=" "$ENV_FILE" 2>/dev/null; then
+    echo "🔐 Generating login wall secret..."
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# HMAC secret for the per-product login-wall handoff token. Rotating
+# invalidates in-flight loginwall tokens — visitors transparently get a
+# fresh one via /loginwall/protect.
+LOGINWALL_SECRET=$(openssl rand -hex 32)
 ENVEOF
 fi
 

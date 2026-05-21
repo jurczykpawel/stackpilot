@@ -217,6 +217,14 @@ if [ -f "$ENV_FILE" ] && ! grep -q "^CHECKOUT_BINDING_SECRET=" "$ENV_FILE"; then
     echo "   🔐 generated CHECKOUT_BINDING_SECRET (rotate via incident response only)"
 fi
 
+# Ensure LOGINWALL_SECRET exists. HMAC key for the per-product
+# login-wall handoff token. Rotating invalidates in-flight tokens;
+# visitors transparently get a fresh one via /loginwall/protect.
+if [ -f "$ENV_FILE" ] && ! grep -q "^LOGINWALL_SECRET=" "$ENV_FILE"; then
+    printf "\nLOGINWALL_SECRET=%s\n" "$(openssl rand -hex 32)" >> "$ENV_FILE"
+    echo "   🔐 generated LOGINWALL_SECRET"
+fi
+
 # Copy to standalone (always, both in update and restart)
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 if [ -d "$STANDALONE_DIR" ]; then
