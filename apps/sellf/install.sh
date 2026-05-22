@@ -323,6 +323,11 @@ CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
 # invalidates in-flight loginwall tokens — visitors transparently get a
 # fresh one via /loginwall/protect.
 LOGINWALL_SECRET=$(openssl rand -hex 32)
+
+# Bearer token for /api/cron. Without it scheduled jobs (access-expired
+# webhooks, webhook log cleanup) cannot be triggered. Point your scheduler
+# (cron-job.org, crontab) at /api/cron with Authorization: Bearer <value>.
+CRON_SECRET=$(openssl rand -base64 32)
 ENVEOF
     else
         echo "❌ Missing Supabase configuration!"
@@ -373,6 +378,19 @@ if ! grep -q "^LOGINWALL_SECRET=" "$ENV_FILE" 2>/dev/null; then
 # invalidates in-flight loginwall tokens — visitors transparently get a
 # fresh one via /loginwall/protect.
 LOGINWALL_SECRET=$(openssl rand -hex 32)
+ENVEOF
+fi
+
+# Make sure CRON_SECRET exists (for installations created before scheduled
+# jobs were wired up). Without it /api/cron rejects every request.
+if ! grep -q "^CRON_SECRET=" "$ENV_FILE" 2>/dev/null; then
+    echo "🔐 Generating cron secret..."
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# Bearer token for /api/cron. Point your scheduler (cron-job.org, crontab)
+# at /api/cron with Authorization: Bearer <value> to drive scheduled jobs
+# (access-expired webhooks, webhook log cleanup).
+CRON_SECRET=$(openssl rand -base64 32)
 ENVEOF
 fi
 

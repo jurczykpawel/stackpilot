@@ -225,6 +225,15 @@ if [ -f "$ENV_FILE" ] && ! grep -q "^LOGINWALL_SECRET=" "$ENV_FILE"; then
     echo "   🔐 generated LOGINWALL_SECRET"
 fi
 
+# Ensure CRON_SECRET exists. Without it /api/cron rejects every request
+# and scheduled jobs (access-expired webhooks, webhook log cleanup) do
+# not run. Auto-generate so the endpoint is callable by an authorized
+# scheduler the moment the operator wires one up.
+if [ -f "$ENV_FILE" ] && ! grep -q "^CRON_SECRET=" "$ENV_FILE"; then
+    printf "\nCRON_SECRET=%s\n" "$(openssl rand -base64 32)" >> "$ENV_FILE"
+    echo "   🔐 generated CRON_SECRET (point your scheduler at /api/cron with Authorization: Bearer <value>)"
+fi
+
 # Copy to standalone (always, both in update and restart)
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 if [ -d "$STANDALONE_DIR" ]; then
