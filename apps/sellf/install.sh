@@ -328,6 +328,12 @@ LOGINWALL_SECRET=$(openssl rand -hex 32)
 # webhooks, webhook log cleanup) cannot be triggered. Point your scheduler
 # (cron-job.org, crontab) at /api/cron with Authorization: Bearer <value>.
 CRON_SECRET=$(openssl rand -base64 32)
+
+# Read the trusted client IP from the last X-Forwarded-For hop instead of
+# the raw TCP peer. Stackpilot always deploys behind Caddy as the public
+# entrypoint, so this is the correct topology and rate limiting can
+# identify real callers. Production startup refuses to boot without it.
+TRUSTED_PROXY=true
 ENVEOF
     else
         echo "❌ Missing Supabase configuration!"
@@ -391,6 +397,19 @@ if ! grep -q "^CRON_SECRET=" "$ENV_FILE" 2>/dev/null; then
 # at /api/cron with Authorization: Bearer <value> to drive scheduled jobs
 # (access-expired webhooks, webhook log cleanup).
 CRON_SECRET=$(openssl rand -base64 32)
+ENVEOF
+fi
+
+# Make sure TRUSTED_PROXY=true is set (production startup refuses to boot
+# without it). Stackpilot always deploys behind Caddy, so this is the
+# correct topology — rate limiting can read real client IPs.
+if ! grep -q "^TRUSTED_PROXY=" "$ENV_FILE" 2>/dev/null; then
+    echo "🔒 Enabling TRUSTED_PROXY..."
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# Read the trusted client IP from the last X-Forwarded-For hop. Required
+# in production behind a reverse proxy (Caddy/nginx).
+TRUSTED_PROXY=true
 ENVEOF
 fi
 

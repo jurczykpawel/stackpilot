@@ -234,6 +234,15 @@ if [ -f "$ENV_FILE" ] && ! grep -q "^CRON_SECRET=" "$ENV_FILE"; then
     echo "   🔐 generated CRON_SECRET (point your scheduler at /api/cron with Authorization: Bearer <value>)"
 fi
 
+# Ensure TRUSTED_PROXY=true is set. Production startup refuses to boot
+# without it; rate limiting also degrades to a shared "unknown" bucket
+# for every request when it is missing. Stackpilot always deploys behind
+# Caddy as the public entrypoint, so this is the correct topology.
+if [ -f "$ENV_FILE" ] && ! grep -q "^TRUSTED_PROXY=" "$ENV_FILE"; then
+    printf "\nTRUSTED_PROXY=true\n" >> "$ENV_FILE"
+    echo "   🔒 enabled TRUSTED_PROXY (read client IP from last X-Forwarded-For hop)"
+fi
+
 # Copy to standalone (always, both in update and restart)
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 if [ -d "$STANDALONE_DIR" ]; then
