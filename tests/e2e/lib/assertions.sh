@@ -189,10 +189,18 @@ cf_dns_delete() {
 }
 
 # Remove a domain block from Caddy on the server
+# Handles both conf.d/<domain>.caddy (new style) and monolithic Caddyfile (legacy).
 # Usage: caddy_cleanup DOMAIN
 caddy_cleanup() {
     local domain="$1"
     ssh "$E2E_SSH" "
+        # New-style: remove conf.d file if it exists
+        conf_file=\"/etc/caddy/conf.d/${domain}.caddy\"
+        if [ -f \"\$conf_file\" ]; then
+            sudo rm -f \"\$conf_file\"
+            sudo systemctl reload caddy 2>/dev/null || true
+        fi
+        # Legacy: also clean monolithic Caddyfile if domain appears there
         if grep -qF '$domain' /etc/caddy/Caddyfile 2>/dev/null; then
             # Use Python to reliably remove the domain block.
             # Track brace depth to handle nested blocks (e.g. reverse_proxy { ... }).
@@ -222,5 +230,6 @@ with open('/tmp/caddy-cleaned', 'w') as f:
     f.write(content)
 \" 2>/dev/null && sudo mv /tmp/caddy-cleaned /etc/caddy/Caddyfile && sudo systemctl reload caddy 2>/dev/null
         fi
+        # Legacy ends
     " 2>/dev/null
 }

@@ -47,6 +47,9 @@ FAILED=()
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
+# Stub .env so apps using "env_file: .env" don't fail with "file not found"
+touch "$TMPDIR/.env"
+
 for install_sh in "$REPO_ROOT"/apps/*/install.sh; do
     [ -f "$install_sh" ] || continue
 

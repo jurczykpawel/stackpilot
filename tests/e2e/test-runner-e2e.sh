@@ -82,8 +82,8 @@ e2e_test() {
     local avail_disk
     avail_disk=$(get_server_disk)
     if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$min_disk" ]; then
-        echo -e "  ${E2E_YELLOW}Disk low (${avail_disk}MB, need ${min_disk}MB) — pruning dangling images...${E2E_NC}"
-        ssh "$E2E_SSH" "docker image prune -f" >/dev/null 2>&1
+        echo -e "  ${E2E_YELLOW}Disk low (${avail_disk}MB, need ${min_disk}MB) — pruning all unused images...${E2E_NC}"
+        ssh "$E2E_SSH" "docker image prune -af" >/dev/null 2>&1
         avail_disk=$(get_server_disk)
         if [ -n "$avail_disk" ] && [ "$avail_disk" -lt "$min_disk" ]; then
             echo -e "  ${E2E_YELLOW}SKIP: only ${avail_disk}MB disk available (need ${min_disk}MB)${E2E_NC}"
@@ -99,6 +99,14 @@ e2e_test() {
     if [ -n "$LANG_TEST" ]; then
         lang_flags="TOOLBOX_LANG=$LANG_TEST"
     fi
+
+    # Pre-deploy cleanup: remove any stale state from a previous interrupted run
+    ssh "$E2E_SSH" "
+        if [ -d /opt/stacks/$app ]; then
+            cd /opt/stacks/$app && docker compose down -v --remove-orphans 2>/dev/null || true
+        fi
+        rm -rf /opt/stacks/$app 2>/dev/null || true
+    " 2>/dev/null
 
     # Deploy
     echo "  Deploying..."
@@ -120,6 +128,15 @@ e2e_test() {
         if echo "$deploy_output" | grep -qiE "fatal:.*git|could not read Username|repository not found|Authentication failed.*github|remote: Repository.*not found"; then
             echo -e "  ${E2E_YELLOW}SKIP: git repo not accessible (private or missing)${E2E_NC}"
             E2E_RESULTS+=("SKIP|$app|git repo not accessible")
+            E2E_SKIP=$((E2E_SKIP + 1))
+            maybe_cleanup "$app" true
+            return 0
+        fi
+
+        # Check for Docker registry access failures (private image, no auth, or rate limit)
+        if echo "$deploy_output" | grep -qiE "error from registry: denied|denied: denied|unauthorized: unauthorized|pull access denied|requested access to the resource is denied|unauthenticated pull rate limit|You have reached your.*pull rate limit"; then
+            echo -e "  ${E2E_YELLOW}SKIP: Docker registry access denied or rate limited${E2E_NC}"
+            E2E_RESULTS+=("SKIP|$app|registry access denied or rate limited")
             E2E_SKIP=$((E2E_SKIP + 1))
             maybe_cleanup "$app" true
             return 0
@@ -299,6 +316,7 @@ suite_deploy_postgres() {
         # postiz: returns 307 redirect (to setup page) — expected
         e2e_test "postiz"                 "5000" "200 302 301 307" "120" "--domain-type=local --db-source=bundled --yes"
         e2e_test "social-media-generator" "8000" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
+        e2e_test "keila"                  "4500" "200 302 301" "120" "--domain-type=local --db-source=bundled --yes"
         # affine last — large image (~750MB), may exhaust disk; disk-check will prune if needed
         e2e_test "affine"                 "3010" "200 302 301" "180" "--domain-type=local --db-source=bundled --yes"
     fi
@@ -323,6 +341,8 @@ suite_deploy_tcp() {
 
     e2e_test_tcp "redis"      "6379" "--domain-type=local --yes"
     e2e_test_tcp "mcp-docker" ""     "--domain-type=local --yes"
+    # watchtower: monitor-only daemon, no HTTP port
+    e2e_test_tcp "watchtower" ""     "--domain-type=local --yes"
 }
 
 suite_provider_mikrus() {
@@ -600,13 +620,18 @@ suite_domain_caddy() {
         --data "{\"type\":\"AAAA\",\"name\":\"$test_domain\",\"content\":\"$server_ip\",\"ttl\":60,\"proxied\":false}" 2>/dev/null)
 
     if ! echo "$dns_response" | grep -q '"success":true'; then
-        echo -e "  ${E2E_YELLOW}SKIP: failed to create DNS record${E2E_NC}"
-        echo "$dns_response" | grep -o '"message":"[^"]*"' | head -1 | sed 's/^/    /'
-        E2E_RESULTS+=("SKIP|domain-caddy|DNS creation failed")
-        E2E_SKIP=$((E2E_SKIP + 1))
-        return 0
+        if echo "$dns_response" | grep -qi "identical record already exists\|already exists"; then
+            echo -e "  ${E2E_YELLOW}DNS record already exists — reusing${E2E_NC}"
+        else
+            echo -e "  ${E2E_YELLOW}SKIP: failed to create DNS record${E2E_NC}"
+            echo "$dns_response" | grep -o '"message":"[^"]*"' | head -1 | sed 's/^/    /'
+            E2E_RESULTS+=("SKIP|domain-caddy|DNS creation failed")
+            E2E_SKIP=$((E2E_SKIP + 1))
+            return 0
+        fi
+    else
+        echo -e "  ${E2E_GREEN}DNS record created (AAAA → $server_ip, proxied=false)${E2E_NC}"
     fi
-    echo -e "  ${E2E_GREEN}DNS record created (AAAA → $server_ip, proxied=false)${E2E_NC}"
 
     # Wait for DNS propagation
     echo "  Waiting 15s for DNS propagation..."
@@ -1328,6 +1353,22 @@ suite_setup_ssh() {
     echo -e "  ${E2E_GREEN}Cleanup: test user removed, local key and alias deleted${E2E_NC}"
 }
 
+suite_deploy_heavy() {
+    echo ""
+    echo -e "${E2E_BOLD}━━━ Suite: deploy-heavy ━━━${E2E_NC}"
+
+    # immich: bundles its own postgres + valkey, ~3 GB images
+    # min_ram=2500: containers start fine under that; ML models load lazily on first use
+    # Health path: /api/server/ping returns {"res":"pong"} with HTTP 200
+    # Timeout 300s — cold pull + 4-container startup can take several minutes
+    e2e_test "immich" "2283" "200 302 301" "300" "--domain-type=local --yes" "/api/server/ping" "2500"
+
+    # captions-cli: private GHCR image — will SKIP unless registry auth is configured
+    # (ghcr.io/jurczykpawel/captions-cli:slim). Not a web service; wrapper install test.
+    # sgtm: requires a real GTM CONTAINER_CONFIG string — cannot be tested in CI.
+    # countdown-timer: PHP app that requires --domain; tested in suite_domain_cloudflare.
+}
+
 suite_sellf() {
     echo ""
     echo -e "${E2E_BOLD}━━━ Suite: sellf ━━━${E2E_NC}"
@@ -1447,6 +1488,7 @@ if [ -n "$SUITE_FILTER" ]; then
         deploy-postgres) suite_deploy_postgres ;;
         deploy-mysql)   suite_deploy_mysql ;;
         deploy-tcp)     suite_deploy_tcp ;;
+        deploy-heavy)   suite_deploy_heavy ;;
         domain-cloudflare) suite_domain_cloudflare ;;
         domain-caddy)   suite_domain_caddy ;;
         provider-mikrus) suite_provider_mikrus ;;
@@ -1470,6 +1512,7 @@ else
     suite_deploy_tcp
     suite_deploy_postgres
     suite_deploy_mysql
+    suite_deploy_heavy
     suite_domain_cloudflare
     suite_domain_caddy
     suite_provider_mikrus
