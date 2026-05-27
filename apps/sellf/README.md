@@ -3,6 +3,102 @@
 Open source alternative to Gumroad, EasyCart, Teachable.
 Sell e-books, courses, templates, licenses, and recurring subscriptions or memberships, without monthly fees or platform commissions. Built-in waitlists let you validate demand before you build the product.
 
+> **Never installed software on a server before?** Don't start here. Open **[Sellf's QUICK-START guide](https://github.com/jurczykpawel/sellf/blob/main/docs/QUICK-START.md)** instead — it's a click-by-click walkthrough using only your web browser (no terminal), gets you online in ~20 minutes.
+
+## Pick a deployment target
+
+This folder has four installers. Pick the one that matches what you want.
+
+| Installer | What it does | Best when… | Time |
+|-----------|--------------|------------|------|
+| **`install-vercel.sh`** | Sellf on Vercel + fresh Supabase Cloud database + Stripe test webhook — all configured automatically | You want zero server management. Vercel and Supabase handle uptime. Free for first months. | ~5 min |
+| **`install-netlify.sh`** | Same as above but on Netlify | You prefer Netlify over Vercel | ~3 min |
+| **`install-coolify.sh`** | Installs Coolify on your VPS, then deploys Sellf there | You want full control on your own server. Lowest long-term cost. **Requires 8 GB+ RAM**. | ~12 min |
+| **`install.sh`** | Sellf on a Linux server via PM2 (no Docker, no Coolify) | You have a cheap VPS like mikr.us (35 PLN/year, 384 MB RAM). Lightest weight. | ~5 min |
+
+**Most users should use `install-vercel.sh`.** Two reasons:
+- It's the easiest fully-managed path: free tier covers you until your store has paying customers, no server uptime worries.
+- The other scripts assume you've already chosen a path that fits your situation (own VPS, mikr.us, etc.).
+
+`install-coolify.sh` and `install.sh` are documented in detail later in this file. The new cloud scripts (`install-vercel.sh`, `install-netlify.sh`) work the same way as each other, so the docs below describe `install-vercel.sh` as the example.
+
+### How to use `install-vercel.sh` (the easiest path)
+
+**One-time setup on your computer (5 minutes):**
+
+```bash
+# 1. Install three CLI tools
+npm install -g vercel supabase
+brew install stripe/stripe-cli/stripe   # macOS — see https://docs.stripe.com/stripe-cli for Linux/Windows
+
+# 2. Log in to each one (opens a browser tab for each)
+vercel login
+supabase login
+stripe login
+
+# 3. Clone Sellf locally
+git clone https://github.com/jurczykpawel/sellf.git ~/sellf
+```
+
+**Each new Sellf store (5 minutes):**
+
+```bash
+./apps/sellf/install-vercel.sh --repo-path ~/sellf
+# Script will ask for your Stripe test keys, then do everything itself.
+```
+
+When it finishes you get a working URL like `https://sellf-1234.vercel.app`.
+
+### Use an existing Supabase project (`--skip-supabase`)
+
+All three cloud scripts (`install-vercel.sh`, `install-netlify.sh`, `install-coolify.sh`) create a fresh Supabase project by default. To reuse an existing one — say, because you used Vercel's "Connect Database → Supabase" feature already, or you're deploying the same Sellf to multiple platforms sharing one database:
+
+```bash
+./apps/sellf/install-vercel.sh --repo-path ~/sellf \
+    --skip-supabase \
+    --supabase-url   https://<ref>.supabase.co \
+    --supabase-anon  "<public-key-eyJ...>" \
+    --supabase-svc   "<private-key-eyJ...>" \
+    --supabase-ref   <ref> \
+    --db-password    "<your-password>"
+```
+
+For the full beginner walkthrough of how to obtain those values, see [SUPABASE-SETUP.md](https://github.com/jurczykpawel/sellf/blob/main/docs/SUPABASE-SETUP.md) in the Sellf repo.
+
+### Coolify (`install-coolify.sh`)
+
+For a self-hosted deployment on your own VPS:
+
+```bash
+./apps/sellf/install-coolify.sh \
+    --ssh-host my-vps \
+    --repo-path ~/sellf
+```
+
+This will SSH into the VPS, install Coolify if it isn't there, register an admin user, create the Sellf application, and deploy. **Your VPS needs 8 GB RAM or more** — the Sellf build OOM-kills on 4 GB. Use Hetzner CX32 (€8/mo) or equivalent.
+
+### Cleaning up after a test
+
+Each cloud script saves a file called `.env.deploy.<project>` next to your Sellf checkout. It contains every ID you need to delete the resources you created:
+
+```bash
+cat ~/sellf/.env.deploy.sellf-1234567890
+```
+
+Manually delete:
+
+- The Vercel/Netlify/Coolify application (in the respective dashboard)
+- The Supabase project (https://supabase.com/dashboard → your project → Settings → General → Delete project)
+- The Stripe webhook (https://dashboard.stripe.com/test/webhooks → your endpoint → ... → Delete)
+
+There's no `uninstall` command yet — destruction is manual on purpose, since you might want to keep the Supabase project even after deleting the deployment.
+
+---
+
+## `install.sh` — VPS deployment via PM2 (mikr.us flow)
+
+The rest of this document is about `install.sh`, the original installer that targets cheap Linux VPSes (e.g. mikr.us) and runs Sellf with PM2 directly (no Docker, no Coolify, no managed platform).
+
 **RAM:** ~130MB | **Disk:** ~500MB | **Plan:** Mikrus 1.0+ (35 PLN/year)
 
 ## Installation
