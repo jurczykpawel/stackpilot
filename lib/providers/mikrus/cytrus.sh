@@ -79,6 +79,34 @@ cytrus_register_domain() {
     msg "$MSG_CYTRUS_SRV_OK" "$SRV"
     echo ""
 
+    # 2b. Verify app is responding before registering.
+    # Registering while the app is down permanently breaks the domain (502, unfixable via API).
+    msg "$MSG_CYTRUS_HEALTHCHECK" "$PORT"
+    local HC_OK=false
+    if server_exec "curl -s --max-time 5 http://localhost:$PORT >/dev/null 2>&1"; then
+        HC_OK=true
+    fi
+
+    if [ "$HC_OK" = true ]; then
+        msg "$MSG_CYTRUS_HEALTHCHECK_OK" "$PORT"
+        echo ""
+    else
+        echo ""
+        msg "$MSG_CYTRUS_HEALTHCHECK_FAIL" "$PORT"
+        msg "$MSG_CYTRUS_HEALTHCHECK_WARN"
+        msg "$MSG_CYTRUS_HEALTHCHECK_TIP"
+        echo ""
+        if [ "${YES_MODE:-false}" = "true" ]; then
+            msg "$MSG_CYTRUS_HEALTHCHECK_ABORT"
+            return 1
+        fi
+        read -p "$(msg "$MSG_CYTRUS_HEALTHCHECK_CONTINUE")" HC_CONTINUE
+        if [[ ! "$HC_CONTINUE" =~ ^[TtYy]$ ]]; then
+            msg "$MSG_CYTRUS_ABORTED"
+            return 1
+        fi
+    fi
+
     # 3. Call Mikrus API
     msg "$MSG_CYTRUS_REGISTERING"
 

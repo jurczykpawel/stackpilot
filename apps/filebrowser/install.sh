@@ -19,6 +19,12 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 DATA_DIR="/var/www/public"
 PORT=${PORT:-8095}
 
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- FileBrowser Setup ---"
 echo ""
 echo "Installing:"
@@ -68,7 +74,7 @@ services:
     image: filebrowser/filebrowser:latest
     restart: always
     ports:
-      - "127.0.0.1:$PORT:80"
+      - "${BIND_ADDR}$PORT:80"
     volumes:
       - $DATA_DIR:/srv
       - ./filebrowser.db:/database.db

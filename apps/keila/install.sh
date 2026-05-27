@@ -22,6 +22,12 @@ APP_NAME="keila"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-4500}
 
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 📧 Keila Email Marketing Setup ---"
 echo "Requires PostgreSQL Database."
 
@@ -70,7 +76,7 @@ services:
     image: pentacent/keila:latest
     restart: always
     ports:
-      - "127.0.0.1:$PORT:4000"
+      - "${BIND_ADDR}$PORT:4000"
     environment:
       - DB_URL=$DB_URL
       - SECRET_KEY_BASE=$SECRET_KEY_BASE
