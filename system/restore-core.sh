@@ -26,6 +26,7 @@ REMOTE_NAME="backup_remote"
 TARGET_DIRS=(
     "/opt/dockge"
     "/opt/stacks"
+    "/opt/backups"   # DB dumps location (paired with backup-core.sh SOURCE_DIRS, hotfix 2026-05-11)
 )
 LOG_FILE="/var/log/stackpilot-restore.log"
 

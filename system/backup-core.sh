@@ -24,6 +24,7 @@ REMOTE_NAME="backup_remote" # Must match what we configure in rclone.conf
 SOURCE_DIRS=(
     "/opt/dockge"
     "/opt/stacks"
+    "/opt/backups"   # DB dumps from setup-db-backup.sh land here - MUST be in cloud (hotfix 2026-05-11)
     # Add other critical paths here.
     # We avoid full docker volumes backup by default as it can be huge and inconsistent without stopping containers.
     # Ideally, apps should map data to /opt/stacks/app-name/data
