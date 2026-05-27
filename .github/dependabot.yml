@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/mcp-server"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "06:00"
+      timezone: "Europe/Warsaw"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      types:
+        patterns:
+          - "@types/*"
+      lint-format:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "prettier*"
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "@types/*"
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "prettier*"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+    groups:
+      actions:
+        patterns:
+          - "*"
