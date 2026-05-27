@@ -1003,8 +1003,11 @@ fi
 
 DEPLOY_SUCCESS=false
 if is_on_server; then
-    # On server: run script directly (no scp/cleanup)
-    if (export DEPLOY_SSH_ALIAS="$SSH_ALIAS" SSH_ALIAS="$SSH_ALIAS" YES_MODE="$YES_MODE" $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash "$SCRIPT_PATH"); then
+    # On server: run script directly (no scp/cleanup).
+    # eval is required so the single quotes baked into *_ENV values
+    # (e.g. DOMAIN='foo.bar') are processed by the shell rather than
+    # treated as literal characters inside the value.
+    if (eval "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV"; bash "$SCRIPT_PATH"); then
         DEPLOY_SUCCESS=true
     fi
     [ -n "$REMOTE_BUILD_FILE" ] && rm -f "$REMOTE_BUILD_FILE"
