@@ -26,9 +26,28 @@ if command -v bun &> /dev/null; then
     msg "$MSG_BUN_ALREADY" "$BUN_VERSION"
 else
     msg "$MSG_BUN_INSTALLING"
-    # Ensure unzip is available (required by the Bun installer)
+    # Ensure unzip is available (required by the Bun installer).
+    # On fresh Ubuntu images the apt cache may be empty, so refresh first.
+    # Fail loudly if we can't install unzip — silent fallback used to let
+    # the Bun installer fail later with a confusing 'unzip is required' error.
     if ! command -v unzip &> /dev/null; then
-        apt-get install -y unzip -qq 2>/dev/null || yum install -y unzip -q 2>/dev/null || true
+        if command -v apt-get &> /dev/null; then
+            apt-get update -qq 2>/dev/null || true
+            apt-get install -y -qq unzip
+        elif command -v dnf &> /dev/null; then
+            dnf install -y -q unzip
+        elif command -v yum &> /dev/null; then
+            yum install -y -q unzip
+        elif command -v apk &> /dev/null; then
+            apk add --quiet unzip
+        else
+            echo "ERROR: cannot install unzip — no supported package manager (apt/dnf/yum/apk)" >&2
+            exit 1
+        fi
+        if ! command -v unzip &> /dev/null; then
+            echo "ERROR: unzip installation failed" >&2
+            exit 1
+        fi
     fi
     curl -fsSL https://bun.sh/install | bash
 
