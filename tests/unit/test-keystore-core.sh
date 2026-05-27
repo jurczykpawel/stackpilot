@@ -142,6 +142,11 @@ test_backend_returns_id() {
     assert_eq "mock" "$got" "backend returns mock id"
 }
 
+test_set_rejects_unknown_canonical_name() {
+    run_in_subshell keystore_set my_random_unknown_key "value" 2>/dev/null
+    assert_exit 2 $? "set rejects unknown canonical names"
+}
+
 test_set_rejects_invalid_name
 test_set_rejects_empty_value
 test_set_get_roundtrip
@@ -151,6 +156,7 @@ test_list_returns_stored_names
 test_require_keys_reports_missing
 test_require_keys_exits_with_count
 test_backend_returns_id
+test_set_rejects_unknown_canonical_name
 
 echo "Passed: $PASS"
 echo "Failed: $FAIL"

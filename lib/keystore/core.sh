@@ -11,6 +11,16 @@ keystore_set() {
         echo "keystore: invalid name '$name' (must match [a-z][a-z0-9_]*)" >&2
         return 2
     fi
+    if [ -z "${KEYSTORE_CANONICAL_NAMES+x}" ]; then
+        local _core_dir
+        _core_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        # shellcheck source=/dev/null
+        source "$_core_dir/names.sh"
+    fi
+    if ! _keystore_is_canonical "$name"; then
+        echo "keystore: '$name' is not a canonical key name (see lib/keystore/names.sh)" >&2
+        return 2
+    fi
     if [ -z "$value" ]; then
         echo "keystore: empty value for '$name'" >&2
         return 2
