@@ -1389,6 +1389,7 @@ MSG_DOCKER_CONFIG_HDR="Konfiguracja Docker (/etc/docker/daemon.json):"
 MSG_DOCKER_LOG_DRV="Sterownik logowania: %s"
 MSG_DOCKER_LIVE_RESTORE="Live Restore: %s"
 MSG_DOCKER_DONE="✅ Docker zainstalowany (przez NOOBS) i zoptymalizowany dla Twojego VPS!"
+MSG_DOCKER_STORAGE_RETRY="⚙️  Wykryto błąd storage Dockera — restartuję daemon i powtarzam..."
 
 # ── system/pm2-setup.sh ───────────────────────────────────────
 MSG_PM2S_STEP1="--- 1. Sprawdzanie Node.js ---"
@@ -1558,6 +1559,13 @@ MSG_CYTRUS_USAGE_EX4="  %s mojapp.toadres.pl 3001      # własna subdomena na to
 MSG_CYTRUS_USAGE_EX5="  %s - 5001 mikrus              # auto domena na serwerze 'mikrus'"
 MSG_CYTRUS_SUPPORTED="💡 Obsługiwane domeny: *.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev"
 MSG_CYTRUS_CUSTOM_TIP="   Dla własnych domen — użyj panelu: https://mikr.us/panel/?a=cytrus"
+MSG_CYTRUS_HEALTHCHECK="🔍 Sprawdzam czy aplikacja odpowiada na porcie %s przed rejestracją domeny..."
+MSG_CYTRUS_HEALTHCHECK_OK="✅ Aplikacja odpowiada na porcie %s — można rejestrować."
+MSG_CYTRUS_HEALTHCHECK_FAIL="${RED}⚠️  Aplikacja NIE odpowiada na porcie %s.${NC}"
+MSG_CYTRUS_HEALTHCHECK_WARN="   Rejestracja domeny teraz spowoduje permanentne błędy 502 (brak możliwości naprawy przez API)."
+MSG_CYTRUS_HEALTHCHECK_TIP="   Poczekaj aż aplikacja będzie zdrowa, potem uruchom deploy ponownie z --domain-type=cytrus."
+MSG_CYTRUS_HEALTHCHECK_CONTINUE="Zarejestrować mimo to? (t/N): "
+MSG_CYTRUS_HEALTHCHECK_ABORT="Przerywam: poczekaj aż aplikacja będzie zdrowa przed rejestracją domeny."
 
 # ── Mikrus Provider: Shared DB ────────────────────────────────
 MSG_MDB_FETCHING="🔑 Pobieram dane bazy z API Mikrusa..."
@@ -1625,3 +1633,26 @@ MSG_MPROV_FAIL_HINT="   ${RED}   Zwolnij miejsce lub upgraduj plan Mikrusa.${NC}
 MSG_MPROV_DOM_OPT="🍊 Cytrus (darmowa subdomena Mikrusa)"
 MSG_MPROV_DOM_OPT_DESC="   Darmowa subdomena *.byst.re / *.bieda.it / *.toadres.pl"
 MSG_MPROV_DOM_OPT_REQ="   Wymaga: VPS Mikrus z aktywnym API"
+
+# ── Keystore + Wizard system ──────────────────────────────────
+MSG_KEYSTORE_BACKEND_KEYCHAIN="Używam macOS Keychain"
+MSG_KEYSTORE_BACKEND_LIBSECRET="Używam Linux libsecret"
+MSG_KEYSTORE_BACKEND_FILE_WARN="UWAGA: używam keystore plikowego — patrz docs/keystore.md"
+MSG_KEYSTORE_NAME_INVALID="Niepoprawna nazwa klucza '%s' (musi pasować do [a-z][a-z0-9_]*)"
+MSG_KEYSTORE_VALUE_EMPTY="Pusta wartość odrzucona dla klucza '%s'"
+MSG_KEYSTORE_KEY_NOT_FOUND="Brak klucza '%s' — uruchom: ./local/keys.sh add <provider>"
+MSG_KEYSTORE_SAVED="Zapisano '%s' w backendzie %s"
+MSG_KEYSTORE_REMOVED="Usunięto klucz '%s'"
+
+MSG_WIZARD_CF_HEADER="Konfiguracja Cloudflare"
+MSG_WIZARD_CF_OPENING="Otwieram stronę API Tokens w przeglądarce..."
+MSG_WIZARD_CF_PERMS_HEADER="Stwórz Custom Token z następującymi uprawnieniami:"
+MSG_WIZARD_CF_PASTE_TOKEN="Wklej token (wpisywanie ukryte):"
+MSG_WIZARD_CF_VERIFYING="Weryfikuję token..."
+MSG_WIZARD_CF_TOKEN_OK="Token poprawny"
+MSG_WIZARD_CF_TOKEN_INVALID="Token odrzucony przez Cloudflare API"
+MSG_WIZARD_CF_NO_ACCOUNTS="Token nie ma dostępu do żadnego konta Cloudflare"
+MSG_WIZARD_CF_MULTIPLE_ACCOUNTS="Dostępnych jest kilka kont — wybierz jedno:"
+MSG_WIZARD_CF_SCOPE_OK="Uprawnienie OK: %s"
+MSG_WIZARD_CF_SCOPE_MISSING="Brak uprawnienia: %s"
+MSG_WIZARD_CF_SAVED="Zapisano dane Cloudflare w keystore"

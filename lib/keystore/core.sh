@@ -1,0 +1,88 @@
+# shellcheck shell=bash
+# Provider-agnostic keystore API. Backend is sourced before this file (by detect.sh
+# in production, or by mock-backend.sh in tests).
+
+# Auto-load backend if not already loaded by a test harness or other init.
+if ! declare -F _backend_set >/dev/null 2>&1; then
+    _CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck source=/dev/null
+    source "$_CORE_DIR/detect.sh"
+    keystore_load_backend || {
+        echo "stackpilot keystore: no backend available" >&2
+        return 1 2>/dev/null || exit 1
+    }
+fi
+
+_keystore_valid_name() {
+    [[ "$1" =~ ^[a-z][a-z0-9_]*$ ]]
+}
+
+keystore_set() {
+    local name="${1:-}" value="${2:-}"
+    if ! _keystore_valid_name "$name"; then
+        echo "keystore: invalid name '$name' (must match [a-z][a-z0-9_]*)" >&2
+        return 2
+    fi
+    if [ -z "${KEYSTORE_CANONICAL_NAMES+x}" ]; then
+        local _core_dir
+        _core_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        # shellcheck source=/dev/null
+        source "$_core_dir/names.sh"
+    fi
+    if ! _keystore_is_canonical "$name"; then
+        echo "keystore: '$name' is not a canonical key name (see lib/keystore/names.sh)" >&2
+        return 2
+    fi
+    if [ -z "$value" ]; then
+        echo "keystore: empty value for '$name'" >&2
+        return 2
+    fi
+    if ! _backend_set "$name" "$value"; then
+        echo "keystore: backend refused to store '$name'" >&2
+        return 5
+    fi
+    unset "STACKPILOT_KEY_CACHE_$(echo "$name" | tr '[:lower:]' '[:upper:]')"
+    return 0
+}
+
+keystore_get() {
+    local name="${1:-}"
+    if ! _keystore_valid_name "$name"; then
+        return 1
+    fi
+    _backend_get "$name"
+}
+
+keystore_has() {
+    local name="${1:-}"
+    _keystore_valid_name "$name" || return 1
+    _backend_has "$name"
+}
+
+keystore_rm() {
+    local name="${1:-}"
+    _keystore_valid_name "$name" || return 0
+    _backend_rm "$name"
+    unset "STACKPILOT_KEY_CACHE_$(echo "$name" | tr '[:lower:]' '[:upper:]')"
+    return 0
+}
+
+keystore_list() {
+    _backend_list
+}
+
+keystore_backend() {
+    _backend_id
+}
+
+keystore_require_keys() {
+    local missing=0
+    local name
+    for name in "$@"; do
+        if ! keystore_has "$name"; then
+            printf '%s\n' "$name"
+            missing=$((missing+1))
+        fi
+    done
+    return $missing
+}
