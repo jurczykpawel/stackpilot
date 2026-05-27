@@ -50,18 +50,22 @@ msg "$MSG_DNS_RECORD" "$IP_ADDRESS"
 msg "$MSG_DNS_PROXY"
 echo ""
 
-# Check configuration
-if [ ! -f "$CONFIG_FILE" ]; then
-    msg "$MSG_DNS_NO_CONFIG"
-    msg "$MSG_DNS_NO_CONFIG_HINT"
-    exit 1
+# Load API token. Priority:
+#   1. CLOUDFLARE_API_TOKEN env var (one-shot deploy without prior setup-cloudflare.sh)
+#   2. ~/.config/cloudflare/config from setup-cloudflare.sh (standard path)
+API_TOKEN=""
+if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+    API_TOKEN="$CLOUDFLARE_API_TOKEN"
+elif [ -f "$CONFIG_FILE" ]; then
+    API_TOKEN=$(grep "^API_TOKEN=" "$CONFIG_FILE" | cut -d= -f2)
 fi
 
-# Load token
-API_TOKEN=$(grep "^API_TOKEN=" "$CONFIG_FILE" | cut -d= -f2)
-
 if [ -z "$API_TOKEN" ]; then
-    msg "$MSG_DNS_NO_TOKEN"
+    msg "$MSG_DNS_NO_CONFIG"
+    msg "$MSG_DNS_NO_CONFIG_HINT"
+    echo ""
+    echo "   Or pass the token inline:"
+    echo "     CLOUDFLARE_API_TOKEN=<token> $0 $FULL_DOMAIN $SSH_ALIAS"
     exit 1
 fi
 
@@ -77,13 +81,28 @@ msg "$MSG_DNS_ROOT_DOMAIN" "$ROOT_DOMAIN"
 msg "$MSG_DNS_SUBDOMAIN" "$SUBDOMAIN"
 echo ""
 
-# Find Zone ID
-ZONE_ID=$(grep "^${ROOT_DOMAIN}=" "$CONFIG_FILE" | cut -d= -f2)
+# Find Zone ID. Priority:
+#   1. ~/.config/cloudflare/config zone mapping (fast, no API call)
+#   2. Live lookup against the Cloudflare API (works without setup-cloudflare.sh)
+ZONE_ID=""
+if [ -f "$CONFIG_FILE" ]; then
+    ZONE_ID=$(grep "^${ROOT_DOMAIN}=" "$CONFIG_FILE" | cut -d= -f2 || true)
+fi
+
+if [ -z "$ZONE_ID" ]; then
+    echo "   Resolving zone for $ROOT_DOMAIN via Cloudflare API..."
+    ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$ROOT_DOMAIN" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json")
+    ZONE_ID=$(echo "$ZONE_RESPONSE" | grep -oE '"id":"[a-f0-9]{32}"' | head -1 | sed 's/"id":"//;s/"//')
+fi
 
 if [ -z "$ZONE_ID" ]; then
     msg "$MSG_DNS_NO_ZONE" "$ROOT_DOMAIN"
     msg "$MSG_DNS_NO_ZONE_AVAIL"
-    grep -v "^#" "$CONFIG_FILE" | grep -v "API_TOKEN" | grep "=" || msg "$MSG_DNS_NO_ZONE_NONE"
+    if [ -f "$CONFIG_FILE" ]; then
+        grep -v "^#" "$CONFIG_FILE" | grep -v "API_TOKEN" | grep "=" || msg "$MSG_DNS_NO_ZONE_NONE"
+    fi
     echo ""
     msg "$MSG_DNS_NO_ZONE_HINT"
     exit 1
