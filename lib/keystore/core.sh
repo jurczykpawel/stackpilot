@@ -1,6 +1,17 @@
 # Provider-agnostic keystore API. Backend is sourced before this file (by detect.sh
 # in production, or by mock-backend.sh in tests).
 
+# Auto-load backend if not already loaded by a test harness or other init.
+if ! declare -F _backend_set >/dev/null 2>&1; then
+    _CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck source=/dev/null
+    source "$_CORE_DIR/detect.sh"
+    keystore_load_backend || {
+        echo "stackpilot keystore: no backend available" >&2
+        return 1 2>/dev/null || exit 1
+    }
+fi
+
 _keystore_valid_name() {
     [[ "$1" =~ ^[a-z][a-z0-9_]*$ ]]
 }
