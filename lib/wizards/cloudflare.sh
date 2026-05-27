@@ -116,6 +116,103 @@ wizard_check() {
 }
 
 wizard_run() {
-    echo "wizard_run not yet implemented (Task 10 follow-up)" >&2
-    return 1
+    if wizard_check >/dev/null 2>&1; then
+        echo "Cloudflare already configured and valid. Use './local/keys.sh test cloudflare' to re-verify."
+        return 0
+    fi
+
+    cat <<EOF
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  Setting up Cloudflare                                  │
+  │  Required: API Token + Account ID                       │
+  │  Storage:  $(keystore_backend) backend                  │
+  └─────────────────────────────────────────────────────────┘
+
+EOF
+
+    print_step 1 4 "Opening Cloudflare API Tokens page..."
+    open_browser "https://dash.cloudflare.com/profile/api-tokens"
+    prompt_continue "        Press Enter when the page is open. "
+
+    print_step 2 4 "Create a Custom Token with these permissions:"
+    cat <<EOF
+
+        Account → Cloudflare Pages       → Edit
+        Account → Workers R2 Storage     → Edit
+        Zone    → DNS                    → Edit
+        Zone    → Zone                   → Read
+
+        Account Resources: All accounts (or specific)
+        Zone Resources:    All zones from all accounts (or specific)
+        TTL: no expiry
+
+EOF
+    prompt_continue "        Press Enter when you have the token shown on screen. "
+
+    print_step 3 4 "Paste your token (input hidden)..."
+    local token
+    token=$(prompt_secret "        Token: ")
+    if [ -z "$token" ]; then
+        echo "        Empty input — cancelled." >&2
+        return 1
+    fi
+
+    echo "        Verifying..."
+    wizard_validate cloudflare_api_token "$token"
+    local rc=$?
+    if [ $rc -ne 0 ]; then
+        return $rc
+    fi
+    echo "        ✓ Token valid"
+
+    _CF_TOKEN_FOR_VALIDATION="$token"
+    local accounts_resp accounts_body accounts_json n_accounts account_id
+    accounts_resp=$(_cf_curl "$STACKPILOT_CF_API_URL/client/v4/accounts")
+    accounts_body="${accounts_resp#*|}"
+    accounts_json=$(printf '%s' "$accounts_body" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    res = d.get('result', []) or []
+    for a in res:
+        print(f\"{a['id']}\\t{a.get('name','')}\")
+except Exception:
+    sys.exit(1)
+" 2>/dev/null)
+    n_accounts=$(printf '%s\n' "$accounts_json" | grep -c .)
+    if [ "$n_accounts" -eq 1 ]; then
+        account_id=$(printf '%s' "$accounts_json" | head -1 | cut -f1)
+        local account_name
+        account_name=$(printf '%s' "$accounts_json" | head -1 | cut -f2)
+        echo "        ✓ Found 1 account: $account_name ($account_id)"
+    else
+        echo "        Multiple accounts available:"
+        local i=1
+        while IFS=$'\t' read -r id name; do
+            echo "          $i) $name ($id)"
+            i=$((i+1))
+        done <<< "$accounts_json"
+        local choice
+        if [ -t 0 ]; then
+            read -r -p "        Pick account number: " choice
+        else
+            read -r -p "        Pick account number: " choice < /dev/tty 2>/dev/tty
+        fi
+        account_id=$(printf '%s\n' "$accounts_json" | sed -n "${choice}p" | cut -f1)
+        if [ -z "$account_id" ]; then
+            echo "        Invalid choice — cancelled." >&2
+            return 1
+        fi
+    fi
+
+    print_step 4 4 "Saving to keystore..."
+    keystore_set cloudflare_api_token "$token" || return 5
+    echo "        ✓ cloudflare_api_token → $(keystore_backend)"
+    keystore_set cloudflare_account_id "$account_id" || return 5
+    echo "        ✓ cloudflare_account_id → $(keystore_backend)"
+    echo
+    echo "  All set. To inspect later:  ./local/keys.sh list"
+    echo "  To remove:                  ./local/keys.sh rm cloudflare"
+    return 0
 }
