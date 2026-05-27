@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Plain-file keystore backend. Fallback when no OS keystore is available.
 
 : "${STACKPILOT_KEYSTORE_FILE_DIR:=$HOME/.config/stackpilot/keys}"

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Picks the right keystore backend at runtime.
 # keystore_detect_backend ONLY decides the id; never sources files (it may be
 # called via $() which executes in a subshell — any sourcing would not persist).

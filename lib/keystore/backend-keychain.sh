@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # macOS Keychain backend using `security` CLI.
 # ACL: -T /usr/bin/security so only security CLI can read silently (no popups
 # during routine operations). Keychain Access.app still prompts on "Show password".

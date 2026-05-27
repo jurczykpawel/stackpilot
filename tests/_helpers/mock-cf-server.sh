@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Mock Cloudflare API server using python3 http.server.
 # Usage:
 #   source tests/_helpers/mock-cf-server.sh
@@ -67,9 +68,8 @@ PYEOF
     MOCK_CF_SCENARIO="$scenario" python3 "$server_py" 0 > "$MOCK_CF_PORT_FILE" 2>>"$MOCK_CF_PORT_FILE.err" &
     MOCK_CF_PID=$!
     # Wait for the server to print its port (max 3s)
-    local i
     MOCK_CF_PORT=""
-    for i in $(seq 1 30); do
+    for _ in $(seq 1 30); do
         if [ -s "$MOCK_CF_PORT_FILE" ]; then
             MOCK_CF_PORT=$(head -1 "$MOCK_CF_PORT_FILE" | tr -d '[:space:]')
             break
@@ -82,7 +82,7 @@ PYEOF
         rm -f "$MOCK_CF_PORT_FILE" "$MOCK_CF_PORT_FILE.err"
         return 1
     fi
-    for i in $(seq 1 30); do
+    for _ in $(seq 1 30); do
         if curl -sS --max-time 2 -o /dev/null -w '%{http_code}' \
                 "http://127.0.0.1:$MOCK_CF_PORT/client/v4/user/tokens/verify" \
                 -H "Authorization: Bearer x" 2>/dev/null | grep -qE '^[0-9]+$'; then

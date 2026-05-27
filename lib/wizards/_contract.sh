@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Asserts that a wizard implements all required functions.
 # Usage: source wizard file first, then call wizard_assert_contract_or_die.
 

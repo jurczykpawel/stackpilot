@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Linux libsecret backend using secret-tool (libsecret-tools package).
 
 : "${STACKPILOT_LIBSECRET_APP:=stackpilot}"

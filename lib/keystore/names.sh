@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Canonical key names allowlist. Single source of truth for what keys
 # stackpilot will store. Adding a new key requires editing this file.
 

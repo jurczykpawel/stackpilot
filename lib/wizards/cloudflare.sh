@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Cloudflare wizard — first provider implementation.
 # Configurable for tests via STACKPILOT_CF_API_URL.
 

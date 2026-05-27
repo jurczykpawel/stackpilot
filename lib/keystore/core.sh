@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Provider-agnostic keystore API. Backend is sourced before this file (by detect.sh
 # in production, or by mock-backend.sh in tests).
 

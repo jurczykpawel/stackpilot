@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # In-memory keystore backend for unit tests. File-backed (in tmp dir) so it
 # works on macOS default bash 3.2 (no associative arrays available there).
 

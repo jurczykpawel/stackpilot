@@ -1390,6 +1390,7 @@ MSG_DOCKER_CONFIG_HDR="Docker configuration (/etc/docker/daemon.json):"
 MSG_DOCKER_LOG_DRV="Logging Driver: %s"
 MSG_DOCKER_LIVE_RESTORE="Live Restore: %s"
 MSG_DOCKER_DONE="✅ Docker is installed (via NOOBS) and optimized for your VPS!"
+MSG_DOCKER_STORAGE_RETRY="⚙️  Docker storage error detected — restarting daemon and retrying..."
 
 # ── system/pm2-setup.sh ───────────────────────────────────────
 MSG_PM2S_STEP1="--- 1. Checking Node.js ---"
@@ -1559,6 +1560,13 @@ MSG_CYTRUS_USAGE_EX4="  %s myapp.toadres.pl 3001      # custom subdomain on toad
 MSG_CYTRUS_USAGE_EX5="  %s - 5001 mikrus              # auto domain on server 'mikrus'"
 MSG_CYTRUS_SUPPORTED="💡 Supported domains: *.byst.re, *.bieda.it, *.toadres.pl, *.tojest.dev"
 MSG_CYTRUS_CUSTOM_TIP="   For custom domains — use panel: https://mikr.us/panel/?a=cytrus"
+MSG_CYTRUS_HEALTHCHECK="🔍 Verifying app is responding on port %s before registering domain..."
+MSG_CYTRUS_HEALTHCHECK_OK="✅ App is responding on port %s — safe to register."
+MSG_CYTRUS_HEALTHCHECK_FAIL="${RED}⚠️  App is NOT responding on port %s.${NC}"
+MSG_CYTRUS_HEALTHCHECK_WARN="   If you register the domain now, it will be permanently broken (502, no way to fix via API)."
+MSG_CYTRUS_HEALTHCHECK_TIP="   Wait for the app to be healthy, then run deploy again with --domain-type=cytrus."
+MSG_CYTRUS_HEALTHCHECK_CONTINUE="Register anyway? (y/N): "
+MSG_CYTRUS_HEALTHCHECK_ABORT="Aborting: wait for the app to be healthy before registering."
 
 # ── Mikrus Provider: Shared DB ────────────────────────────────
 MSG_MDB_FETCHING="🔑 Fetching database credentials from Mikrus API..."
@@ -1626,3 +1634,26 @@ MSG_MPROV_FAIL_HINT="   ${RED}   Free up space or upgrade your Mikrus plan.${NC}
 MSG_MPROV_DOM_OPT="🍊 Cytrus (free Mikrus subdomain)"
 MSG_MPROV_DOM_OPT_DESC="   Free *.byst.re / *.bieda.it / *.toadres.pl subdomain"
 MSG_MPROV_DOM_OPT_REQ="   Requires: Mikrus VPS with active API"
+
+# ── Keystore + Wizard system ──────────────────────────────────
+MSG_KEYSTORE_BACKEND_KEYCHAIN="Using macOS Keychain backend"
+MSG_KEYSTORE_BACKEND_LIBSECRET="Using Linux libsecret backend"
+MSG_KEYSTORE_BACKEND_FILE_WARN="WARNING: using plain-file keystore — see docs/keystore.md"
+MSG_KEYSTORE_NAME_INVALID="Invalid key name '%s' (must match [a-z][a-z0-9_]*)"
+MSG_KEYSTORE_VALUE_EMPTY="Empty value rejected for key '%s'"
+MSG_KEYSTORE_KEY_NOT_FOUND="Key '%s' not found — run: ./local/keys.sh add <provider>"
+MSG_KEYSTORE_SAVED="Saved '%s' to %s backend"
+MSG_KEYSTORE_REMOVED="Removed key '%s'"
+
+MSG_WIZARD_CF_HEADER="Setting up Cloudflare"
+MSG_WIZARD_CF_OPENING="Opening Cloudflare API Tokens page in your browser..."
+MSG_WIZARD_CF_PERMS_HEADER="Create a Custom Token with these permissions:"
+MSG_WIZARD_CF_PASTE_TOKEN="Paste your token (input hidden):"
+MSG_WIZARD_CF_VERIFYING="Verifying token..."
+MSG_WIZARD_CF_TOKEN_OK="Token valid"
+MSG_WIZARD_CF_TOKEN_INVALID="Token rejected by Cloudflare API"
+MSG_WIZARD_CF_NO_ACCOUNTS="Token has no accessible Cloudflare accounts"
+MSG_WIZARD_CF_MULTIPLE_ACCOUNTS="Multiple accounts available — pick one:"
+MSG_WIZARD_CF_SCOPE_OK="Scope OK: %s"
+MSG_WIZARD_CF_SCOPE_MISSING="Missing scope: %s"
+MSG_WIZARD_CF_SAVED="Saved Cloudflare credentials to keystore"

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for wizards.
 
 # emit_error CODE PROVIDER KEY DETAIL HINT
