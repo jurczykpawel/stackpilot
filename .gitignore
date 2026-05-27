@@ -30,3 +30,6 @@ mcp-server/dist/
 
 # Test results
 tests/e2e/results/
+
+# Superpowers — specs, plans, working notes. Local only, never committed.
+docs/superpowers/
