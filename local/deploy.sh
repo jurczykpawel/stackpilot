@@ -1026,9 +1026,29 @@ fi
 if [ "$DEPLOY_SUCCESS" = true ]; then
     : # Success - continue to database preparation and domain configuration
 else
-    echo ""
-    msg "$MSG_EXEC_FAILED"
-    exit 1
+    # Auto-fix: if containerd had an overlayfs storage error (transient kernel bug),
+    # restart the daemon and retry once — transparent to the user.
+    if ! is_on_server; then
+        _CONTAINERD_ERRORS=$(ssh "$SSH_ALIAS" "
+            journalctl -u containerd --since '10 min ago' --no-pager -q 2>/dev/null | \
+            grep -cE 'Lchown|lease does not exist|failed to extract layer|failed to commit snapshot' 2>/dev/null || echo 0
+        " 2>/dev/null | tail -1 | tr -d '[:space:]')
+        if [ "${_CONTAINERD_ERRORS:-0}" -gt 0 ] 2>/dev/null; then
+            echo ""
+            msg "$MSG_DOCKER_STORAGE_RETRY"
+            ssh "$SSH_ALIAS" "sudo systemctl restart containerd 2>/dev/null; sleep 5; sudo systemctl restart docker 2>/dev/null; sleep 3" 2>/dev/null
+            scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" 2>/dev/null
+            if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
+                DEPLOY_SUCCESS=true
+            fi
+        fi
+    fi
+
+    if [ "$DEPLOY_SUCCESS" != true ]; then
+        echo ""
+        msg "$MSG_EXEC_FAILED"
+        exit 1
+    fi
 fi
 
 # =============================================================================
