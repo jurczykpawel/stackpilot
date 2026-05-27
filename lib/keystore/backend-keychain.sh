@@ -13,8 +13,13 @@ _backend_available() {
 
 _backend_set() {
     local name="$1" value="$2"
+    # Delete first so we always create a fresh item — avoids the
+    # "security wants to change access permissions" popup that macOS
+    # shows when add-generic-password -U tries to modify an existing
+    # item's ACL. Delete is silent because the ACL grants security CLI.
+    security delete-generic-password \
+        -s "$STACKPILOT_KEYCHAIN_SERVICE" -a "$name" >/dev/null 2>&1 || true
     security add-generic-password \
-        -U \
         -a "$name" \
         -s "$STACKPILOT_KEYCHAIN_SERVICE" \
         -w "$value" \
