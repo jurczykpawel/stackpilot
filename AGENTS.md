@@ -29,11 +29,24 @@ lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server
 lib/providers/   -> Provider plugins (mikrus/, generic hooks via detect.sh)
 locale/          -> i18n language files (en.sh, pl.sh) — 1325 MSG_* keys each
 system/          -> System scripts (docker, caddy, backup-core)
+installers/      -> Template + build.sh for stackpilot.techskills.academy/<app> oneliner endpoints
 tests/           -> Test suites (unit/, static/, e2e/)
 contrib/         -> Provider-specific deployment scripts (mikrus/)
 docs/            -> Documentation (Cloudflare, CLI reference)
 mcp-server/      -> MCP server for AI assistants (TypeScript)
 ```
+
+## One-liner Install Endpoints
+
+`curl -fsSL https://stackpilot.techskills.academy/<app> | bash` is generated automatically from `apps/*/` via `installers/template.sh` + `installers/build.sh`.
+
+- Source of truth: any `apps/<app>/install.sh` becomes an endpoint.
+- Build: `installers/build.sh <output_dir>` renders one extensionless file per app + a `_headers` manifest.
+- Publishing: daily cron in `jurczykpawel/static-sites` (`.github/workflows/sync-stackpilot-installers.yml`) clones this repo, runs the build into `stackpilot.techskills.academy/`, commits, and triggers the existing CF Pages deploy. For instant sync after adding/renaming an app:
+  ```bash
+  gh workflow run sync-stackpilot-installers.yml -R jurczykpawel/static-sites
+  ```
+- Reserved names (will not be generated even if matched): `index`, `en`, `pl`, `style`, `micro`, `logo`, `fonts`, plus `robots.txt`, `sitemap.xml`, `llms.txt`, `_headers`, `_redirects`, `_routes.json`.
 
 ## i18n System
 

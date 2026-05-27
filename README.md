@@ -200,6 +200,20 @@ cd stackpilot
 
 `deploy.sh` handles everything: checks server resources, prompts for domain and database configuration, deploys the app, and verifies it is running.
 
+### One-line install (any app)
+
+If you are already SSHed into a fresh server and just want a single app, skip the git clone:
+
+```bash
+curl -fsSL https://stackpilot.techskills.academy/n8n | bash
+```
+
+Replace `n8n` with any [supported app](https://stackpilot.techskills.academy). The script bootstraps StackPilot to `/opt/stackpilot` (if not already there) and runs `deploy.sh` for that app. Pass flags through after `--`:
+
+```bash
+curl -fsSL https://stackpilot.techskills.academy/n8n | bash -s -- --domain-type=cloudflare --domain=n8n.example.com --yes
+```
+
 ### Windows / no bash locally
 
 If you only have PowerShell (no WSL, no Git Bash), the local `./local/*.sh` scripts won't run on your machine. Use the dual-mode flow: SSH into the server first, then run StackPilot directly on it.
