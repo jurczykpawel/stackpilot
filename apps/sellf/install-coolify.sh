@@ -1,43 +1,58 @@
 #!/bin/bash
 
-# StackPilot - Sellf on Coolify (self-hosted PaaS)
+# StackPilot - Sellf on Coolify (self-hosted PaaS or Coolify Cloud)
 # Author: Paweł (Lazy Engineer)
 #
-# Deploys Sellf to a Coolify instance on your own VPS. The script can
-# install Coolify on the target host if it isn't there already, then
-# bootstraps an admin user, generates an API token, and uses the
-# Coolify REST API to create the application + env vars + deploy.
+# Deploys Sellf to a Coolify instance. Two operating modes:
+#
+#   * Self-hosted Coolify (default) — the script SSHes into your VPS,
+#     installs Coolify there if it isn't already, registers an admin user,
+#     generates an API token, then uses the Coolify REST API to create the
+#     application + env vars + deploy.
+#
+#   * Coolify Cloud (--coolify-cloud) — assumes you've already signed up
+#     at https://app.coolify.io, added your server, and generated an API
+#     token in the UI. The script then only talks to the Cloud API to
+#     create the project + app + env vars + deploy. No SSH to the VPS
+#     happens; Coolify Cloud handles that for you.
 #
 # Total time:
-#   - ~12 minutes on a fresh VPS (5 min Coolify install + 7 min build)
-#   - ~7 minutes if Coolify is already running
+#   - Self-hosted, fresh VPS: ~12 min (5 min Coolify install + 7 min build)
+#   - Self-hosted, Coolify already running: ~7 min
+#   - Cloud: ~7 min
 #
 # IMPORTANT: requires a VPS with **8 GB+ RAM**. A 4 GB VPS OOM-kills the
 # bun build step (see docs/DEPLOYMENT-COOLIFY.md in the Sellf repo).
 #
 # Prerequisites on operator's machine:
-#   ssh, openssl, jq, curl, supabase, stripe (Sellf still uses Supabase Cloud +
-#   Stripe test mode in this configuration — the Coolify host runs only the
-#   admin-panel container; Supabase remains external)
-#
-# SSH access requirements on the target VPS:
-#   - root SSH login (ssh "$SSH_HOST" must work without password prompts)
+#   openssl, jq, curl, supabase, stripe.
+#   Self-hosted mode also needs: ssh (with passwordless root access to VPS).
 #
 # Environment variables / flags:
-#   --ssh-host           SSH alias or user@host for the target VPS (required)
-#   --admin-email        Admin email to register in Coolify  (default: pavveldev@gmail.com)
-#   --admin-password     Admin password                       (default: random)
-#   --project-name       Both Coolify app name and Supabase project name
-#                        Default: sellf-<unix-ts>
-#   --supabase-org       Supabase org id (auto-detected if 1)
-#   --supabase-region    Default: eu-central-1
-#   --stripe-sk          sk_test_… (prompted if absent)
-#   --stripe-pk          pk_test_… (prompted if absent)
-#   --repo-path          Sellf repo checkout                  (default: pwd)
-#   --skip-coolify-install Skip installing Coolify (use already-installed instance)
-#   --skip-supabase + --supabase-url/--anon/--svc/--ref/--db-password —
-#                        reuse an existing Supabase project instead of creating one
-#                        (same flags as install-vercel.sh / install-netlify.sh)
+#
+#   Common:
+#     --project-name       Coolify app name + Supabase project name
+#                          Default: sellf-<unix-ts>
+#     --supabase-org       Supabase org id (auto-detected if 1)
+#     --supabase-region    Default: eu-central-1
+#     --stripe-sk          sk_test_… (prompted if absent)
+#     --stripe-pk          pk_test_… (prompted if absent)
+#     --repo-path          Sellf repo checkout (default: pwd)
+#     --skip-supabase + --supabase-url/--anon/--svc/--ref/--db-password —
+#                          reuse an existing Supabase project instead of creating one
+#                          (same flags as install-vercel.sh / install-netlify.sh)
+#
+#   Self-hosted Coolify (default):
+#     --ssh-host           SSH alias or user@host for the target VPS (required)
+#     --admin-email        Admin email to register in Coolify (default: pavveldev@gmail.com)
+#     --admin-password     Admin password (default: random)
+#     --skip-coolify-install Skip installing Coolify (use already-installed instance)
+#
+#   Coolify Cloud (--coolify-cloud):
+#     --coolify-cloud      Use Coolify Cloud (https://app.coolify.io) instead of installing on a VPS
+#     --coolify-base       Override Cloud base URL (default: https://app.coolify.io)
+#     --coolify-token      API token from Cloud UI → Keys & Tokens (required)
+#     --server-uuid        UUID of the server you've already connected in the Cloud UI (required)
 #
 # Output:
 #   Live URL printed at the end + path to .env.deploy.<project> with creds.
@@ -50,6 +65,10 @@ ADMIN_EMAIL="pavveldev@gmail.com"
 ADMIN_PASSWORD=""
 SKIP_COOLIFY_INSTALL=0
 SKIP_SUPABASE=0
+COOLIFY_CLOUD=0
+COOLIFY_BASE_OVERRIDE=""
+COOLIFY_TOKEN_IN=""
+SERVER_UUID_IN=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --ssh-host)             SSH_HOST="$2"; shift 2 ;;
@@ -68,6 +87,10 @@ while [ $# -gt 0 ]; do
         --supabase-svc)         SB_SVC_IN="$2"; shift 2 ;;
         --supabase-ref)         PROJECT_REF_IN="$2"; shift 2 ;;
         --db-password)          DB_PASS_IN="$2"; shift 2 ;;
+        --coolify-cloud)        COOLIFY_CLOUD=1; shift ;;
+        --coolify-base)         COOLIFY_BASE_OVERRIDE="$2"; shift 2 ;;
+        --coolify-token)        COOLIFY_TOKEN_IN="$2"; shift 2 ;;
+        --server-uuid)          SERVER_UUID_IN="$2"; shift 2 ;;
         -h|--help)
             sed -n '2,/^set -e/p' "$0" | sed 's/^# \?//; /^set -e/d'
             exit 0
@@ -85,7 +108,12 @@ if [ "$SKIP_SUPABASE" = "1" ]; then
     done
 fi
 
-[ -z "$SSH_HOST" ] && { echo "❌ --ssh-host is required (SSH alias or user@host)."; exit 1; }
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    [ -z "$COOLIFY_TOKEN_IN" ] && { echo "❌ --coolify-cloud requires --coolify-token <token-from-coolify-cloud-UI>"; exit 1; }
+    [ -z "$SERVER_UUID_IN" ]   && { echo "❌ --coolify-cloud requires --server-uuid <uuid-of-server-added-to-cloud>"; exit 1; }
+else
+    [ -z "$SSH_HOST" ] && { echo "❌ --ssh-host is required for self-hosted Coolify (or use --coolify-cloud)."; exit 1; }
+fi
 PROJECT_NAME="${PROJECT_NAME:-sellf-$(date +%s)}"
 SUPABASE_REGION="${SUPABASE_REGION:-eu-central-1}"
 REPO_PATH="${REPO_PATH:-$(pwd)}"
@@ -94,13 +122,22 @@ ADMIN_PASSWORD="${ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=' | cut 
 # ---------- Pre-flight ----------
 echo "--- 🚀 Sellf → Coolify ---"
 echo ""
-echo "  SSH host:        $SSH_HOST"
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    echo "  Mode:            Coolify Cloud"
+    echo "  Coolify base:    ${COOLIFY_BASE_OVERRIDE:-https://app.coolify.io}"
+    echo "  Server UUID:     $SERVER_UUID_IN"
+else
+    echo "  Mode:            Coolify Self-Hosted"
+    echo "  SSH host:        $SSH_HOST"
+fi
 echo "  Project name:    $PROJECT_NAME"
 echo "  Supabase region: $SUPABASE_REGION"
 echo "  Repo path:       $REPO_PATH"
 echo ""
 
-for cmd in ssh openssl jq curl supabase stripe; do
+CLI_REQUIREMENTS="openssl jq curl supabase stripe"
+[ "$COOLIFY_CLOUD" = "0" ] && CLI_REQUIREMENTS="ssh $CLI_REQUIREMENTS"
+for cmd in $CLI_REQUIREMENTS; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         echo "❌ Missing required CLI: $cmd"
         exit 1
@@ -112,9 +149,11 @@ if [ ! -f "$REPO_PATH/admin-panel/package.json" ] || [ ! -d "$REPO_PATH/supabase
     exit 1
 fi
 
-if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "$SSH_HOST" "echo ok" >/dev/null 2>&1; then
-    echo "❌ Cannot SSH to '$SSH_HOST' without a password. Set up SSH keys first."
-    exit 1
+if [ "$COOLIFY_CLOUD" = "0" ]; then
+    if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "$SSH_HOST" "echo ok" >/dev/null 2>&1; then
+        echo "❌ Cannot SSH to '$SSH_HOST' without a password. Set up SSH keys first."
+        exit 1
+    fi
 fi
 
 if [ "$SKIP_SUPABASE" = "0" ]; then
@@ -122,21 +161,23 @@ if [ "$SKIP_SUPABASE" = "0" ]; then
 fi
 stripe config --list 2>/dev/null | grep -q "test_mode_api_key" || { echo "❌ stripe: not logged in. Run: stripe login"; exit 1; }
 
-# Detect VPS public IP
-SSH_IP=$(ssh "$SSH_HOST" "curl -s -4 ifconfig.io" 2>/dev/null)
-[ -z "$SSH_IP" ] && { echo "❌ Could not detect target's public IP via 'curl ifconfig.io'."; exit 1; }
-echo "  VPS public IP:   $SSH_IP"
+# VPS sanity checks — only for self-hosted mode. Cloud users already chose
+# a server in the Coolify UI when they added it.
+if [ "$COOLIFY_CLOUD" = "0" ]; then
+    SSH_IP=$(ssh "$SSH_HOST" "curl -s -4 ifconfig.io" 2>/dev/null)
+    [ -z "$SSH_IP" ] && { echo "❌ Could not detect target's public IP via 'curl ifconfig.io'."; exit 1; }
+    echo "  VPS public IP:   $SSH_IP"
 
-# RAM check — 8 GB minimum, with warning at < 7 GB
-RAM_MB=$(ssh "$SSH_HOST" "free -m | awk '/^Mem:/ {print \$2}'" 2>/dev/null)
-if [ "$RAM_MB" -lt 7000 ]; then
-    echo "⚠️  WARNING: target VPS has only $((RAM_MB / 1024)) GB RAM."
-    echo "   Sellf's bun build needs ~3 GB free; on <8 GB the build typically OOM-kills."
-    echo "   Continue anyway? [y/N]"
-    read -r ans
-    [ "$ans" = "y" ] || exit 1
-else
-    echo "  VPS RAM:         $((RAM_MB / 1024)) GB ($RAM_MB MB)"
+    RAM_MB=$(ssh "$SSH_HOST" "free -m | awk '/^Mem:/ {print \$2}'" 2>/dev/null)
+    if [ "$RAM_MB" -lt 7000 ]; then
+        echo "⚠️  WARNING: target VPS has only $((RAM_MB / 1024)) GB RAM."
+        echo "   Sellf's bun build needs ~3 GB free; on <8 GB the build typically OOM-kills."
+        echo "   Continue anyway? [y/N]"
+        read -r ans
+        [ "$ans" = "y" ] || exit 1
+    else
+        echo "  VPS RAM:         $((RAM_MB / 1024)) GB ($RAM_MB MB)"
+    fi
 fi
 
 # Stripe keys
@@ -154,65 +195,87 @@ if [ "$SKIP_SUPABASE" = "0" ] && [ -z "$SUPABASE_ORG_ID" ]; then
     [ -z "$SUPABASE_ORG_ID" ] && { echo "❌ Could not auto-detect Supabase org."; exit 1; }
 fi
 
-COOLIFY_BASE="http://${SSH_IP}:8000"
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    COOLIFY_BASE="${COOLIFY_BASE_OVERRIDE:-https://app.coolify.io}"
+    COOLIFY_TOKEN="$COOLIFY_TOKEN_IN"
+    SERVER_UUID="$SERVER_UUID_IN"
+else
+    COOLIFY_BASE="http://${SSH_IP}:8000"
+fi
 
-# ---------- Step 1: Install Coolify (if not present) ----------
-if [ "$SKIP_COOLIFY_INSTALL" = "0" ] && ! ssh "$SSH_HOST" "docker ps --filter name=coolify --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'" 2>/dev/null; then
+# ---------- Step 1: Install Coolify (self-hosted only) ----------
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    echo "[1/11] Using Coolify Cloud at $COOLIFY_BASE — skipping VPS install."
+elif [ "$SKIP_COOLIFY_INSTALL" = "0" ] && ! ssh "$SSH_HOST" "docker ps --filter name=coolify --format '{{.Names}}' 2>/dev/null | grep -q '^coolify$'" 2>/dev/null; then
     echo "[1/11] Installing Coolify on $SSH_HOST (this takes ~5 minutes)…"
     ssh "$SSH_HOST" "curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash" 2>&1 | tail -3 | sed 's/^/        /'
 else
     echo "[1/11] Coolify already running on $SSH_HOST — skipping install."
 fi
 
-# ---------- Step 2: Register admin user via HTTP ----------
-echo "[2/11] Registering admin user '$ADMIN_EMAIL'…"
-COOKIES=$(mktemp)
-trap 'rm -f "$COOKIES"' EXIT
-RESP=$(curl -s -c "$COOKIES" "$COOLIFY_BASE/register")
-TOKEN=$(echo "$RESP" | grep -oE 'name="_token"[^>]*value="[^"]*"' | head -1 | sed -E 's/.*value="([^"]+)".*/\1/')
-if [ -z "$TOKEN" ]; then
-    # Maybe already registered. Try logging in instead.
-    echo "        Register page has no CSRF — likely already set up. Continuing."
+# ---------- Step 2: Register admin user via HTTP (self-hosted only) ----------
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    echo "[2/11] Coolify Cloud — admin user already set up. Skipping."
 else
-    REG_RESULT=$(curl -s -b "$COOKIES" -c "$COOKIES" -X POST "$COOLIFY_BASE/register" \
-        -d "_token=$TOKEN" \
-        -d "name=Pawel" \
-        -d "email=$ADMIN_EMAIL" \
-        -d "password=$ADMIN_PASSWORD" \
-        -d "password_confirmation=$ADMIN_PASSWORD" \
-        -d "terms=on" \
-        -o /dev/null -w "%{http_code}")
-    case "$REG_RESULT" in
-        302) echo "        Registered + logged in." ;;
-        422) echo "        User already exists; that's fine." ;;
-        *) echo "        Unexpected register HTTP $REG_RESULT"; exit 1 ;;
-    esac
+    echo "[2/11] Registering admin user '$ADMIN_EMAIL'…"
+    COOKIES=$(mktemp)
+    trap 'rm -f "$COOKIES"' EXIT
+    RESP=$(curl -s -c "$COOKIES" "$COOLIFY_BASE/register")
+    TOKEN=$(echo "$RESP" | grep -oE 'name="_token"[^>]*value="[^"]*"' | head -1 | sed -E 's/.*value="([^"]+)".*/\1/')
+    if [ -z "$TOKEN" ]; then
+        # Maybe already registered. Try logging in instead.
+        echo "        Register page has no CSRF — likely already set up. Continuing."
+    else
+        REG_RESULT=$(curl -s -b "$COOKIES" -c "$COOKIES" -X POST "$COOLIFY_BASE/register" \
+            -d "_token=$TOKEN" \
+            -d "name=Pawel" \
+            -d "email=$ADMIN_EMAIL" \
+            -d "password=$ADMIN_PASSWORD" \
+            -d "password_confirmation=$ADMIN_PASSWORD" \
+            -d "terms=on" \
+            -o /dev/null -w "%{http_code}")
+        case "$REG_RESULT" in
+            302) echo "        Registered + logged in." ;;
+            422) echo "        User already exists; that's fine." ;;
+            *) echo "        Unexpected register HTTP $REG_RESULT"; exit 1 ;;
+        esac
+    fi
 fi
 
-# ---------- Step 3: Enable API + create token via direct DB ----------
-echo "[3/11] Enabling Coolify API + generating personal access token…"
-PLAINTEXT=$(openssl rand -hex 32)
-HASH=$(ssh "$SSH_HOST" "docker exec coolify php artisan tinker --execute='echo hash(\"sha256\", \"$PLAINTEXT\");' 2>&1" | tail -1 | tr -d '\r')
-USER_ID=$(ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -tA -c \"SELECT id FROM users WHERE email='$ADMIN_EMAIL' LIMIT 1;\" 2>/dev/null" | head -1 | tr -d ' ')
-TEAM_ID=$(ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -tA -c \"SELECT team_id FROM team_user WHERE user_id=$USER_ID LIMIT 1;\" 2>/dev/null" | head -1 | tr -d ' ')
+# ---------- Step 3: Enable API + create token (self-hosted only; Cloud uses provided token) ----------
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    echo "[3/11] Coolify Cloud — using API token supplied via --coolify-token."
+    curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/version" >/dev/null \
+        || { echo "❌ Cloud API token validation failed. Check --coolify-token."; exit 1; }
+else
+    echo "[3/11] Enabling Coolify API + generating personal access token…"
+    PLAINTEXT=$(openssl rand -hex 32)
+    HASH=$(ssh "$SSH_HOST" "docker exec coolify php artisan tinker --execute='echo hash(\"sha256\", \"$PLAINTEXT\");' 2>&1" | tail -1 | tr -d '\r')
+    USER_ID=$(ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -tA -c \"SELECT id FROM users WHERE email='$ADMIN_EMAIL' LIMIT 1;\" 2>/dev/null" | head -1 | tr -d ' ')
+    TEAM_ID=$(ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -tA -c \"SELECT team_id FROM team_user WHERE user_id=$USER_ID LIMIT 1;\" 2>/dev/null" | head -1 | tr -d ' ')
 
-ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -c \"
-  UPDATE instance_settings SET is_api_enabled = true;
-  INSERT INTO personal_access_tokens (name, token, tokenable_id, tokenable_type, team_id, abilities, created_at, updated_at)
-    VALUES ('claude-cli', '$HASH', $USER_ID, 'App\\\\Models\\\\User', $TEAM_ID, '[\\\"*\\\"]', NOW(), NOW());
-\"" > /dev/null 2>&1
+    ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -c \"
+      UPDATE instance_settings SET is_api_enabled = true;
+      INSERT INTO personal_access_tokens (name, token, tokenable_id, tokenable_type, team_id, abilities, created_at, updated_at)
+        VALUES ('claude-cli', '$HASH', $USER_ID, 'App\\\\Models\\\\User', $TEAM_ID, '[\\\"*\\\"]', NOW(), NOW());
+    \"" > /dev/null 2>&1
 
-TOKEN_ID=$(ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -tA -c 'SELECT id FROM personal_access_tokens ORDER BY id DESC LIMIT 1;' 2>/dev/null" | head -1 | tr -d ' ')
-COOLIFY_TOKEN="${TOKEN_ID}|${PLAINTEXT}"
-curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/version" >/dev/null \
-    || { echo "❌ API token validation failed."; exit 1; }
+    TOKEN_ID=$(ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -tA -c 'SELECT id FROM personal_access_tokens ORDER BY id DESC LIMIT 1;' 2>/dev/null" | head -1 | tr -d ' ')
+    COOLIFY_TOKEN="${TOKEN_ID}|${PLAINTEXT}"
+    curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/version" >/dev/null \
+        || { echo "❌ API token validation failed."; exit 1; }
+fi
 
-# ---------- Step 4: Validate server ----------
-echo "[4/11] Validating localhost as deploy target…"
-SERVER_UUID=$(curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/servers" | jq -r '.[0].uuid')
-curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/servers/$SERVER_UUID/validate" >/dev/null
-# The API often returns is_reachable=null even after validation succeeds; trust the DB instead.
-ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -c \"UPDATE server_settings SET is_reachable=true, is_usable=true;\" >/dev/null 2>&1"
+# ---------- Step 4: Validate server (self-hosted only; Cloud user added it via UI) ----------
+if [ "$COOLIFY_CLOUD" = "1" ]; then
+    echo "[4/11] Coolify Cloud — using server $SERVER_UUID already validated via UI."
+else
+    echo "[4/11] Validating localhost as deploy target…"
+    SERVER_UUID=$(curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/servers" | jq -r '.[0].uuid')
+    curl -sH "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_BASE/api/v1/servers/$SERVER_UUID/validate" >/dev/null
+    # The API often returns is_reachable=null even after validation succeeds; trust the DB instead.
+    ssh "$SSH_HOST" "docker exec coolify-db psql -U coolify -c \"UPDATE server_settings SET is_reachable=true, is_usable=true;\" >/dev/null 2>&1"
+fi
 
 # ---------- Step 5: Generate secrets ----------
 echo "[5/11] Generating secrets…"

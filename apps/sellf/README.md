@@ -13,7 +13,7 @@ This folder has four installers. Pick the one that matches what you want.
 |-----------|--------------|------------|------|
 | **`install-vercel.sh`** | Sellf on Vercel + fresh Supabase Cloud database + Stripe test webhook — all configured automatically | You want zero server management. Vercel and Supabase handle uptime. Free for first months. | ~5 min |
 | **`install-netlify.sh`** | Same as above but on Netlify | You prefer Netlify over Vercel | ~3 min |
-| **`install-coolify.sh`** | Installs Coolify on your VPS, then deploys Sellf there | You want full control on your own server. Lowest long-term cost. **Requires 8 GB+ RAM**. | ~12 min |
+| **`install-coolify.sh`** | Deploys Sellf via Coolify, either self-hosted (installs Coolify on your VPS for you) or via Coolify Cloud (`--coolify-cloud` flag, $5/mo, you bring an already-registered server) | You want full control on your own server. Lowest long-term cost (free with self-hosted, ~$5/mo with Cloud). **Requires 8 GB+ RAM** on the target VPS in either mode. | ~12 min self-hosted / ~7 min Cloud |
 | **`install.sh`** | Sellf on a Linux server via PM2 (no Docker, no Coolify) | You have a cheap VPS like mikr.us (35 PLN/year, 384 MB RAM). Lightest weight. | ~5 min |
 
 **Most users should use `install-vercel.sh`.** Two reasons:
@@ -67,7 +67,9 @@ For the full beginner walkthrough of how to obtain those values, see [SUPABASE-S
 
 ### Coolify (`install-coolify.sh`)
 
-For a self-hosted deployment on your own VPS:
+Coolify has two flavors and the installer supports both.
+
+**Self-hosted Coolify** (free; the script installs Coolify on your VPS, then deploys Sellf there):
 
 ```bash
 ./apps/sellf/install-coolify.sh \
@@ -75,7 +77,19 @@ For a self-hosted deployment on your own VPS:
     --repo-path ~/sellf
 ```
 
-This will SSH into the VPS, install Coolify if it isn't there, register an admin user, create the Sellf application, and deploy. **Your VPS needs 8 GB RAM or more** — the Sellf build OOM-kills on 4 GB. Use Hetzner CX32 (€8/mo) or equivalent.
+**Coolify Cloud** ($5/mo for 2 servers; you've already signed up at https://app.coolify.io, added your server, and generated an API token in the UI):
+
+```bash
+./apps/sellf/install-coolify.sh \
+    --coolify-cloud \
+    --coolify-token <your-api-token-from-coolify-UI> \
+    --server-uuid   <uuid-of-server-already-connected> \
+    --repo-path ~/sellf
+```
+
+Both modes deploy Sellf to a VPS that **you** own — Coolify Cloud only hosts the management UI, not your application. **Your VPS needs 8 GB RAM or more** in either mode (the Sellf build OOM-kills on 4 GB). Use Hetzner CX32 (€8/mo) or equivalent.
+
+For the full deep dive on which flavor to pick + manual flow + troubleshooting, see Sellf's [DEPLOYMENT-COOLIFY.md](https://github.com/jurczykpawel/sellf/blob/main/docs/DEPLOYMENT-COOLIFY.md).
 
 ### Cleaning up after a test
 
