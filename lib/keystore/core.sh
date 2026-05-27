@@ -36,3 +36,31 @@ keystore_has() {
     _keystore_valid_name "$name" || return 1
     _backend_has "$name"
 }
+
+keystore_rm() {
+    local name="${1:-}"
+    _keystore_valid_name "$name" || return 0
+    _backend_rm "$name"
+    unset "STACKPILOT_KEY_CACHE_$(echo "$name" | tr '[:lower:]' '[:upper:]')"
+    return 0
+}
+
+keystore_list() {
+    _backend_list
+}
+
+keystore_backend() {
+    _backend_id
+}
+
+keystore_require_keys() {
+    local missing=0
+    local name
+    for name in "$@"; do
+        if ! keystore_has "$name"; then
+            printf '%s\n' "$name"
+            missing=$((missing+1))
+        fi
+    done
+    return $missing
+}
