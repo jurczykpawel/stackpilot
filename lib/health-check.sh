@@ -20,6 +20,23 @@ GREEN="${GREEN:-\033[0;32m}"
 YELLOW="${YELLOW:-\033[1;33m}"
 NC="${NC:-\033[0m}"
 
+# Fallback msg()/msg_n() when health-check.sh is sourced without i18n.sh
+if ! type msg &>/dev/null; then
+    MSG_HC_CHECKING="${MSG_HC_CHECKING:-Checking %s...}"
+    MSG_HC_DIR_NOT_FOUND="${MSG_HC_DIR_NOT_FOUND:-Stack directory not found: %s}"
+    MSG_HC_CONTAINER_NOT_STARTED="${MSG_HC_CONTAINER_NOT_STARTED:-Container did not start.}"
+    MSG_HC_LOGS="${MSG_HC_LOGS:-Logs:}"
+    MSG_HC_CONTAINER_RUNNING="${MSG_HC_CONTAINER_RUNNING:- Container running.}"
+    MSG_HC_WAITING_HTTP="${MSG_HC_WAITING_HTTP:- Waiting for HTTP response...}"
+    MSG_HC_APP_RESPONDING="${MSG_HC_APP_RESPONDING:- App responding (HTTP %s)}"
+    MSG_HC_CONTAINER_STOPPED="${MSG_HC_CONTAINER_STOPPED:- Container stopped.}"
+    MSG_HC_TIMEOUT="${MSG_HC_TIMEOUT:-Timeout after %ss.}"
+    MSG_HC_CONTAINER_OK="${MSG_HC_CONTAINER_OK:-Container running: %s}"
+    MSG_HC_CONTAINER_FAIL="${MSG_HC_CONTAINER_FAIL:-Container not running: %s}"
+    msg()   { local fmt="$1"; shift; printf "${fmt}\n" "$@"; }
+    msg_n() { local fmt="$1"; shift; printf "${fmt}"   "$@"; }
+fi
+
 # Checks if container is running and application responds to HTTP
 # Arguments: APP_NAME PORT [TIMEOUT] [HEALTH_PATH]
 # Uses $STACK_DIR from env if set, otherwise /opt/stacks/$APP_NAME
