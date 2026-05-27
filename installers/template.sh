@@ -6,7 +6,7 @@
 set -euo pipefail
 
 APP="__APP__"
-BOOTSTRAP_URL="${STACKPILOT_BOOTSTRAP_URL:-https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/system/bootstrap.sh}"
+BOOTSTRAP_URL="${STACKPILOT_BOOTSTRAP_URL:-https://stackpilot.techskills.academy/install}"
 INSTALL_DIR="${STACKPILOT_DIR:-/opt/stackpilot}"
 
 echo ""
