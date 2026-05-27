@@ -101,7 +101,7 @@ Values are resolved in the following order (highest priority first):
 
 ## Database Configuration
 
-Used by applications that require PostgreSQL (n8n, listmonk, umami, nocodb, typebot) or MySQL (wordpress, cap).
+Used by applications that require PostgreSQL (n8n, listmonk, keila, umami, nocodb, typebot) or MySQL (wordpress, cap).
 
 ### Flags
 
@@ -306,7 +306,7 @@ DOMAIN=cap.example.com
 
 ### Sellf
 
-Sellf uses **Bun + PM2** (not Docker). Installation is **interactive** - the script guides you through Supabase and Stripe configuration.
+Sellf defaults to **Bun + PM2** (lightweight, ~50MB RAM). A Docker runtime mode is also available for isolated container deployments.
 
 ```bash
 # Interactive setup (recommended)
@@ -315,9 +315,20 @@ Sellf uses **Bun + PM2** (not Docker). Installation is **interactive** - the scr
 # With Cloudflare domain
 ./local/deploy.sh sellf --ssh=vps --domain-type=cloudflare --domain=shop.example.com
 
-# With Caddy domain
-./local/deploy.sh sellf --ssh=vps --domain-type=caddy --domain=shop.example.com
+# With local self-hosted Supabase (deploy supabase first)
+./local/deploy.sh supabase --ssh=vps --domain-type=local --yes
+./local/deploy.sh sellf --ssh=vps --supabase=local --domain-type=cloudflare --domain=shop.example.com --yes
+
+# Docker runtime mode (isolated container, ~200MB RAM)
+./local/deploy.sh sellf --ssh=vps --supabase=local --runtime=docker --domain-type=cloudflare --domain=shop.example.com --yes
 ```
+
+**Runtime flag:**
+
+| Flag | Description |
+|------|-------------|
+| `--runtime=pm2` | Default. Bun + PM2, ~50MB RAM. |
+| `--runtime=docker` | Docker container built from release artifact. Uses `network_mode: host` so it can reach local Supabase. |
 
 Optional environment variables (to skip interactive prompts):
 
@@ -336,7 +347,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...  # optional, added after installation
 DOMAIN=shop.example.com
 ```
 
-**Requirements:** VPS with 1GB+ RAM, Supabase account (free tier), Stripe account
+**Requirements:** VPS with 1GB+ RAM, Supabase account (free tier or self-hosted), Stripe account (optional)
 
 ### FileBrowser
 

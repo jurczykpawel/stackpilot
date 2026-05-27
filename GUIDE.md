@@ -42,18 +42,17 @@ ssh vps 'hostname && cat /etc/os-release | head -2'
 
 ### Initial Server Setup
 
-On a fresh VPS, ensure Docker is installed:
+On a fresh VPS, Docker is installed automatically when you first run `deploy.sh`. No manual steps needed.
+
+If you want to install Docker explicitly:
 
 ```bash
-ssh vps
-# Install Docker:
-curl -fsSL https://get.docker.com | sh
+./local/deploy.sh system/docker-setup.sh --ssh=vps
 ```
 
 Verify Docker installation:
 ```bash
 ssh vps 'docker --version'
-# If it fails: install Docker as shown above
 ```
 
 ### Running Scripts on the Server (Windows/PowerShell)
@@ -94,6 +93,7 @@ Applications are located in `apps/<name>/install.sh`:
 | **listmonk** | Newsletter and mailing | PostgreSQL* | 9000 |
 | **keila** | Email marketing (alt. Mailchimp/Brevo) | PostgreSQL | 4500 |
 | **typebot** | Chatbot builder | PostgreSQL* | 8081/8082 |
+| **affine** | Knowledge base (alt. Notion/Miro) | PostgreSQL | 3010 |
 | **vaultwarden** | Password manager (Bitwarden) | SQLite | 8088 |
 | **linkstack** | Link page (alt. Linktree) | SQLite | 8090 |
 | **redis** | Cache / key-value store | - | 6379 |
@@ -108,9 +108,18 @@ Applications are located in `apps/<name>/install.sh`:
 | **cookie-hub** | Consent management (GDPR) | - | 8091 |
 | **littlelink** | Link page (simpler alternative) | - | 8090 |
 | **social-media-generator** | Social media graphics from templates | PostgreSQL | 8000 |
+| **sgtm** | Server-Side Google Tag Manager | - | 8084 |
+| **watchtower** | Docker container update monitor | - | - |
 | **mcp-docker** | MCP server for Docker management | - | - |
+| **captions-cli** | Burn karaoke captions onto videos (Whisper + ffmpeg) | - | - |
+| **picoclaw** | Ultra-lightweight AI assistant (Telegram/Discord/Slack) | - | 8080 |
+| **routepix** | Visualize travel routes from geotagged photos | - | 3000 |
+| **immich** | Self-hosted photo/video library (alt. Google Photos) | PostgreSQL | 2283 |
+| **supabase** | Self-hosted PostgreSQL + Auth + Storage + Studio | PostgreSQL | 54321 |
+| **coolify** | Full PaaS with 280+ one-click apps (requires 8GB+ RAM) | PostgreSQL | 8000 |
+| **countdown-timer** | Animated countdown GIF generator for emails/web (PHP) | - | 8086 |
 
-*PostgreSQL with an asterisk requires `gen_random_uuid()` (PG 13+). Applies to: n8n, umami, listmonk, typebot, postiz. Use `bundled` or a dedicated database (PG 13+).
+*PostgreSQL with an asterisk requires `gen_random_uuid()` (PG 13+). Applies to: n8n, umami, listmonk, typebot, postiz, affine. Use `bundled` or a dedicated database (PG 13+).
 
 **WordPress** is a special application with its own Dockerfile (PHP redis ext + WP-CLI), bundled Redis, auto-tuning FPM based on RAM, and a post-install script `wp-init.sh`. Details: `apps/wordpress/README.md`.
 
@@ -728,6 +737,8 @@ deploy:
 | n8n | 512-768M |
 | nocodb | 512M |
 | vaultwarden | 128M |
+| sgtm | 256M |
+| watchtower | 64M |
 
 ### Ports
 
@@ -742,10 +753,7 @@ deploy:
 ### Installing a New Application
 
 ```bash
-# 1. Check Docker is installed
-ssh vps 'docker --version' || ssh vps 'curl -fsSL https://get.docker.com | sh'
-
-# 2. Install the application
+# 1. Install the application (Docker is installed automatically if missing)
 ./local/deploy.sh uptime-kuma --ssh=vps
 
 # 3. Verify

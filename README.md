@@ -1,9 +1,9 @@
 # StackPilot
 
-**The AI-native self-hosting toolkit. Deploy 33+ production-optimized Docker apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS — or to Cloudflare Pages — with a single command.**
+**The AI-native self-hosting toolkit. Deploy 36+ production-optimized apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS — or to Cloudflare Pages — with a single command.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Apps: 33+](https://img.shields.io/badge/Apps-33%2B-blue)
+![Apps: 36+](https://img.shields.io/badge/Apps-36%2B-blue)
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
 [![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
@@ -27,7 +27,7 @@ cd stackpilot
 - **One command, production-ready**: Each app is deployed with a single `deploy.sh` call. Memory limits, log rotation, health checks, security headers, and database provisioning are handled automatically.
 - **Zero platform overhead**: No web dashboard to maintain, no background services eating RAM. Just Bash scripts, SSH, and Docker. Your server resources go to your apps, not the platform.
 - **Database flexibility**: Bundled containers (auto-provisioned, zero config) or external databases. WordPress also supports SQLite. Your choice, per app.
-- **28+ curated apps**: Not a marketplace of untested community templates. Every app config is tuned and tested for small VPS environments (512MB--2GB RAM).
+- **36+ curated apps**: Not a marketplace of untested community templates. Every app config is tuned and tested for small VPS environments (512MB--2GB RAM).
 
 ---
 
@@ -79,12 +79,14 @@ cd stackpilot
 | [Dockge](apps/dockge/) | Portainer | Manage Docker Compose stacks via a web UI. |
 | [ntfy](apps/ntfy/) | Pushover | Self-hosted push notification server. |
 | [Redis](apps/redis/) | - | In-memory cache. Speeds up n8n, WordPress, and others. |
+| [Watchtower](apps/watchtower/) | - | Monitor Docker containers for image updates. Alerts or auto-updates on new releases. |
 
 ### Communication and Marketing
 
 | App | Replaces | Description |
 | :--- | :--- | :--- |
 | [Listmonk](apps/listmonk/) | Mailchimp | High-performance newsletter and mailing list manager. |
+| [Keila](apps/keila/) | Mailchimp / Brevo | Email marketing platform. Campaigns, newsletters, subscriber management. |
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
 | [Cap](apps/cap/) | Loom | Screen recording and video sharing. |
@@ -103,6 +105,7 @@ cd stackpilot
 | [Umami](apps/umami/) | Google Analytics | Privacy-focused web analytics. No cookies, GDPR-compliant. |
 | [AFFiNE](apps/affine/) | Notion / Miro | Knowledge base with docs, whiteboards, and databases. Open-source. |
 | [RoutePix](apps/routepix/) | - | Visualize travel routes from geotagged photos. |
+| [Immich](apps/immich/) | Google Photos | Self-hosted photo and video library. Face recognition, CLIP search, mobile backup. |
 
 ### Security and Storage
 
@@ -122,6 +125,8 @@ cd stackpilot
 | [NocoDB](apps/nocodb/) | Airtable | Spreadsheet-style database. CRM, projects, orders. |
 | [Supabase](apps/supabase/) | Firebase / Neon | Self-hosted PostgreSQL + Auth + Storage + Realtime + Studio. |
 | [MCP Docker](apps/mcp-docker/) | - | Let AI assistants manage Docker containers on your server. |
+| [sGTM](apps/sgtm/) | - | Server-side Google Tag Manager. 1st-party analytics, reliable tracking without ad blockers. |
+| [Countdown Timer](apps/countdown-timer/) | - | Animated countdown GIF generator for emails and landing pages. (PHP, no Docker) |
 
 ### AI and Data
 
@@ -410,7 +415,7 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | **GitHub stars** | New | ~50k | ~32k | ~14k |
 | **Min. RAM** | 512MB | 2GB+ | 1GB+ | 512MB |
 | **AI integration** | Native MCP server | No | No | No |
-| **Pre-built apps** | 33 production-optimized + static site hosting | 280+ (community) | Via plugins | None (bring your own) |
+| **Pre-built apps** | 36 production-optimized + static site hosting | 280+ (community) | Via plugins | None (bring your own) |
 | **Complexity** | Single deploy command | Web dashboard | CLI + buildpacks | YAML config files |
 | **Dependencies** | Bash, SSH, Docker | Docker, Traefik, PostgreSQL, Redis | Docker, Nginx, buildpacks | Docker, Ruby |
 | **Domain/SSL** | Caddy auto-HTTPS or Cloudflare | Traefik + Let's Encrypt | Nginx + Let's Encrypt | Traefik or manual |
@@ -459,7 +464,7 @@ Apps run in isolated Docker containers. External access is HTTPS-only via Caddy.
 Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved.
 
 **Can I deploy custom Docker apps?**
-Yes. Via the MCP server, you can deploy any Docker Compose stack -- not just the 31 built-in apps. The AI generates the compose file and deploys it.
+Yes. Via the MCP server, you can deploy any Docker Compose stack -- not just the 36 built-in apps. The AI generates the compose file and deploys it.
 
 **What is MCP?**
 [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants interact with external tools. StackPilot's MCP server (`stackpilot-mcp`) gives Claude (and other compatible AIs) the ability to deploy apps, check server status, configure domains, and set up backups -- all through natural conversation.
@@ -473,7 +478,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 
 ### Completed
 
-- [x] 28+ production-optimized app deployments
+- [x] 36+ production-optimized app deployments
 - [x] CLI deploy with interactive prompts
 - [x] MCP server for AI-driven deployment
 - [x] Caddy auto-HTTPS and Cloudflare DNS integration
@@ -677,6 +682,6 @@ MIT -- see [LICENSE](LICENSE) for details.
 
 ---
 
-*Self-hosted infrastructure toolkit. Deploy 31+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+*Self-hosted infrastructure toolkit. Deploy 36+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
 
 ![](https://stats.techskills.academy/pixels/github?url=/readme/stackpilot)

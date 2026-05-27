@@ -144,6 +144,14 @@ ssh -L 5001:localhost:5001 vps
 # Then open http://localhost:5001
 ```
 
+### 4. Cytrus (Mikrus free subdomain, e.g. name.byst.re)
+
+- Works on ALL Mikrus servers (any subnet)
+- No Caddy, no reverse proxy — app must listen directly on host port (`PORT:CONTAINER_PORT` not `127.0.0.1:PORT`)
+- **CRITICAL: register domain ONLY AFTER the app is healthy and responding on its port**
+- If you register while the app is down/restarting, the domain gets broken and cannot be fixed (no delete via API)
+- Docker auto-binds to both `0.0.0.0:PORT` and `[::]:PORT` with `PORT:PORT` syntax — no extra config needed
+
 **After `deploy_app` with a domain configured** -- domain is set up automatically, no extra steps needed.
 **After `deploy_custom_app`** -- use `setup_domain` to assign a domain.
 
@@ -316,11 +324,11 @@ On the server, the helper is `sp-redirect add|remove|list <domain> [<path> [<tar
 
 Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `/etc/caddy/Caddyfile` only contains `import /etc/caddy/conf.d/*.caddy`. Each call to `add-static-hosting.sh`, `add-php-hosting.sh`, or `add-redirect.sh` updates exactly one file in `conf.d/`.
 
-## Applications (33)
+## Applications (36)
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, keila, linkstack, listmonk, littlelink, mcp-docker, minio, n8n, nocodb, ntfy, picoclaw, postiz, redis, routepix, sellf, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, wordpress
+affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, linkstack, listmonk, littlelink, mcp-docker, minio, n8n, nocodb, ntfy, picoclaw, postiz, redis, routepix, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
 
 Plus static site hosting (Astro, Next.js static export, Hugo, Eleventy, SvelteKit, Gatsby, Docusaurus, VitePress, MkDocs) via `local/deploy-static.sh` — see GUIDE.md.
 
@@ -362,7 +370,16 @@ redis:alpine          -> object cache (bundled or external, auto-detection)
 - Variables: `UPPER_CASE`, functions: `snake_case()` (no `function` keyword)
 - Files: `kebab-case.sh`, directories: `kebab-case`
 - Always set `memory:` limit in docker-compose
-- Ports: `127.0.0.1:$PORT:CONTAINER_PORT` (for security; Cloudflare proxy mode may need `$PORT:CONTAINER_PORT` without 127.0.0.1 -- deploy.sh passes `DOMAIN_TYPE`)
+- Ports: `${BIND_ADDR}$PORT:CONTAINER_PORT` where `BIND_ADDR` is set conditionally based on `DOMAIN_TYPE`:
+  ```bash
+  if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+      BIND_ADDR=""
+  else
+      BIND_ADDR="127.0.0.1:"
+  fi
+  ```
+  - Default (`127.0.0.1:`): binds only to localhost — required for Caddy/Cloudflare reverse proxy mode
+  - Cytrus (`""`): binds to all interfaces including IPv6 (`[::]`) — required for Cytrus direct routing (no reverse proxy)
 
 ### install.sh Pattern
 
@@ -381,6 +398,12 @@ APP_NAME="myapp"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3000}
 
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 # Validation (if DB required)
 if [ -z "$DB_HOST" ]; then echo "Error: Missing DB credentials!"; exit 1; fi
 
@@ -393,7 +416,7 @@ services:
     image: myimage:latest
     restart: always
     ports:
-      - "127.0.0.1:$PORT:8080"
+      - "${BIND_ADDR}$PORT:8080"
     deploy:
       resources:
         limits:
