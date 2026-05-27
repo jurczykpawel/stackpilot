@@ -31,20 +31,47 @@
 #                        or from --stripe-sk; otherwise it prompts)
 #   STRIPE_PK          — pk_test_...  (same — env or --stripe-pk or prompt)
 #
+# Supabase modes:
+#   By default the script creates a fresh Supabase project for you.
+#   If you want to use Vercel's native Supabase integration instead
+#   (Vercel UI: Storage → Connect Database → Supabase), do this first
+#   in the Vercel dashboard so it can create the project + env vars,
+#   then run this script with --skip-supabase and the values it sets:
+#
+#     install-vercel.sh \
+#       --skip-supabase \
+#       --supabase-url https://<ref>.supabase.co \
+#       --supabase-anon "<jwt>" \
+#       --supabase-svc  "<jwt>" \
+#       --supabase-ref <project-ref> \
+#       --db-password <postgres-password>
+#
+#   The script reads those values verbatim, sets them as plain envs on
+#   the Vercel project (under both bare and NEXT_PUBLIC_ names so the
+#   Sellf code finds them either way), and continues with everything
+#   else (migrations, Stripe webhook, smoke test).
+#
 # Output:
 #   Live URL printed at the end + path to a .env.deploy file with all creds.
 
 set -e
 
 # ---------- Argument parsing ----------
+SKIP_SUPABASE=0
 while [ $# -gt 0 ]; do
     case "$1" in
-        --project-name)   PROJECT_NAME="$2"; shift 2 ;;
-        --supabase-org)   SUPABASE_ORG_ID="$2"; shift 2 ;;
+        --project-name)    PROJECT_NAME="$2"; shift 2 ;;
+        --supabase-org)    SUPABASE_ORG_ID="$2"; shift 2 ;;
         --supabase-region) SUPABASE_REGION="$2"; shift 2 ;;
-        --stripe-sk)      STRIPE_SK="$2"; shift 2 ;;
-        --stripe-pk)      STRIPE_PK="$2"; shift 2 ;;
-        --repo-path)      REPO_PATH="$2"; shift 2 ;;
+        --stripe-sk)       STRIPE_SK="$2"; shift 2 ;;
+        --stripe-pk)       STRIPE_PK="$2"; shift 2 ;;
+        --repo-path)       REPO_PATH="$2"; shift 2 ;;
+        --skip-supabase)   SKIP_SUPABASE=1; shift ;;
+        --supabase-url)    SB_URL_IN="$2"; shift 2 ;;
+        --supabase-anon)   SB_ANON_IN="$2"; shift 2 ;;
+        --supabase-svc)    SB_SVC_IN="$2"; shift 2 ;;
+        --supabase-ref)    PROJECT_REF_IN="$2"; shift 2 ;;
+        --db-password)     DB_PASS_IN="$2"; shift 2 ;;
         -h|--help)
             sed -n '2,/^set -e/p' "$0" | sed 's/^# \?//; /^set -e/d'
             exit 0
@@ -56,6 +83,15 @@ done
 PROJECT_NAME="${PROJECT_NAME:-sellf-$(date +%s)}"
 SUPABASE_REGION="${SUPABASE_REGION:-eu-central-1}"
 REPO_PATH="${REPO_PATH:-$(pwd)}"
+
+if [ "$SKIP_SUPABASE" = "1" ]; then
+    for var in SB_URL_IN SB_ANON_IN SB_SVC_IN PROJECT_REF_IN DB_PASS_IN; do
+        if [ -z "${!var}" ]; then
+            echo "❌ --skip-supabase requires --supabase-url, --supabase-anon, --supabase-svc, --supabase-ref, --db-password"
+            exit 1
+        fi
+    done
+fi
 
 # ---------- Pre-flight ----------
 echo "--- 🚀 Sellf → Vercel + Supabase Cloud + Stripe ---"
@@ -82,7 +118,9 @@ fi
 
 # Verify CLI auth
 vercel whoami >/dev/null 2>&1 || { echo "❌ vercel: not logged in. Run: vercel login"; exit 1; }
-supabase projects list >/dev/null 2>&1 || { echo "❌ supabase: not logged in. Run: supabase login"; exit 1; }
+if [ "$SKIP_SUPABASE" = "0" ]; then
+    supabase projects list >/dev/null 2>&1 || { echo "❌ supabase: not logged in. Run: supabase login"; exit 1; }
+fi
 stripe config --list 2>/dev/null | grep -q "test_mode_api_key" || { echo "❌ stripe: not logged in. Run: stripe login"; exit 1; }
 
 # Stripe keys
@@ -96,14 +134,17 @@ fi
 case "$STRIPE_SK" in sk_test_*) ;; *) echo "❌ STRIPE_SK must start with sk_test_"; exit 1 ;; esac
 case "$STRIPE_PK" in pk_test_*) ;; *) echo "❌ STRIPE_PK must start with pk_test_"; exit 1 ;; esac
 
-# Supabase org
-if [ -z "$SUPABASE_ORG_ID" ]; then
+# Supabase org (only needed when creating a project)
+if [ "$SKIP_SUPABASE" = "0" ] && [ -z "$SUPABASE_ORG_ID" ]; then
     SUPABASE_ORG_ID=$(supabase orgs list 2>/dev/null | awk -F'|' '/[a-z]{20}/ {gsub(/^ +| +$/,"",$1); print $1; exit}')
     if [ -z "$SUPABASE_ORG_ID" ]; then
         echo "❌ Could not auto-detect Supabase org. Pass --supabase-org <id>."
         exit 1
     fi
     echo "  Supabase org:    $SUPABASE_ORG_ID (auto-detected)"
+fi
+if [ "$SKIP_SUPABASE" = "1" ]; then
+    echo "  Supabase:        using existing project $PROJECT_REF_IN"
 fi
 echo ""
 
@@ -114,29 +155,38 @@ APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
 LOGINWALL_SECRET=$(openssl rand -hex 32)
 DB_PASS=$(openssl rand -base64 24 | tr -d '=+/' | cut -c1-24)
 
-# ---------- Step 2: Create Supabase project ----------
-echo "[2/9] Creating Supabase project '$PROJECT_NAME' in $SUPABASE_REGION…"
-supabase projects create "$PROJECT_NAME" \
-    --org-id "$SUPABASE_ORG_ID" \
-    --db-password "$DB_PASS" \
-    --region "$SUPABASE_REGION" > /dev/null
-PROJECT_REF=$(supabase projects list 2>/dev/null \
-    | awk -F'|' -v n="$PROJECT_NAME" '$0 ~ n {gsub(/^ +| +$/,"",$3); print $3; exit}')
-[ -z "$PROJECT_REF" ] && { echo "❌ Failed to read project ref after create."; exit 1; }
-echo "      ref: $PROJECT_REF"
+# ---------- Step 2 + 3: Supabase project (create or reuse) ----------
+if [ "$SKIP_SUPABASE" = "1" ]; then
+    echo "[2/9] Reusing existing Supabase project '$PROJECT_REF_IN'…"
+    SB_URL="$SB_URL_IN"
+    SB_ANON="$SB_ANON_IN"
+    SB_SVC="$SB_SVC_IN"
+    PROJECT_REF="$PROJECT_REF_IN"
+    DB_PASS="$DB_PASS_IN"
+    echo "[3/9] Skipping provisioning wait (project supplied externally)."
+else
+    echo "[2/9] Creating Supabase project '$PROJECT_NAME' in $SUPABASE_REGION…"
+    supabase projects create "$PROJECT_NAME" \
+        --org-id "$SUPABASE_ORG_ID" \
+        --db-password "$DB_PASS" \
+        --region "$SUPABASE_REGION" > /dev/null
+    PROJECT_REF=$(supabase projects list 2>/dev/null \
+        | awk -F'|' -v n="$PROJECT_NAME" '$0 ~ n {gsub(/^ +| +$/,"",$3); print $3; exit}')
+    [ -z "$PROJECT_REF" ] && { echo "❌ Failed to read project ref after create."; exit 1; }
+    echo "      ref: $PROJECT_REF"
 
-# ---------- Step 3: Wait for provisioning + fetch keys ----------
-echo "[3/9] Waiting for Supabase provisioning + fetching keys…"
-SB_URL="https://${PROJECT_REF}.supabase.co"
-for i in 1 2 3 4 5 6; do
-    KEYS=$(supabase projects api-keys --project-ref "$PROJECT_REF" 2>&1)
-    if echo "$KEYS" | grep -q "anon"; then break; fi
-    [ "$i" = "6" ] && { echo "❌ Supabase didn't finish provisioning in 2 minutes."; exit 1; }
-    sleep 20
-done
-SB_ANON=$(echo "$KEYS" | grep -E '^\s+anon\s+\|' | sed 's/.*| //' | tr -d ' ')
-SB_SVC=$(echo "$KEYS"  | grep -E '^\s+service_role\s+\|' | sed 's/.*| //' | tr -d ' ')
-[ -z "$SB_ANON" ] || [ -z "$SB_SVC" ] && { echo "❌ Could not parse Supabase keys."; exit 1; }
+    echo "[3/9] Waiting for Supabase provisioning + fetching keys…"
+    SB_URL="https://${PROJECT_REF}.supabase.co"
+    for i in 1 2 3 4 5 6; do
+        KEYS=$(supabase projects api-keys --project-ref "$PROJECT_REF" 2>&1)
+        if echo "$KEYS" | grep -q "anon"; then break; fi
+        [ "$i" = "6" ] && { echo "❌ Supabase didn't finish provisioning in 2 minutes."; exit 1; }
+        sleep 20
+    done
+    SB_ANON=$(echo "$KEYS" | grep -E '^\s+anon\s+\|' | sed 's/.*| //' | tr -d ' ')
+    SB_SVC=$(echo "$KEYS"  | grep -E '^\s+service_role\s+\|' | sed 's/.*| //' | tr -d ' ')
+    [ -z "$SB_ANON" ] || [ -z "$SB_SVC" ] && { echo "❌ Could not parse Supabase keys."; exit 1; }
+fi
 
 # ---------- Step 4: Create Vercel project + configure ----------
 echo "[4/9] Creating Vercel project + setting framework + disabling SSO protection…"
