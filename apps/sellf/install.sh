@@ -329,6 +329,12 @@ LOGINWALL_SECRET=$(openssl rand -hex 32)
 # (cron-job.org, crontab) at /api/cron with Authorization: Bearer <value>.
 CRON_SECRET=$(openssl rand -base64 32)
 
+# Self-hosted ALTCHA captcha (HMAC proof-of-work, zero external deps). Gives
+# the install bot protection on signup/checkout out of the box. If the operator
+# later configures Cloudflare Turnstile, that takes priority automatically and
+# this key is ignored. Without any captcha key, forms have NO bot protection.
+ALTCHA_HMAC_KEY=$(openssl rand -hex 32)
+
 # Read the trusted client IP from the last X-Forwarded-For hop instead of
 # the raw TCP peer. Stackpilot always deploys behind Caddy as the public
 # entrypoint, so this is the correct topology and rate limiting can
@@ -400,6 +406,21 @@ if ! grep -q "^CRON_SECRET=" "$ENV_FILE" 2>/dev/null; then
 # at /api/cron with Authorization: Bearer <value> to drive scheduled jobs
 # (access-expired webhooks, webhook log cleanup).
 CRON_SECRET=$(openssl rand -base64 32)
+ENVEOF
+fi
+
+# Make sure a captcha is configured. ALTCHA is self-hosted (HMAC PoW, no
+# external account) and gives bot protection on signup/checkout out of the
+# box. Skip if Turnstile is already set (it takes priority) so we do not
+# advertise a provider the operator did not choose.
+if ! grep -qE "^(ALTCHA_HMAC_KEY|CLOUDFLARE_TURNSTILE_SECRET_KEY)=" "$ENV_FILE" 2>/dev/null; then
+    echo "🔐 Generating ALTCHA captcha key..."
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# Self-hosted ALTCHA captcha (HMAC proof-of-work). Turnstile, if configured,
+# takes priority and this is ignored. Without any captcha key forms have no
+# bot protection.
+ALTCHA_HMAC_KEY=$(openssl rand -hex 32)
 ENVEOF
 fi
 

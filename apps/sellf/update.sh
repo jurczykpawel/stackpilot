@@ -246,6 +246,15 @@ if [ -f "$ENV_FILE" ] && ! grep -q "^CRON_SECRET=" "$ENV_FILE"; then
     echo "   🔐 generated CRON_SECRET (point your scheduler at /api/cron with Authorization: Bearer <value>)"
 fi
 
+# Ensure a captcha is configured. ALTCHA is self-hosted (HMAC proof-of-work,
+# no external account) and gives bot protection on signup/checkout. Skip if
+# Turnstile is already set — it takes priority, so generating ALTCHA there
+# would be dead config. Without any captcha key, forms have no bot protection.
+if [ -f "$ENV_FILE" ] && ! grep -qE "^(ALTCHA_HMAC_KEY|CLOUDFLARE_TURNSTILE_SECRET_KEY)=" "$ENV_FILE"; then
+    printf "\nALTCHA_HMAC_KEY=%s\n" "$(openssl rand -hex 32)" >> "$ENV_FILE"
+    echo "   🔐 generated ALTCHA_HMAC_KEY (self-hosted captcha; Turnstile overrides if you set it)"
+fi
+
 # Ensure TRUSTED_PROXY=true is set. Production startup refuses to boot
 # without it; rate limiting also degrades to a shared "unknown" bucket
 # for every request when it is missing. Stackpilot always deploys behind
