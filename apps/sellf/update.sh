@@ -208,6 +208,18 @@ else
     echo "📋 Restart mode - skipped file update"
 fi
 
+# Ensure APP_ENCRYPTION_KEY exists. AES-256-GCM key for every DB-stored secret
+# (Stripe UI-wizard key, webhook signing secret, GUS / Currency API keys).
+# Without it the admin cannot save integration settings and encrypted secrets
+# fail to decrypt. Guard on BOTH names: legacy installs may carry the old
+# STRIPE_ENCRYPTION_KEY (which the app still honours as a fallback) — adding a
+# fresh APP_ENCRYPTION_KEY there would shadow it and make existing ciphertext
+# undecryptable. Generate only when neither exists. NEVER rotate after first set.
+if [ -f "$ENV_FILE" ] && ! grep -qE "^(APP_ENCRYPTION_KEY|STRIPE_ENCRYPTION_KEY)=" "$ENV_FILE"; then
+    printf "\nAPP_ENCRYPTION_KEY=%s\n" "$(openssl rand -base64 32)" >> "$ENV_FILE"
+    echo "   🔐 generated APP_ENCRYPTION_KEY (DO NOT change — encrypts DB secrets)"
+fi
+
 # Ensure CHECKOUT_BINDING_SECRET exists (production refuses to boot
 # without it). Self-hosters upgrading from an older Sellf may not have one
 # yet — generate on first update so the next boot does not fail closed.

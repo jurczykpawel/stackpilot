@@ -349,8 +349,11 @@ ENVEOF
     fi
 fi
 
-# Make sure APP_ENCRYPTION_KEY exists (for older installations)
-if ! grep -q "APP_ENCRYPTION_KEY=" "$ENV_FILE" 2>/dev/null; then
+# Make sure APP_ENCRYPTION_KEY exists (for older installations). Guard on the
+# legacy STRIPE_ENCRYPTION_KEY too — the app honours it as a fallback, so adding
+# a fresh APP_ENCRYPTION_KEY would shadow it and make existing encrypted secrets
+# undecryptable. Generate only when neither key is present.
+if ! grep -qE "^(APP_ENCRYPTION_KEY|STRIPE_ENCRYPTION_KEY)=" "$ENV_FILE" 2>/dev/null; then
     echo "🔐 Generating encryption key..."
     cat >> "$ENV_FILE" <<ENVEOF
 
