@@ -190,7 +190,9 @@ else
     cat <<CONFIG | sudo tee -a "$TARGET_FILE"
 
 $SITE_ADDR {
-    reverse_proxy localhost:$PORT_OR_PATH
+    reverse_proxy localhost:$PORT_OR_PATH {
+        trusted_proxies private_ranges
+    }
 }
 CONFIG
 fi
