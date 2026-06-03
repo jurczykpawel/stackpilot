@@ -364,7 +364,11 @@ if [ "$UPDATE_MODE" = true ]; then
         msg "$MSG_UPDATE_DB"
 
         if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
-            SSH_ALIAS="$SSH_ALIAS" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
+            # Read SUPABASE_URL from the deployed instance's .env.local so migrations
+            # target the correct Supabase project regardless of the global config file.
+            _INSTANCE_DIR="/opt/stacks/sellf-${INSTANCE:-default}"
+            _INSTANCE_SUPABASE_URL=$(server_exec "grep '^SUPABASE_URL=' '$_INSTANCE_DIR/admin-panel/.env.local' 2>/dev/null | cut -d= -f2-" 2>/dev/null || true)
+            SSH_ALIAS="$SSH_ALIAS" SUPABASE_URL="$_INSTANCE_SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
         fi
     fi
 
