@@ -199,6 +199,11 @@ if [ "$RESTART_ONLY" = false ]; then
     cp -r "$TEMP_DIR/public" "$INSTALL_DIR/admin-panel/" 2>/dev/null || true
     cp "$TEMP_DIR/version.txt" "$INSTALL_DIR/admin-panel/" 2>/dev/null || true
 
+    # Ship migration files so the DB step can apply NEW migrations. Without this
+    # the server keeps the install-time set and new migrations are silently
+    # skipped. The migration runner reads admin-panel/supabase/migrations.
+    cp -r "$TEMP_DIR/supabase" "$INSTALL_DIR/admin-panel/" 2>/dev/null || true
+
     # Restore .env.local
     cp "$INSTALL_DIR/.env.local.backup" "$ENV_FILE"
 

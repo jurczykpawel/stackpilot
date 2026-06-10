@@ -364,11 +364,14 @@ if [ "$UPDATE_MODE" = true ]; then
         msg "$MSG_UPDATE_DB"
 
         if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ]; then
-            # Read SUPABASE_URL from the deployed instance's .env.local so migrations
-            # target the correct Supabase project regardless of the global config file.
-            _INSTANCE_DIR="/opt/stacks/sellf-${INSTANCE:-default}"
+            # Pass INSTANCE so the migration step targets the right instance. The
+            # primary path applies migrations on the server with the instance's
+            # service-role key; SUPABASE_URL (read here) only feeds the Management-
+            # API bootstrap fallback for a brand-new database.
+            _MIG_INSTANCE="${INSTANCE:-${UPDATE_INSTANCE:-}}"
+            _INSTANCE_DIR="/opt/stacks/sellf-${_MIG_INSTANCE:-default}"
             _INSTANCE_SUPABASE_URL=$(server_exec "grep '^SUPABASE_URL=' '$_INSTANCE_DIR/admin-panel/.env.local' 2>/dev/null | cut -d= -f2-" 2>/dev/null || true)
-            SSH_ALIAS="$SSH_ALIAS" SUPABASE_URL="$_INSTANCE_SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
+            SSH_ALIAS="$SSH_ALIAS" INSTANCE="$_MIG_INSTANCE" SUPABASE_URL="$_INSTANCE_SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || true
         fi
     fi
 
@@ -1068,7 +1071,7 @@ if [ "$APP_NAME" = "sellf" ]; then
     msg "$MSG_SELLF_DB_PREP"
 
     if [ -f "$REPO_ROOT/local/setup-supabase-migrations.sh" ] && [ "${SUPABASE_MODE:-cloud}" != "local" ]; then
-        SSH_ALIAS="$SSH_ALIAS" PROJECT_REF="$PROJECT_REF" SUPABASE_URL="$SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || {
+        SSH_ALIAS="$SSH_ALIAS" INSTANCE="${INSTANCE:-${DOMAIN%%.*}}" PROJECT_REF="$PROJECT_REF" SUPABASE_URL="$SUPABASE_URL" "$REPO_ROOT/local/setup-supabase-migrations.sh" || {
             msg "$MSG_SELLF_DB_PREP_FAILED"
             echo "   SSH_ALIAS=$SSH_ALIAS ./local/setup-supabase-migrations.sh"
         }

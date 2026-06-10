@@ -33,8 +33,41 @@ NC='\033[0m'
 CONFIG_DIR="$HOME/.config/stackpilot/sellf"
 CONFIG_FILE="$CONFIG_DIR/supabase.env"
 
+# ============================================================================
+# PRIMARY PATH: per-instance service-role RPC (runs ON the server)
+# ----------------------------------------------------------------------------
+# Apply migrations with the instance's OWN SUPABASE_SERVICE_ROLE_KEY via Sellf's
+# apply_migration RPC. The service key is read from the instance's .env.local on
+# the server and never leaves it — correct project every time, no global Personal
+# Access Token, no PROJECT_REF guessing, honest error reporting. The Management-
+# API flow further down is kept only as a bootstrap fallback for a brand-new
+# database that does not yet have the migration RPC (20260303_migration_rpc.sql).
+# ============================================================================
+SSH_ALIAS="${SSH_ALIAS:-vps}"
+_SP_RUNNER="$SCRIPT_DIR/../apps/sellf/apply-migrations.sh"
+if [ -f "$_SP_RUNNER" ]; then
+    _SP_REMOTE_RUNNER="/tmp/sp-sellf-apply-mig-$$.sh"
+    if server_pipe_to "$_SP_RUNNER" "$_SP_REMOTE_RUNNER" 2>/dev/null; then
+        set +e
+        server_exec "INSTANCE='${INSTANCE:-}' bash '$_SP_REMOTE_RUNNER'; _ec=\$?; rm -f '$_SP_REMOTE_RUNNER'; exit \$_ec"
+        _SP_RPC_EC=$?
+        set -e
+        case "$_SP_RPC_EC" in
+            0)
+                exit 0 ;;  # applied (or already up to date) via service-role RPC
+            3)
+                echo -e "${YELLOW}ℹ️  Fresh database — bootstrapping initial schema via Management API…${NC}" ;;
+            *)
+                # A real failure (a migration errored / bad creds). Do NOT silently
+                # fall back to a different mechanism that could mask it.
+                echo -e "${RED}❌ Migration via service-role RPC failed (exit $_SP_RPC_EC).${NC}" >&2
+                exit "$_SP_RPC_EC" ;;
+        esac
+    fi
+fi
+
 echo ""
-echo -e "${BLUE}🗄️  Database Preparation${NC}"
+echo -e "${BLUE}🗄️  Database Preparation${NC} (Management API bootstrap)"
 echo ""
 
 # =============================================================================
