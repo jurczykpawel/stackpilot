@@ -161,10 +161,17 @@ if [ "$RESTART_ONLY" = false ]; then
 
     if [ "$CURRENT_VERSION" = "$NEW_VERSION" ] && [ "$CURRENT_VERSION" != "unknown" ]; then
         echo -e "${YELLOW}⚠️  You already have the latest version ($CURRENT_VERSION)${NC}"
-        read -p "Continue anyway? [y/N]: " CONTINUE
-        if [[ ! "$CONTINUE" =~ ^[YyTt]$ ]]; then
-            echo "Cancelled."
-            exit 0
+        # Only prompt when interactive. Under --yes / non-interactive (e.g. a
+        # scripted re-deploy to re-run migrations), continue without blocking on
+        # stdin — a bare `read` would hit EOF and `set -e` would abort the update.
+        if [ -t 0 ] && [ "${YES_MODE:-}" != "true" ]; then
+            read -r -p "Continue anyway? [y/N]: " CONTINUE
+            if [[ ! "$CONTINUE" =~ ^[YyTt]$ ]]; then
+                echo "Cancelled."
+                exit 0
+            fi
+        else
+            echo "   (non-interactive — re-applying the same version)"
         fi
     fi
 else

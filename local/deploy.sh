@@ -319,7 +319,8 @@ if [ "$UPDATE_MODE" = true ]; then
     fi
 
     # Pass environment variables
-    ENV_VARS="SKIP_MIGRATIONS=1"  # Migrations will be run locally via API
+    # YES_MODE lets update.sh skip its interactive "already latest" prompt.
+    ENV_VARS="SKIP_MIGRATIONS=1 YES_MODE='$YES_MODE'"  # Migrations are run locally via API
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         ENV_VARS="$ENV_VARS BUILD_FILE='$REMOTE_BUILD_FILE'"
     fi
