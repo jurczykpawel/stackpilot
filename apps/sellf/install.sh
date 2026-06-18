@@ -437,6 +437,17 @@ TRUSTED_PROXY=true
 ENVEOF
 fi
 
+if ! grep -q "^SELLF_PM2_MAX_MEMORY=" "$ENV_FILE" 2>/dev/null; then
+    echo "⚙️  Setting PM2 memory limits..."
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# PM2 kills+restarts the process if RSS exceeds this. Raise to 1G on prod servers.
+SELLF_PM2_MAX_MEMORY=512M
+# Node.js V8 heap limit in MB — set to ~80% of SELLF_PM2_MAX_MEMORY.
+SELLF_NODE_MAX_OLD_SPACE=400
+ENVEOF
+fi
+
 # =============================================================================
 # 4. STRIPE CONFIGURATION
 # =============================================================================
@@ -497,8 +508,10 @@ MAIN_DOMAIN=$DOMAIN
 # Production
 NODE_ENV=production
 PORT=$PORT
-# :: listens on IPv4 and IPv6
+# :: listens on IPv4 and IPv6; firewall (iptables) restricts external direct access
 HOSTNAME=::
+# Prevents Next.js from using HTTPS for internal server action forwarding when behind a TLS reverse proxy
+NEXT_PRIVATE_ORIGIN=http://localhost:$PORT
 NEXT_TELEMETRY_DISABLED=1
 
 # HSTS (disable for reverse proxy with SSL termination)
@@ -664,6 +677,8 @@ module.exports = {
     script: 'server.js',
     interpreter: '$NODE_BIN',
     cwd: '$STANDALONE_DIR',
+    max_memory_restart: '${SELLF_PM2_MAX_MEMORY:-512M}',
+    node_args: '--max-old-space-size=${SELLF_NODE_MAX_OLD_SPACE:-400}',
     env: {
 $(printf '%b' "$ENV_JS")
       PORT: '${PORT:-3333}',
@@ -677,7 +692,9 @@ ECOEOF
         pm2 start "$ECOSYSTEM_FILE"
     else
         cd "$INSTALL_DIR/admin-panel"
-        pm2 start server.js --name "$PM2_NAME" --interpreter bun
+        pm2 start server.js --name "$PM2_NAME" --interpreter bun \
+          --max-memory-restart "${SELLF_PM2_MAX_MEMORY:-512M}" \
+          --node-args="--max-old-space-size=${SELLF_NODE_MAX_OLD_SPACE:-400}"
     fi
 
     pm2 save
@@ -698,6 +715,18 @@ ECOEOF
         echo "✅ Application responding on port $PORT (HTTP $HTTP_CODE)"
     else
         echo "⚠️  Application may still be starting... (HTTP $HTTP_CODE)"
+    fi
+
+    # Check firewall — app binds to :: (all interfaces), iptables must restrict access
+    if command -v ip6tables >/dev/null 2>&1; then
+        FW_POLICY=$(ip6tables -S INPUT 2>/dev/null | grep '^-P INPUT' | awk '{print $3}')
+        if [ "$FW_POLICY" != "DROP" ]; then
+            echo ""
+            echo "⚠️  FIREWALL WARNING: ip6tables INPUT policy = ${FW_POLICY:-UNKNOWN}"
+            echo "   Sellf listens on HOSTNAME=:: (all interfaces)."
+            echo "   Port $PORT may be accessible directly from the internet, bypassing Caddy."
+            echo "   Run: ./local/setup-firewall.sh $SSH_ALIAS"
+        fi
     fi
 
     echo ""

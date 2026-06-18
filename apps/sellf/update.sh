@@ -276,6 +276,16 @@ if [ -f "$ENV_FILE" ] && ! grep -q "^TRUSTED_PROXY=" "$ENV_FILE"; then
     echo "   🔒 enabled TRUSTED_PROXY (read client IP from last X-Forwarded-For hop)"
 fi
 
+if [ -f "$ENV_FILE" ] && ! grep -q "^SELLF_PM2_MAX_MEMORY=" "$ENV_FILE"; then
+    printf "\nSELLF_PM2_MAX_MEMORY=512M\n" >> "$ENV_FILE"
+    echo "   ⚙️  set SELLF_PM2_MAX_MEMORY=512M (PM2 kills+restarts if RSS exceeds this; raise to 1G on prod)"
+fi
+
+if [ -f "$ENV_FILE" ] && ! grep -q "^SELLF_NODE_MAX_OLD_SPACE=" "$ENV_FILE"; then
+    printf "\nSELLF_NODE_MAX_OLD_SPACE=400\n" >> "$ENV_FILE"
+    echo "   ⚙️  set SELLF_NODE_MAX_OLD_SPACE=400 (Node.js V8 heap limit in MB; set to ~80% of PM2 limit)"
+fi
+
 # Copy to standalone (always, both in update and restart)
 STANDALONE_DIR="$INSTALL_DIR/admin-panel/.next/standalone/admin-panel"
 if [ -d "$STANDALONE_DIR" ]; then
@@ -306,12 +316,14 @@ set -a
 source .env.local
 set +a
 export PORT="${PORT:-3333}"
-# :: listens on IPv4 and IPv6
+# :: listens on IPv4 and IPv6; firewall (iptables) restricts external direct access
 export HOSTNAME="${HOSTNAME:-::}"
 
 pm2 delete $PM2_NAME 2>/dev/null || true
 # IMPORTANT: use --interpreter node, NOT "node server.js" in quotes
-pm2 start server.js --name $PM2_NAME --interpreter node
+pm2 start server.js --name $PM2_NAME --interpreter node \
+  --max-memory-restart "${SELLF_PM2_MAX_MEMORY:-512M}" \
+  --node-args="--max-old-space-size=${SELLF_NODE_MAX_OLD_SPACE:-400}"
 pm2 save
 
 # Wait and check
@@ -328,6 +340,18 @@ fi
 # =============================================================================
 # 6. SUMMARY
 # =============================================================================
+
+# Check firewall — app binds to :: (all interfaces), iptables must restrict access
+if command -v ip6tables >/dev/null 2>&1; then
+    FW_POLICY=$(ip6tables -S INPUT 2>/dev/null | grep '^-P INPUT' | awk '{print $3}')
+    if [ "$FW_POLICY" != "DROP" ]; then
+        echo ""
+        echo -e "${YELLOW}⚠️  FIREWALL WARNING: ip6tables INPUT policy = ${FW_POLICY:-UNKNOWN}${NC}"
+        echo "   Sellf listens on HOSTNAME=:: (all interfaces)."
+        echo "   Port $PORT may be accessible directly from the internet, bypassing Caddy."
+        echo "   Run from your local machine: ./local/setup-firewall.sh $SSH_ALIAS"
+    fi
+fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
