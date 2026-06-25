@@ -100,6 +100,7 @@ Applications are located in `apps/<name>/install.sh`:
 | **wordpress** | CMS (Performance Edition: FPM+Nginx+Redis) | MySQL/SQLite | 8080 |
 | **convertx** | File converter (100+ formats) | SQLite | 3000 |
 | **postiz** | Social media scheduler | PostgreSQL* | 5000 |
+| **poststack** | Social media management: publishing, inbox automation, CRM | PostgreSQL* | 3000 |
 | **crawl4ai** | Web crawler with AI extraction | - | 8000 |
 | **cap** | Screen recording and sharing | MySQL | 3000 |
 | **sellf** | Digital product sales / launch page | PostgreSQL (Supabase) | 3333 |

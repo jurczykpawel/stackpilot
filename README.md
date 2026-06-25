@@ -89,6 +89,7 @@ cd stackpilot
 | [Keila](apps/keila/) | Mailchimp / Brevo | Email marketing platform. Campaigns, newsletters, subscriber management. |
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
+| [PostStack](apps/poststack/) | Buffer / Hootsuite / ManyChat | Multi-channel social media management: publishing, scheduling, inbox auto-replies, and CRM (Facebook, Instagram, YouTube, Telegram, Gmail). |
 | [Cap](apps/cap/) | Loom | Screen recording and video sharing. |
 | [Cookie Hub](apps/cookie-hub/) | Cookiebot | Centralized GDPR consent server for all your sites. |
 | [Social Media Generator](apps/social-media-generator/) | Canva (basic) | Generate brand-consistent social media graphics from HTML templates. |
@@ -127,12 +128,14 @@ cd stackpilot
 | [MCP Docker](apps/mcp-docker/) | - | Let AI assistants manage Docker containers on your server. |
 | [sGTM](apps/sgtm/) | - | Server-side Google Tag Manager. 1st-party analytics, reliable tracking without ad blockers. |
 | [Countdown Timer](apps/countdown-timer/) | - | Animated countdown GIF generator for emails and landing pages. (PHP, no Docker) |
+| [Coolify](apps/coolify/) | Heroku / Vercel / Netlify | Self-hostable PaaS — deploy apps, databases, and services from Git. Requires 8GB+ RAM (takes over ports 80/443). |
 
 ### AI and Data
 
 | App | Replaces | Description |
 | :--- | :--- | :--- |
 | [PicoClaw](apps/picoclaw/) | OpenClaw | Ultra-lightweight AI assistant (Telegram/Discord/Slack). ~10MB image, 64MB RAM. Security-hardened. |
+| [Crawl4AI](apps/crawl4ai/) | Firecrawl | Web crawler that turns sites into clean Markdown for LLMs and RAG pipelines. |
 | [Crawl4AI](apps/crawl4ai/) | ScrapingBee | AI web scraper with REST API. Markdown output, JS rendering. |
 | [Coolify](apps/coolify/) | Heroku / Vercel | Full PaaS with 280+ one-click apps. Requires 8GB+ RAM. |
 
@@ -593,7 +596,7 @@ StackPilot includes a comprehensive test suite:
 | Unit | 67 | <1s | CLI parser, i18n, DB setup, domain setup, ports, resources, providers |
 | Static | 4 | ~8s | ShellCheck (95 files), install.sh contract, compose syntax, locale coverage |
 | E2E (quick) | ~15 | ~15min | Core apps on a real server: deploy, health, cleanup |
-| E2E (full) | ~30 | ~45-60min | All 30 apps — auto-skips apps that exceed server resources |
+| E2E (full) | ~37 | ~45-60min | All 37 apps — auto-skips apps that exceed server resources |
 
 **E2E suites:**
 
