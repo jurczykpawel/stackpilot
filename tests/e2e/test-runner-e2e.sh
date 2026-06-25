@@ -298,6 +298,10 @@ suite_deploy_no_db() {
         e2e_test "stirling-pdf"  "8087" "200 302 301 401" "120"
         # crawl4ai: returns 307 redirect — expected
         e2e_test "crawl4ai"      "8000" "200 302 301 307" "120"
+        # poststack: bundled-in-compose Postgres (# DB_BUNDLED=true), public GHCR images.
+        # Health on /api/health (cold start runs migrations); needs ~800MB RAM + ~3.7GB disk
+        # (web+worker+postgres+nginx), so it self-skips on small boxes via the RAM/disk gates.
+        e2e_test "poststack"     "3000" "200 302 301" "120" "--domain-type=local --yes" "/api/health" "800"
     fi
 }
 

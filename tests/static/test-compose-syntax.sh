@@ -33,8 +33,11 @@ fi
 SKIP_APPS="coolify sellf littlelink cookie-hub dockge"
 
 # Apps where heredoc extraction is known to produce incomplete YAML
-# (multi-part heredocs, env_file references, conditional composition)
-BEST_EFFORT_APPS="typebot vaultwarden postiz routepix social-media-generator filebrowser stirling-pdf"
+# (multi-part heredocs, env_file references, conditional composition).
+# poststack defers ${POSTGRES_*} to compose-level interpolation via bash-escaped \$,
+# which this no-bash extractor can't unescape — the real compose is validated in
+# tests/unit/test-poststack-install.sh (docker compose config on the generated file).
+BEST_EFFORT_APPS="typebot vaultwarden postiz routepix social-media-generator filebrowser stirling-pdf poststack"
 
 echo "--- Compose Syntax Validation ---"
 echo ""

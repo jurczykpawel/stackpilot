@@ -324,11 +324,11 @@ On the server, the helper is `sp-redirect add|remove|list <domain> [<path> [<tar
 
 Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `/etc/caddy/Caddyfile` only contains `import /etc/caddy/conf.d/*.caddy`. Each call to `add-static-hosting.sh`, `add-php-hosting.sh`, or `add-redirect.sh` updates exactly one file in `conf.d/`.
 
-## Applications (36)
+## Applications (37)
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, linkstack, listmonk, littlelink, mcp-docker, minio, n8n, nocodb, ntfy, picoclaw, postiz, redis, routepix, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
+affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, linkstack, listmonk, littlelink, mcp-docker, minio, n8n, nocodb, ntfy, picoclaw, postiz, poststack, redis, routepix, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
 
 Plus static site hosting (Astro, Next.js static export, Hugo, Eleventy, SvelteKit, Gatsby, Docusaurus, VitePress, MkDocs) via `local/deploy-static.sh` — see GUIDE.md.
 
