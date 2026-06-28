@@ -43,6 +43,11 @@ services:
       - NTFY_AUTH_FILE=/var/cache/ntfy/user.db
       - NTFY_AUTH_DEFAULT_ACCESS=deny-all
       - NTFY_BEHIND_PROXY=true
+      # Required for instant push to the official iOS/Android apps. Self-hosted servers
+      # cannot talk to Apple APNs / Google FCM directly, so ntfy relays a wake-up ping
+      # via ntfy.sh and the app then fetches the message from THIS server (body stays here).
+      # Without this the apps only receive messages on manual refresh (poll), not as push.
+      - NTFY_UPSTREAM_BASE_URL=https://ntfy.sh
     volumes:
       - ./cache:/var/cache/ntfy
     ports:
