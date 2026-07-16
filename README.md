@@ -679,6 +679,13 @@ Configuration is stored in `~/.config/stackpilot/`.
 
 ---
 
+## Support
+
+StackPilot is free, but the test servers every release runs on are not. If it saved
+you a weekend of Docker debugging, you can chip in for the hosting bill:
+
+[![☁️ Pay the hosting bill](https://img.shields.io/badge/☁️_Pay_the_hosting_bill-FFDD00)](https://sellf.techskills.academy/checkout/tip-stackpilot?utm_source=github&utm_medium=readme&utm_campaign=tip-jar)
+
 ## License
 
 MIT -- see [LICENSE](LICENSE) for details.
