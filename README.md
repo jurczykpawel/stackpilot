@@ -90,6 +90,7 @@ cd stackpilot
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
 | [PostStack](apps/poststack/) | Buffer / Hootsuite / ManyChat | Multi-channel social media management: publishing, scheduling, inbox auto-replies, and CRM (Facebook, Instagram, YouTube, Telegram, Gmail). |
+| [LinkedGrow](apps/linkedgrow/) | Expandi / Dripify | AI agents that find leads and clients on LinkedIn, plus post scheduling. Drives a real Chrome, no LinkedIn API. |
 | [Cap](apps/cap/) | Loom | Screen recording and video sharing. |
 | [Cookie Hub](apps/cookie-hub/) | Cookiebot | Centralized GDPR consent server for all your sites. |
 | [Social Media Generator](apps/social-media-generator/) | Canva (basic) | Generate brand-consistent social media graphics from HTML templates. |
