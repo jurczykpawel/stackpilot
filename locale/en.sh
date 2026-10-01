@@ -93,6 +93,7 @@ MSG_UPDATE_FAILED="${RED}❌ Update failed${NC}"
 MSG_UPDATE_DB="🗄️  Updating database..."
 MSG_UPDATE_RESTART_DONE="${GREEN}✅ Restart completed!${NC}"
 MSG_UPDATE_DONE="${GREEN}✅ Update completed!${NC}"
+MSG_UPDATE_LOCAL_VERSION_MISSING="${YELLOW}⚠️  Archive has no version information (version.txt missing); version check skipped. Continuing.${NC}"
 
 # =============================================================================
 # DEPLOY - APP RESOLUTION

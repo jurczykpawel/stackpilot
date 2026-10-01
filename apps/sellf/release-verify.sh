@@ -330,6 +330,12 @@ services:
     restart: unless-stopped
     network_mode: host
     env_file: .env
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     labels:
       com.centurylinklabs.watchtower.enable: "false"
 DCEOF

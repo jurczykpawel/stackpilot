@@ -331,6 +331,9 @@ if [ "$UPDATE_MODE" = true ]; then
     # instance that has no docker-compose.yml yet to auto-detect from (an
     # existing instance is detected from that file regardless of this value).
     ENV_VARS="SKIP_MIGRATIONS=1 YES_MODE='$YES_MODE' RUNTIME='${RUNTIME:-pm2}'"  # Migrations are run locally via API
+    if [ "$APP_NAME" = "sellf" ]; then
+        ENV_VARS="$ENV_VARS MSG_UPDATE_LOCAL_VERSION_MISSING=$(printf '%q' "$MSG_UPDATE_LOCAL_VERSION_MISSING")"
+    fi
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         ENV_VARS="$ENV_VARS BUILD_FILE='$REMOTE_BUILD_FILE'"
     fi

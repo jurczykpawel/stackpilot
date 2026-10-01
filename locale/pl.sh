@@ -92,6 +92,7 @@ MSG_UPDATE_FAILED="${RED}❌ Aktualizacja nie powiodła się${NC}"
 MSG_UPDATE_DB="🗄️  Aktualizuję bazę danych..."
 MSG_UPDATE_RESTART_DONE="${GREEN}✅ Restart zakończony!${NC}"
 MSG_UPDATE_DONE="${GREEN}✅ Aktualizacja zakończona!${NC}"
+MSG_UPDATE_LOCAL_VERSION_MISSING="${YELLOW}⚠️  Archiwum nie zawiera informacji o wersji (brak version.txt); sprawdzanie wersji pominięte. Kontynuuję.${NC}"
 
 # =============================================================================
 # DEPLOY - APP RESOLUTION

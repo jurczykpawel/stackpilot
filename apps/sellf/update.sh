@@ -82,6 +82,11 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+UPDATE_I18N_LIB="$(dirname "${BASH_SOURCE[0]}")/../../lib/i18n.sh"
+if [ -f "$UPDATE_I18N_LIB" ]; then
+    source "$UPDATE_I18N_LIB"
+fi
+
 echo ""
 if [ "$RESTART_ONLY" = true ]; then
     echo -e "${BLUE}🔄 Sellf Restart${NC}"
@@ -203,7 +208,7 @@ if [ "$RUNTIME_DETECTED" = "docker" ]; then
     echo ""
     echo "🚀 Starting Sellf (Docker)..."
     cd "$INSTALL_DIR"
-    docker compose up -d
+    docker compose up -d --force-recreate
 
     sleep 3
     echo ""
@@ -297,8 +302,12 @@ if [ "$RESTART_ONLY" = false ]; then
 
     # Check new version (signed manifest for releases, version.txt for local builds)
     NEW_VERSION="${SELLF_RELEASE_VERSION:-unknown}"
-    if [ "$NEW_VERSION" = "unknown" ] && [ -f "version.txt" ]; then
-        NEW_VERSION=$(cat version.txt)
+    if [ "$NEW_VERSION" = "unknown" ]; then
+        if [ -f "version.txt" ]; then
+            NEW_VERSION=$(cat version.txt)
+        elif [ -n "${BUILD_FILE:-}" ]; then
+            printf '%b\n' "$MSG_UPDATE_LOCAL_VERSION_MISSING"
+        fi
     fi
     echo "   New version: $NEW_VERSION"
 
