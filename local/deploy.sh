@@ -333,6 +333,7 @@ if [ "$UPDATE_MODE" = true ]; then
     ENV_VARS="SKIP_MIGRATIONS=1 YES_MODE='$YES_MODE' RUNTIME='${RUNTIME:-pm2}'"  # Migrations are run locally via API
     if [ "$APP_NAME" = "sellf" ]; then
         ENV_VARS="$ENV_VARS MSG_UPDATE_LOCAL_VERSION_MISSING=$(printf '%q' "$MSG_UPDATE_LOCAL_VERSION_MISSING")"
+        ENV_VARS="$ENV_VARS MSG_SELLF_SYSTEM_BINARY_MISSING=$(printf '%q' "$MSG_SELLF_SYSTEM_BINARY_MISSING")"
     fi
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         ENV_VARS="$ENV_VARS BUILD_FILE='$REMOTE_BUILD_FILE'"
@@ -952,6 +953,7 @@ EXTRA_ENV=""
 if [ "$APP_NAME" = "sellf" ]; then
     # Runtime mode (pm2 = default, docker = containerized)
     EXTRA_ENV="$EXTRA_ENV RUNTIME='${RUNTIME:-pm2}'"
+    EXTRA_ENV="$EXTRA_ENV MSG_SELLF_SYSTEM_BINARY_MISSING=$(printf '%q' "$MSG_SELLF_SYSTEM_BINARY_MISSING")"
     # Pass update mode so install.sh can skip the single-instance guard on re-deploy
     [ "$UPDATE_MODE" = "true" ] && EXTRA_ENV="$EXTRA_ENV UPDATE_MODE='true'"
 

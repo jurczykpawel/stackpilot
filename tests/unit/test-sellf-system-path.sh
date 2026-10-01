@@ -124,4 +124,52 @@ test_update_invokes_shared_helper_before_download() {
     assert_true test -x "$SYSTEM_BIN/bun"
 }
 
+check_missing_binary_error() {
+    local binary="$1" lang expected output rc
+    cat > "$TEST_TMPDIR/missing.sh" <<'SH'
+set -e
+source "$TEST_LIB"
+command() {
+    if [ "$1" = '-v' ] && [ "$2" = "$MISSING_BINARY" ]; then
+        return 1
+    fi
+    builtin command "$@"
+}
+sellf_ensure_system_path "$TARGET_BIN"
+echo setup_continued
+SH
+    for lang in en pl; do
+        rc=0
+        output=$(env TOOLBOX_LANG="$lang" \
+            TEST_LIB="$REPO_ROOT/apps/sellf/release-verify.sh" BUN_INSTALL="$BUN_INSTALL" \
+            TARGET_BIN="$TEST_TMPDIR/missing-$lang" MISSING_BINARY="$binary" \
+            REPO_ROOT="$REPO_ROOT" bash "$TEST_TMPDIR/missing.sh" 2>&1) || rc=$?
+        assert_eq 1 "$rc" "set -e exits with status 1 for missing $binary"
+        if [ "$lang" = en ]; then
+            expected="Cannot find executable '$binary'"
+        else
+            expected="Nie znaleziono pliku wykonywalnego '$binary'"
+        fi
+        assert_contains "$output" "$expected" "error names $binary in $lang"
+        assert_contains "$output" 'bun install -g pm2' "error explains how to repair the runtime"
+        assert_not_contains "$output" setup_continued "setup stops after missing $binary"
+    done
+}
+
+test_missing_bun_reports_localized_error_and_exits() {
+    check_missing_binary_error bun
+}
+
+test_missing_pm2_reports_localized_error_and_exits() {
+    check_missing_binary_error pm2
+}
+
+test_deploy_forwards_system_path_error_for_install_and_update() {
+    local update install
+    update=$(sed -n '/# UPDATE MODE (--update)/,/^fi$/p' "$REPO_ROOT/local/deploy.sh")
+    install=$(sed -n '/# For Sellf - add variables to EXTRA_ENV/,$p' "$REPO_ROOT/local/deploy.sh")
+    assert_contains "$update" 'MSG_SELLF_SYSTEM_BINARY_MISSING=$(printf' "remote update receives the selected message"
+    assert_contains "$install" 'MSG_SELLF_SYSTEM_BINARY_MISSING=$(printf' "remote install receives the selected message"
+}
+
 run_tests "$0"

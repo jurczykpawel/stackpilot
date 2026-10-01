@@ -73,8 +73,13 @@ sellf_ensure_system_path() {
         if [ -e "$SYSTEM_BIN/$BINARY" ]; then
             continue
         fi
-        SOURCE_BIN=$(command -v "$BINARY") || return 1
-        [ -x "$SOURCE_BIN" ] || return 1
+        if ! SOURCE_BIN=$(command -v "$BINARY") || [ ! -x "$SOURCE_BIN" ]; then
+            if [ -z "${MSG_SELLF_SYSTEM_BINARY_MISSING:-}" ]; then
+                source "$(dirname "${BASH_SOURCE[0]}")/../../lib/i18n.sh"
+            fi
+            printf '%s\n' "${MSG_SELLF_SYSTEM_BINARY_MISSING//%s/$BINARY}" >&2
+            return 1
+        fi
         ln -sfn "$SOURCE_BIN" "$SYSTEM_BIN/$BINARY" || return 1
     done
 }

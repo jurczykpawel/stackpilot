@@ -1376,6 +1376,7 @@ MSG_BC_DIR_SKIP="⚠️ Directory %s does not exist. Skipping."
 MSG_BC_DONE="✅ Backup completed successfully."
 
 # ── system/bun-setup.sh ───────────────────────────────────────
+MSG_SELLF_SYSTEM_BINARY_MISSING="❌ Cannot find executable '%s'. Install Bun (https://bun.sh), add its bin directory to PATH, run 'bun install -g pm2', then retry."
 MSG_BUN_HEADER="--- 🥟 Bun + PM2 Setup ---"
 MSG_BUN_ALREADY="✅ Bun already installed: v%s"
 MSG_BUN_INSTALLING="📦 Installing Bun..."

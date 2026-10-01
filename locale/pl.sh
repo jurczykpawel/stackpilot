@@ -1375,6 +1375,7 @@ MSG_BC_DIR_SKIP="⚠️ Katalog %s nie istnieje. Pomijam."
 MSG_BC_DONE="✅ Kopia zapasowa zakończona pomyślnie."
 
 # ── system/bun-setup.sh ───────────────────────────────────────
+MSG_SELLF_SYSTEM_BINARY_MISSING="❌ Nie znaleziono pliku wykonywalnego '%s'. Zainstaluj Bun (https://bun.sh), dodaj jego katalog bin do PATH, uruchom 'bun install -g pm2' i spróbuj ponownie."
 MSG_BUN_HEADER="--- 🥟 Instalacja Bun + PM2 ---"
 MSG_BUN_ALREADY="✅ Bun już zainstalowany: v%s"
 MSG_BUN_INSTALLING="📦 Instaluję Bun..."
