@@ -133,6 +133,16 @@ else
         fi
     fi
 
+    # ----- SELLF SYSTEM PATH START -----
+    SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+    if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+        echo "❌ Release verification helpers not found: $SELLF_RELEASE_LIB"
+        exit 1
+    fi
+    source "$SELLF_RELEASE_LIB"
+    sellf_ensure_system_path
+    # ----- SELLF SYSTEM PATH END -----
+
     # PM2 requires real Node.js for fork mode IPC (bun's child_process.fork is
     # not fully compatible with PM2's process management protocol).
     # Install Node.js LTS via NodeSource if not already present.

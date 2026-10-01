@@ -229,6 +229,16 @@ if [ "$RUNTIME_DETECTED" = "docker" ]; then
     # ----- SELLF DOCKER UPDATE END -----
 fi
 
+# ----- SELLF SYSTEM PATH START -----
+SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+    echo "❌ Release verification helpers not found: $SELLF_RELEASE_LIB"
+    exit 1
+fi
+source "$SELLF_RELEASE_LIB"
+sellf_ensure_system_path
+# ----- SELLF SYSTEM PATH END -----
+
 # =============================================================================
 # 2. DOWNLOAD NEW VERSION (skip in restart mode)
 # =============================================================================
@@ -239,15 +249,6 @@ if [ "$RESTART_ONLY" = false ]; then
     # Backup old configuration
     cp "$ENV_FILE" "$INSTALL_DIR/.env.local.backup"
     echo "   .env.local backup created"
-
-    # Release verification helpers (manifest signature, checksum, archive entries)
-    SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
-    if [ ! -f "$SELLF_RELEASE_LIB" ]; then
-        echo -e "${RED}❌ Release verification helpers not found: $SELLF_RELEASE_LIB${NC}"
-        echo "   Run the update through ./local/deploy.sh sellf --update"
-        exit 1
-    fi
-    source "$SELLF_RELEASE_LIB"
 
     # Extraction dir + a separate private dir for the downloaded release assets
     TEMP_DIR=$(mktemp -d)
@@ -376,12 +377,6 @@ fi
 # never overwrites — see apps/sellf/release-verify.sh). Shared with the
 # Docker update branch above and with install.sh, so a release that adds a
 # new required secret only needs a change in one place.
-SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
-if [ ! -f "$SELLF_RELEASE_LIB" ]; then
-    echo -e "${RED}❌ Release verification helpers not found: $SELLF_RELEASE_LIB${NC}"
-    exit 1
-fi
-source "$SELLF_RELEASE_LIB"
 if [ -f "$ENV_FILE" ]; then
     echo "🔐 Checking required secrets..."
     sellf_ensure_required_secrets "$ENV_FILE"

@@ -15,6 +15,7 @@ setup() {
 set -e
 YELLOW='\033[1;33m'; NC='\033[0m'
 source "$I18N_LIB"
+source "$SELLF_RELEASE_LIB"
 SH
     sed -n '/# 2. DOWNLOAD NEW VERSION/,/# 3. STOP APPLICATION/p' \
         "$REPO_ROOT/apps/sellf/update.sh" >> "$TEST_TMPDIR/run.sh"

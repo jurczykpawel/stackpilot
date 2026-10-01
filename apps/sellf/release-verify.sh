@@ -65,6 +65,20 @@ _sellf_is_calver() {
     [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
 
+sellf_ensure_system_path() {
+    local SYSTEM_BIN="${1:-/usr/local/bin}" BINARY SOURCE_BIN
+    export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
+    mkdir -p "$SYSTEM_BIN"
+    for BINARY in bun pm2; do
+        if [ -e "$SYSTEM_BIN/$BINARY" ]; then
+            continue
+        fi
+        SOURCE_BIN=$(command -v "$BINARY") || return 1
+        [ -x "$SOURCE_BIN" ] || return 1
+        ln -sfn "$SOURCE_BIN" "$SYSTEM_BIN/$BINARY" || return 1
+    done
+}
+
 # sellf_release_base_url REPO — prints the download base URL of the newest
 # release, e.g. https://github.com/owner/repo/releases/download/v2026.9.3.
 # Resolving the tag once keeps all four assets from the same release.
