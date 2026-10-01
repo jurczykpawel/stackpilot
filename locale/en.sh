@@ -605,6 +605,20 @@ MSG_SELLF_EMAIL_RECOVERY="Reset your password"
 MSG_SELLF_EMAIL_CHANGE="Confirm email address change"
 MSG_SELLF_EMAIL_INVITE="Invitation to Sellf"
 
+# sellf_configure_local_gotrue_templates / sellf_show_unmanaged_gotrue_instructions
+MSG_SELLF_GOTRUE_NO_DOMAIN="${YELLOW}⚠️  Sellf has no public domain yet -- GoTrue cannot fetch a template over HTTP.${NC} Assign a domain, then re-run deploy.sh to wire up magic-link emails."
+MSG_SELLF_GOTRUE_NOT_MANAGED="${YELLOW}⚠️  SUPABASE_MODE=local, but no stackpilot-managed Supabase stack was found on this server.${NC}"
+MSG_SELLF_GOTRUE_HEADER="📧 Configuring GoTrue magic-link email templates (self-hosted Supabase)..."
+MSG_SELLF_GOTRUE_ENV_UPDATED="   ✅ GoTrue env vars updated"
+MSG_SELLF_GOTRUE_ENV_FAILED="${RED}   ❌ Failed to update GoTrue env vars${NC}"
+MSG_SELLF_GOTRUE_RESTARTING="   🔄 Restarting the auth container..."
+MSG_SELLF_GOTRUE_RESTARTED="   ✅ auth container restarted -- magic-link emails are ready"
+MSG_SELLF_GOTRUE_RESTART_FAILED="${RED}   ❌ Failed to restart the auth container. Run manually:${NC}"
+MSG_SELLF_GOTRUE_UNMANAGED_HEADER="${YELLOW}📧 Self-hosted Supabase magic-link email templates${NC}"
+MSG_SELLF_GOTRUE_UNMANAGED_WHY="   This Supabase stack was not deployed by stackpilot, so its .env can't be edited automatically. GoTrue's default templates don't carry token_hash, which Sellf's login needs -- add these lines yourself:"
+MSG_SELLF_GOTRUE_UNMANAGED_RESTART="   Restart the auth/GoTrue container after editing .env."
+MSG_SELLF_GOTRUE_UNMANAGED_DOCS="   Full reference: https://docs.sellf.app/full-stack/#part-2--magic-link-email-templates"
+
 # update_supabase_site_url
 MSG_SELLF_URL_UPDATING="🌐 Updating Site URL in Supabase: https://%s"
 MSG_SELLF_URL_NO_TOKEN="${RED}   ❌ Missing SUPABASE_TOKEN${NC}"

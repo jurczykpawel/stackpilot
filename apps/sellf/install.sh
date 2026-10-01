@@ -20,7 +20,12 @@
 # Runtime modes (set RUNTIME):
 #   pm2    (default) - Bun + PM2 process manager (lightweight, ~50MB RAM)
 #   docker           - Docker container (isolated, reproducible, ~200MB RAM)
-#                      Builds image locally from the downloaded tar.gz artifact.
+#                      Pulls the pre-built image from GHCR (no tar.gz).
+#
+# PM2 mode installs the GitHub release tarball only after its signed manifest,
+# checksum and archive entries verify (apps/sellf/release-verify.sh, passed by
+# deploy.sh as SELLF_RELEASE_LIB). A BUILD_FILE (--build-file) is the
+# operator's own build: only its archive entries are checked.
 #
 # Environment variables:
 #   RUNTIME                - pm2 (default) | docker
@@ -213,48 +218,63 @@ if [ -d ".next/standalone" ]; then
 else
     echo "📥 Downloading Sellf..."
 
+    # Release verification helpers (manifest signature, checksum, archive entries)
+    SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+    if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+        echo ""
+        echo "❌ Release verification helpers not found: $SELLF_RELEASE_LIB"
+        echo "   Run the install through ./local/deploy.sh sellf"
+        exit 1
+    fi
+    source "$SELLF_RELEASE_LIB"
+
     # Check if we have a local file (passed by deploy.sh)
     if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
+        # A local build is the operator's own artifact: it has no release
+        # signature, so only the archive entries are checked.
         echo "   Using file: $BUILD_FILE"
-        if ! tar -xzf "$BUILD_FILE"; then
+        echo "   (local build — no release signature, checking archive entries only)"
+        if ! sellf_validate_archive "$BUILD_FILE" || ! tar -xzf "$BUILD_FILE"; then
             echo ""
             echo "❌ Failed to extract file"
             echo "   Make sure the file is a valid .tar.gz archive"
             exit 1
         fi
     else
-        # Download from GitHub
-        # Try /latest (requires a tagged "latest release" on GitHub)
-        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/sellf-build.tar.gz"
+        # Download the release assets to a private temp dir, verify, then extract
+        RELEASE_DIR=$(mktemp -d)
+        trap 'rm -rf "$RELEASE_DIR"' EXIT
 
-        if ! curl -fsSL "$RELEASE_URL" 2>/dev/null | tar -xz 2>/dev/null; then
-            # Fallback: find the newest release with sellf-build.tar.gz artifact
-            echo "   /latest unavailable, looking for the newest release with build..."
-            RELEASE_URL=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases" 2>/dev/null \
-                | grep -m1 "browser_download_url.*sellf-build" | sed 's/.*: "\(.*\)".*/\1/')
-
-            if [ -n "$RELEASE_URL" ]; then
-                LATEST_TAG=$(echo "$RELEASE_URL" | sed 's|.*/download/\([^/]*\)/.*|\1|')
-                echo "   Found: $LATEST_TAG"
-                if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
-                    echo ""
-                    echo "❌ Failed to download Sellf ($LATEST_TAG)"
-                    exit 1
-                fi
-            else
-                echo ""
-                echo "❌ Failed to download Sellf from GitHub"
-                echo ""
-                echo "   Possible causes:"
-                echo "   • No release with sellf-build.tar.gz artifact"
-                echo "   • Repository is private"
-                echo "   • No internet connection"
-                echo ""
-                echo "   Solution: Download the file manually and use the --build-file flag:"
-                echo "   ./local/deploy.sh sellf --ssh=vps --build-file=~/Downloads/sellf-build.tar.gz"
-                exit 1
-            fi
+        if ! RELEASE_BASE_URL=$(sellf_release_base_url "$GITHUB_REPO") \
+            || ! sellf_download_release "$RELEASE_DIR" "$RELEASE_BASE_URL"; then
+            echo ""
+            echo "❌ Failed to download Sellf from GitHub"
+            echo ""
+            echo "   Possible causes:"
+            echo "   • No release with a signed sellf-build.manifest"
+            echo "   • Repository is private"
+            echo "   • No internet connection"
+            echo ""
+            echo "   Solution: Download the file manually and use the --build-file flag:"
+            echo "   ./local/deploy.sh sellf --ssh=vps --build-file=~/Downloads/sellf-build.tar.gz"
+            exit 1
         fi
+        echo "   Found: ${RELEASE_BASE_URL##*/}"
+
+        echo "🔏 Verifying release..."
+        if ! sellf_verify_release "$RELEASE_DIR"; then
+            echo ""
+            echo "❌ Release verification failed — nothing was installed"
+            exit 1
+        fi
+        echo "   Signature, checksum and archive entries OK ($SELLF_RELEASE_VERSION)"
+
+        if ! tar -xzf "$RELEASE_DIR/sellf-build.tar.gz"; then
+            echo ""
+            echo "❌ Failed to extract Sellf ($SELLF_RELEASE_VERSION)"
+            exit 1
+        fi
+        rm -rf "$RELEASE_DIR"
     fi
 
     if [ ! -d ".next/standalone" ]; then
@@ -308,38 +328,6 @@ else
 SUPABASE_URL=$SUPABASE_URL
 SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_KEY
-
-# Encryption key for integrations (Stripe UI wizard, GUS, Currency API)
-# AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
-APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
-
-# Server-side HMAC secret that binds checkout metadata mutations to the
-# (user_id, product_id) tuple the Stripe session was created for. Rotating
-# invalidates in-flight checkout sessions — only do it during incident
-# response. Production refuses to boot without this set.
-CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
-
-# HMAC secret for the per-product login-wall handoff token. Rotating
-# invalidates in-flight loginwall tokens — visitors transparently get a
-# fresh one via /loginwall/protect.
-LOGINWALL_SECRET=$(openssl rand -hex 32)
-
-# Bearer token for /api/cron. Without it scheduled jobs (access-expired
-# webhooks, webhook log cleanup) cannot be triggered. Point your scheduler
-# (cron-job.org, crontab) at /api/cron with Authorization: Bearer <value>.
-CRON_SECRET=$(openssl rand -base64 32)
-
-# Self-hosted ALTCHA captcha (HMAC proof-of-work, zero external deps). Gives
-# the install bot protection on signup/checkout out of the box. If the operator
-# later configures Cloudflare Turnstile, that takes priority automatically and
-# this key is ignored. Without any captcha key, forms have NO bot protection.
-ALTCHA_HMAC_KEY=$(openssl rand -hex 32)
-
-# Read the trusted client IP from the last X-Forwarded-For hop instead of
-# the raw TCP peer. Stackpilot always deploys behind Caddy as the public
-# entrypoint, so this is the correct topology and rate limiting can
-# identify real callers. Production startup refuses to boot without it.
-TRUSTED_PROXY=true
 ENVEOF
     else
         echo "❌ Missing Supabase configuration!"
@@ -355,87 +343,20 @@ ENVEOF
     fi
 fi
 
-# Make sure APP_ENCRYPTION_KEY exists (for older installations). Guard on the
-# legacy STRIPE_ENCRYPTION_KEY too — the app honours it as a fallback, so adding
-# a fresh APP_ENCRYPTION_KEY would shadow it and make existing encrypted secrets
-# undecryptable. Generate only when neither key is present.
-if ! grep -qE "^(APP_ENCRYPTION_KEY|STRIPE_ENCRYPTION_KEY)=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔐 Generating encryption key..."
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# Encryption key for integrations (Stripe UI wizard, GUS, Currency API)
-# AES-256-GCM - DO NOT CHANGE! Losing the key = reset of integration config
-APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
-ENVEOF
+# Ensure every secret/flag Sellf's production startup requires exists —
+# covers both a brand-new env file (written above) and an older installation
+# upgraded in place. Never overwrites, only fills in what is missing. Shared
+# with update.sh (PM2 and Docker) so a newly required secret only needs
+# adding in apps/sellf/release-verify.sh, not at every call site.
+SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+    echo "❌ Release verification helpers not found: $SELLF_RELEASE_LIB"
+    echo "   Run the install through ./local/deploy.sh sellf"
+    exit 1
 fi
-
-# Make sure CHECKOUT_BINDING_SECRET exists (for installations created
-# before this secret existed). Production refuses to boot without it.
-if ! grep -q "^CHECKOUT_BINDING_SECRET=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔐 Generating checkout binding secret..."
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# Server-side HMAC secret that binds checkout metadata mutations to the
-# (user_id, product_id) tuple the Stripe session was created for. Rotating
-# invalidates in-flight checkout sessions — only do it during incident
-# response.
-CHECKOUT_BINDING_SECRET=$(openssl rand -base64 32)
-ENVEOF
-fi
-
-# Make sure LOGINWALL_SECRET exists (for installations created before
-# the login wall feature shipped).
-if ! grep -q "^LOGINWALL_SECRET=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔐 Generating login wall secret..."
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# HMAC secret for the per-product login-wall handoff token. Rotating
-# invalidates in-flight loginwall tokens — visitors transparently get a
-# fresh one via /loginwall/protect.
-LOGINWALL_SECRET=$(openssl rand -hex 32)
-ENVEOF
-fi
-
-# Make sure CRON_SECRET exists (for installations created before scheduled
-# jobs were wired up). Without it /api/cron rejects every request.
-if ! grep -q "^CRON_SECRET=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔐 Generating cron secret..."
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# Bearer token for /api/cron. Point your scheduler (cron-job.org, crontab)
-# at /api/cron with Authorization: Bearer <value> to drive scheduled jobs
-# (access-expired webhooks, webhook log cleanup).
-CRON_SECRET=$(openssl rand -base64 32)
-ENVEOF
-fi
-
-# Make sure a captcha is configured. ALTCHA is self-hosted (HMAC PoW, no
-# external account) and gives bot protection on signup/checkout out of the
-# box. Skip if Turnstile is already set (it takes priority) so we do not
-# advertise a provider the operator did not choose.
-if ! grep -qE "^(ALTCHA_HMAC_KEY|CLOUDFLARE_TURNSTILE_SECRET_KEY)=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔐 Generating ALTCHA captcha key..."
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# Self-hosted ALTCHA captcha (HMAC proof-of-work). Turnstile, if configured,
-# takes priority and this is ignored. Without any captcha key forms have no
-# bot protection.
-ALTCHA_HMAC_KEY=$(openssl rand -hex 32)
-ENVEOF
-fi
-
-# Make sure TRUSTED_PROXY=true is set (production startup refuses to boot
-# without it). Stackpilot always deploys behind Caddy, so this is the
-# correct topology — rate limiting can read real client IPs.
-if ! grep -q "^TRUSTED_PROXY=" "$ENV_FILE" 2>/dev/null; then
-    echo "🔒 Enabling TRUSTED_PROXY..."
-    cat >> "$ENV_FILE" <<ENVEOF
-
-# Read the trusted client IP from the last X-Forwarded-For hop. Required
-# in production behind a reverse proxy (Caddy/nginx).
-TRUSTED_PROXY=true
-ENVEOF
-fi
+source "$SELLF_RELEASE_LIB"
+echo "🔐 Checking required secrets..."
+sellf_ensure_required_secrets "$ENV_FILE"
 
 if ! grep -q "^SELLF_PM2_MAX_MEMORY=" "$ENV_FILE" 2>/dev/null; then
     echo "⚙️  Setting PM2 memory limits..."
@@ -550,38 +471,41 @@ if [ "$RUNTIME" = "docker" ]; then
     # -------------------------------------------------------------------------
     # DOCKER MODE
     # -------------------------------------------------------------------------
-    # Pull pre-built image from GHCR (ghcr.io/jurczykpawel/sellf:latest).
-    # No local build needed — CI/CD publishes the image on every release.
+    # Pulls the pre-built image from GHCR by digest, after verifying a signed
+    # sellf-image.manifest from the same GitHub release used by PM2 installs.
+    # No local build, no mutable ":latest" tag — see apps/sellf/release-verify.sh.
 
-    GHCR_IMAGE="ghcr.io/$(echo "$GITHUB_REPO" | tr '[:upper:]' '[:lower:]'):latest"
     DOCKER_NAME="sellf-${INSTANCE_NAME:-default}"
     STACK_DIR="$INSTALL_DIR"
 
-    # Write .env file for docker-compose (docker-compose reads .env, not .env.local)
-    cp "$ENV_FILE" "$STACK_DIR/.env"
-
-    # Generate docker-compose.yml
-    # Notes:
-    # - network_mode: host so container can reach local Supabase on localhost
-    # - env_file: .env carries all vars (PORT, HOSTNAME, NODE_ENV etc.)
-    # - No 'deploy.resources' - that requires Docker Swarm mode
-    cat > "$STACK_DIR/docker-compose.yml" <<DCEOF
-services:
-  sellf:
-    image: ${GHCR_IMAGE}
-    container_name: ${DOCKER_NAME}
-    restart: unless-stopped
-    network_mode: host
-    env_file: .env
-DCEOF
-
-    echo "📥 Pulling Sellf image from GHCR..."
-    if ! docker pull "${GHCR_IMAGE}"; then
-        echo "❌ Failed to pull image: ${GHCR_IMAGE}"
-        echo "   Make sure the image exists and the server has internet access."
+    SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+    if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+        echo ""
+        echo "❌ Release verification helpers not found: $SELLF_RELEASE_LIB"
+        echo "   Run the install through ./local/deploy.sh sellf"
         exit 1
     fi
-    echo "✅ Image pulled: ${GHCR_IMAGE}"
+    source "$SELLF_RELEASE_LIB"
+
+    CURRENT_VERSION=""
+    if [ -f "$INSTALL_DIR/admin-panel/version.txt" ]; then
+        CURRENT_VERSION=$(cat "$INSTALL_DIR/admin-panel/version.txt")
+    fi
+
+    echo "🔏 Verifying signed image manifest..."
+    if ! sellf_docker_deploy "$GITHUB_REPO" "$STACK_DIR" "$INSTALL_DIR/admin-panel" "$DOCKER_NAME" "$CURRENT_VERSION"; then
+        echo ""
+        echo "❌ Docker image verification failed — nothing was installed"
+        echo "   The release must publish a signed sellf-image.manifest. If it does"
+        echo "   not (yet), install with RUNTIME=pm2 instead."
+        exit 1
+    fi
+    echo "   Signature and digest OK ($SELLF_RELEASE_VERSION)"
+    echo "   Image: $SELLF_IMAGE_REF"
+    echo "$SELLF_RELEASE_VERSION" > "$INSTALL_DIR/admin-panel/version.txt"
+
+    # Write .env file for docker-compose (docker-compose reads .env, not .env.local)
+    cp "$ENV_FILE" "$STACK_DIR/.env"
 
     # Stop PM2 process if it was previously running in PM2 mode
     if command -v pm2 &> /dev/null && pm2 list 2>/dev/null | grep -q "$PM2_NAME"; then

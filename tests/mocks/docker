@@ -17,5 +17,49 @@ if [ "$1" = "info" ]; then
     exit 0
 fi
 
+# Handle docker pull IMAGE — used by the Sellf digest-pinned image install/update.
+if [ "$1" = "pull" ]; then
+    exit "${MOCK_DOCKER_PULL_EXIT:-${MOCK_DOCKER_EXIT:-0}}"
+fi
+
+# Handle docker image inspect --format '...' IMAGE — reports the pulled image's
+# org.opencontainers.image.version label back to the caller.
+if [ "$1" = "image" ] && [ "$2" = "inspect" ]; then
+    if [ "${MOCK_DOCKER_INSPECT_EXIT:-0}" != "0" ]; then
+        exit "$MOCK_DOCKER_INSPECT_EXIT"
+    fi
+    echo "${MOCK_DOCKER_IMAGE_VERSION_LABEL:-}"
+    exit 0
+fi
+
+# Handle docker create IMAGE — used to extract supabase/ (migrations + templates)
+# out of a verified image without running it.
+if [ "$1" = "create" ]; then
+    if [ "${MOCK_DOCKER_CREATE_EXIT:-0}" != "0" ]; then
+        exit "$MOCK_DOCKER_CREATE_EXIT"
+    fi
+    echo "${MOCK_DOCKER_CID:-mockcid0000000000000000000000000000000000000000000000000000000}"
+    exit 0
+fi
+
+# Handle docker cp CID:SRC DEST — copies fixture content into DEST so tests can
+# assert migrations landed on disk, same as a real `docker cp` would.
+if [ "$1" = "cp" ]; then
+    if [ "${MOCK_DOCKER_CP_EXIT:-0}" != "0" ]; then
+        exit "$MOCK_DOCKER_CP_EXIT"
+    fi
+    dest="$3"
+    if [ -n "$MOCK_DOCKER_SUPABASE_SRC" ] && [ -d "$MOCK_DOCKER_SUPABASE_SRC" ]; then
+        mkdir -p "$dest"
+        cp -r "$MOCK_DOCKER_SUPABASE_SRC/." "$dest/" 2>/dev/null || true
+    fi
+    exit 0
+fi
+
+# Handle docker rm [-f] CID
+if [ "$1" = "rm" ]; then
+    exit "${MOCK_DOCKER_RM_EXIT:-0}"
+fi
+
 echo "${MOCK_DOCKER_RESPONSE:-}"
 exit ${MOCK_DOCKER_EXIT:-0}

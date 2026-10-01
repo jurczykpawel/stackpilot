@@ -301,6 +301,13 @@ if [ "$UPDATE_MODE" = true ]; then
     REMOTE_SCRIPT="/tmp/sp-update-$$.sh"
     server_copy "$UPDATE_SCRIPT" "$REMOTE_SCRIPT"
 
+    # Sellf: release verification helpers sourced by update.sh
+    REMOTE_RELEASE_LIB=""
+    if [ "$APP_NAME" = "sellf" ]; then
+        REMOTE_RELEASE_LIB="/tmp/sp-sellf-release-$$.sh"
+        server_copy "$REPO_ROOT/apps/sellf/release-verify.sh" "$REMOTE_RELEASE_LIB"
+    fi
+
     # If we have a local build file, copy it to the server
     REMOTE_BUILD_FILE=""
     if [ -n "$BUILD_FILE" ]; then
@@ -320,9 +327,15 @@ if [ "$UPDATE_MODE" = true ]; then
 
     # Pass environment variables
     # YES_MODE lets update.sh skip its interactive "already latest" prompt.
-    ENV_VARS="SKIP_MIGRATIONS=1 YES_MODE='$YES_MODE'"  # Migrations are run locally via API
+    # RUNTIME tells update.sh whether this is a Docker install for a brand-new
+    # instance that has no docker-compose.yml yet to auto-detect from (an
+    # existing instance is detected from that file regardless of this value).
+    ENV_VARS="SKIP_MIGRATIONS=1 YES_MODE='$YES_MODE' RUNTIME='${RUNTIME:-pm2}'"  # Migrations are run locally via API
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         ENV_VARS="$ENV_VARS BUILD_FILE='$REMOTE_BUILD_FILE'"
+    fi
+    if [ -n "$REMOTE_RELEASE_LIB" ]; then
+        ENV_VARS="$ENV_VARS SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
     fi
 
     # For multi-instance: pass instance name (from --instance or --domain)
@@ -344,6 +357,9 @@ if [ "$UPDATE_MODE" = true ]; then
     CLEANUP_CMD="rm -f '$REMOTE_SCRIPT'"
     if [ -n "$REMOTE_BUILD_FILE" ]; then
         CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_BUILD_FILE'"
+    fi
+    if [ -n "$REMOTE_RELEASE_LIB" ]; then
+        CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_RELEASE_LIB'"
     fi
 
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
@@ -1029,6 +1045,15 @@ else
         CLEANUP_CMD="rm -f '$REMOTE_BUILD_FILE';"
     fi
 
+    # Sellf: release verification helpers sourced by install.sh (on the server
+    # itself install.sh finds them next to it in the stackpilot checkout)
+    if [ "$APP_NAME" = "sellf" ]; then
+        REMOTE_RELEASE_LIB="/tmp/sp-sellf-release-$$.sh"
+        scp -q "$REPO_ROOT/apps/sellf/release-verify.sh" "$SSH_ALIAS:$REMOTE_RELEASE_LIB"
+        EXTRA_ENV="$EXTRA_ENV SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
+        CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_RELEASE_LIB';"
+    fi
+
     if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
         DEPLOY_SUCCESS=true
     fi
@@ -1081,13 +1106,13 @@ if [ "$APP_NAME" = "sellf" ]; then
     fi
 
     # 2. Consolidated Supabase configuration (Site URL, CAPTCHA, email templates)
-    if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
-        # Use function from lib/sellf-setup.sh
-        # Passes: domain, turnstile secret, SSH alias (for fetching email templates)
-        configure_supabase_settings "$DOMAIN" "$SELLF_TURNSTILE_SECRET" "$SSH_ALIAS" || {
-            msg "$MSG_SELLF_PARTIAL_CONFIG"
-        }
-    fi
+    # sellf_configure_supabase_post_install (lib/sellf-setup.sh) picks the right
+    # path: Cloud Management API, a stackpilot-managed self-hosted Supabase
+    # (SUPABASE_MODE=local, wires GoTrue directly), or an unmanaged self-hosted
+    # Supabase (prints copy-pasteable GoTrue env instructions).
+    sellf_configure_supabase_post_install "$DOMAIN" "$SELLF_TURNSTILE_SECRET" "$SSH_ALIAS" || {
+        msg "$MSG_SELLF_PARTIAL_CONFIG"
+    }
     # Reminders (Stripe, Turnstile, SMTP) will be displayed at the end
 fi
 

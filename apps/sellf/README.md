@@ -161,12 +161,56 @@ The rest of this document is about `install.sh`, the original installer that tar
 
 Switch modes by passing `--runtime=docker` or `--runtime=pm2` to deploy.sh.
 
+Docker mode never pulls a mutable `:latest` tag: `install.sh` and `update.sh` both verify a
+signed `sellf-image.manifest` from the release and pull the image strictly by digest. `--update`
+on a Docker install pulls the new digest, recreates the container and re-extracts migrations from
+the verified image — it never falls through to the PM2 path. See "Docker image verification"
+below.
+
 ## Supabase Modes
 
 | Mode | Description |
 |------|-------------|
 | `cloud` (default) | External Supabase.com — free tier, no server resources |
 | `local` | Self-hosted Supabase Docker on the same VPS — deploy supabase first |
+
+## Magic-link email templates (self-hosted Supabase)
+
+Sellf's login is a magic link, and `/auth/callback` requires the link to
+carry `token_hash` — GoTrue's *default* email templates don't do that.
+What `deploy.sh` does about it depends on who manages the Supabase stack:
+
+- **`--supabase=local`** (Supabase deployed by stackpilot itself, via
+  `apps/supabase/install.sh`, on the same server): `deploy.sh` wires this up
+  automatically once Sellf has a public domain. It sets the five
+  `GOTRUE_MAILER_TEMPLATES_*` / `GOTRUE_MAILER_SUBJECTS_*` env vars in
+  `/opt/stacks/supabase/.env` to `https://<sellf-domain>/auth-email-templates/*.html`,
+  merges your domain into `GOTRUE_URI_ALLOW_LIST`, and recreates the `auth`
+  container — nothing to do manually. If Sellf has no public domain yet
+  (SSH-tunnel-only install), this step is skipped with a warning — GoTrue
+  has no way to fetch a template over HTTP without one — assign a domain and
+  re-run `deploy.sh sellf` to finish the wiring.
+- **Cloud Supabase** (default `cloud` mode, with a valid Management API
+  token): `deploy.sh` configures the templates for you via the Supabase
+  Management API — no action needed.
+- **Any other self-hosted Supabase** (your own install, Coolify's own
+  Supabase add-on, a different VPS) — `deploy.sh` has no access to that
+  stack's `.env`, so it prints the exact lines to paste in at the end of the
+  deploy. For reference, they look like this:
+
+  ```env
+  GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=https://shop.example.com/auth-email-templates/magic-link.html
+  GOTRUE_MAILER_TEMPLATES_CONFIRMATION=https://shop.example.com/auth-email-templates/confirmation.html
+  GOTRUE_MAILER_TEMPLATES_RECOVERY=https://shop.example.com/auth-email-templates/recovery.html
+  GOTRUE_MAILER_TEMPLATES_INVITE=https://shop.example.com/auth-email-templates/invite.html
+  GOTRUE_MAILER_TEMPLATES_EMAIL_CHANGE=https://shop.example.com/auth-email-templates/email-change.html
+  GOTRUE_URI_ALLOW_LIST=https://shop.example.com/*
+  ```
+
+  Restart the `auth`/GoTrue container after editing `.env`. Full reference:
+  [`supabase/templates/README.md`](https://github.com/jurczykpawel/sellf/blob/main/supabase/templates/README.md)
+  in the Sellf repo, and
+  [docs.sellf.app/full-stack](https://docs.sellf.app/full-stack/#part-2--magic-link-email-templates).
 
 ## After Installation
 
@@ -227,6 +271,118 @@ Configuration is saved to `~/.config/stackpilot/sellf/deploy-config.env` and reu
 ./local/deploy.sh sellf --ssh=ALIAS --update
 # or for a specific instance:
 ./local/deploy.sh sellf --ssh=ALIAS --update --domain=shop.example.com
+```
+
+An update never goes backwards: a release older than the installed version is refused. Re-deploying the version you already run is allowed (interactive runs ask first; `--yes` re-applies it).
+
+On a Docker install, `--update` verifies a fresh signed `sellf-image.manifest`, pulls the new
+image by digest, recreates the container, and re-extracts migrations from the verified image —
+it detects the Docker install from its `docker-compose.yml` and never touches PM2. `--restart` on
+a Docker install runs `docker compose restart` instead of a PM2 restart.
+
+Every install and update — PM2 or Docker — ensures the secrets Sellf's production startup
+requires exist in `.env.local` (`APP_ENCRYPTION_KEY`, `CHECKOUT_BINDING_SECRET`,
+`LOGINWALL_SECRET`, `CRON_SECRET`, `ALTCHA_HMAC_KEY`, `TRUSTED_PROXY`), generating only what is
+missing and never overwriting or printing an existing value. This runs from one shared function
+(`sellf_ensure_required_secrets` in `apps/sellf/release-verify.sh`) so a future release that adds
+a new required secret only needs a change in that one place.
+
+## Release verification
+
+In PM2 mode, `install.sh` and `update.sh` never extract a download straight from the network. Each Sellf GitHub release carries four assets:
+
+| Asset | Content |
+|-------|---------|
+| `sellf-build.tar.gz` | the build |
+| `sellf-build.tar.gz.sha256` | `sha256sum` output for the build |
+| `sellf-build.manifest` | exactly two lines: `version=<CalVer>` and `sha256=<hex of the build>` |
+| `sellf-build.manifest.sig` | Ed25519 signature over the manifest |
+
+All four are downloaded into a private temp directory. The install/update continues only when:
+
+1. the manifest signature is valid for the Sellf release key pinned in `apps/sellf/release-verify.sh`,
+2. the manifest has exactly those two lines, and the build's sha256 (and the `.sha256` file) equal the manifest value,
+3. on update, the manifest version is not older than `admin-panel/version.txt` (CalVer compared per number, so `2026.10.0` is newer than `2026.9.10`),
+4. every archive entry is a regular file or directory with a relative path that stays inside the install directory.
+
+Any failure stops before a single file is extracted. There is no switch to skip these checks or to install an older release.
+
+**Local builds (`--build-file`)** are your own artifacts and have no release signature, so only check 4 runs. There is no version check either — installing an older local build is how you roll back.
+
+`deploy.sh` copies `apps/sellf/release-verify.sh` to the server next to the script it runs. On the server itself (`/opt/stackpilot`), the scripts use the copy in the checkout.
+
+### Verify a release by hand
+
+```bash
+TAG=v2026.9.3   # the release you want to check
+for f in sellf-build.tar.gz sellf-build.tar.gz.sha256 sellf-build.manifest sellf-build.manifest.sig; do
+  curl -fsSLO "https://github.com/jurczykpawel/sellf/releases/download/$TAG/$f"
+done
+
+# The pinned key, taken from stackpilot
+sed -n '/sellf-release-key:start/,/sellf-release-key:end/p' apps/sellf/release-verify.sh \
+  | sed -n '/BEGIN PUBLIC KEY/,/END PUBLIC KEY/p' > sellf-release.pub.pem
+
+# 1. Signature (OpenSSL 3.0+) — prints "Signature Verified Successfully"
+openssl pkeyutl -verify -pubin -inkey sellf-release.pub.pem -rawin \
+  -in sellf-build.manifest -sigfile sellf-build.manifest.sig
+
+# 2. Checksum — the two values must match
+cat sellf-build.manifest
+sha256sum sellf-build.tar.gz
+
+# 3. Entry types — only "-" (file) and "d" (directory) may appear
+tar -tzvf sellf-build.tar.gz | cut -c1 | sort -u
+```
+
+## Docker image verification
+
+In Docker mode, `install.sh` and `update.sh` never pull a mutable `ghcr.io/.../sellf:latest` tag.
+Each Sellf GitHub release that has a Docker image also carries a second, separately signed pair
+of assets, downloaded from the same release as the tarball assets above:
+
+| Asset | Content |
+|-------|---------|
+| `sellf-image.manifest` | exactly two lines: `version=<CalVer>` and `image=ghcr.io/<owner>/sellf@sha256:<digest>` |
+| `sellf-image.manifest.sig` | Ed25519 signature over the manifest, same key as `sellf-build.manifest.sig` |
+
+The install/update continues only when:
+
+1. the manifest signature is valid for the same Sellf release key pinned in `apps/sellf/release-verify.sh`,
+2. the manifest has exactly those two lines, the version is CalVer, and `image` is a `sha256` digest reference — never a tag — at exactly `ghcr.io/jurczykpawel/sellf` (no other repo or registry),
+3. on update, the manifest version is not older than `admin-panel/version.txt`,
+4. after `docker pull`, the pulled image's own `org.opencontainers.image.version` label equals the signed manifest version (defense in depth against a registry serving the wrong content for a digest — should never happen, but checked anyway),
+5. `supabase/migrations` and `supabase/templates` are extracted from that same verified image (`docker create` + `docker cp`, container never started) into `admin-panel/supabase/` — Docker installs never fetch migrations from GitHub `main`.
+
+Any failure stops before `docker pull` or leaves the previous container untouched. There is no
+switch to skip these checks, to install an older release, or to fall back to `:latest`. The
+generated `docker-compose.yml` pins the exact digest and carries
+`com.centurylinklabs.watchtower.enable: "false"`, so a Watchtower instance running elsewhere on
+the same host never silently replaces a verified container.
+
+A release that has a tarball but no image manifest (a partial CI failure) makes Docker installs
+refuse with a clear error — install with `RUNTIME=pm2` instead for that release.
+
+### Verify a Docker image release by hand
+
+```bash
+TAG=v2026.10.0
+curl -fsSLO "https://github.com/jurczykpawel/sellf/releases/download/$TAG/sellf-image.manifest"
+curl -fsSLO "https://github.com/jurczykpawel/sellf/releases/download/$TAG/sellf-image.manifest.sig"
+
+# Same pinned key as the tarball manifest
+sed -n '/sellf-release-key:start/,/sellf-release-key:end/p' apps/sellf/release-verify.sh \
+  | sed -n '/BEGIN PUBLIC KEY/,/END PUBLIC KEY/p' > sellf-release.pub.pem
+
+# 1. Signature — prints "Signature Verified Successfully"
+openssl pkeyutl -verify -pubin -inkey sellf-release.pub.pem -rawin \
+  -in sellf-image.manifest -sigfile sellf-image.manifest.sig
+
+# 2. Read the digest, then pull and check the label matches
+cat sellf-image.manifest
+IMAGE=$(grep '^image=' sellf-image.manifest | cut -d= -f2-)
+docker pull "$IMAGE"
+docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE"
 ```
 
 ## Additional Scripts
@@ -407,9 +563,11 @@ Self-hosted Supabase requires minimum 2 GB RAM (too much for Mikrus 1.0) but wor
 # Update specific instance
 ./local/deploy.sh sellf --ssh=ALIAS --update --domain=shop.example.com
 
-# Update with local build (private repo)
+# Update with local build (private repo) — archive entries checked, no signature needed
 ./local/deploy.sh sellf --ssh=ALIAS --update --build-file=~/Downloads/sellf-build.tar.gz
 ```
+
+Downloaded releases are verified before anything is replaced — see [Release verification](#release-verification).
 
 ### Case 8: Multiple instances on one server (same database)
 

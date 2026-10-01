@@ -11,6 +11,12 @@
 #
 # Environment variables:
 #   BUILD_FILE - path to local tar.gz file (instead of downloading from GitHub)
+#   SELLF_RELEASE_LIB - path to apps/sellf/release-verify.sh (set by deploy.sh)
+#
+# A downloaded release is installed only if its signed manifest verifies, the
+# archive matches the manifest checksum, and it is not older than the installed
+# version (see apps/sellf/release-verify.sh). A --build-file archive is the
+# operator's own build: only its entries are checked.
 #
 # Flags:
 #   --restart - only restart the application (e.g. after changing .env), without downloading a new version
@@ -112,6 +118,113 @@ fi
 echo "   Current version: $CURRENT_VERSION"
 
 # =============================================================================
+# 1.5. DOCKER INSTALLS: separate path, never PM2
+# =============================================================================
+# Detected by an existing docker-compose.yml (written by install.sh's Docker
+# mode) or by RUNTIME=docker passed from deploy.sh (new instance, no compose
+# file yet). Everything below this block is the PM2/tarball path and is
+# never reached for a Docker install.
+
+RUNTIME_DETECTED="pm2"
+if [ -f "$INSTALL_DIR/docker-compose.yml" ] || [ "${RUNTIME:-}" = "docker" ]; then
+    RUNTIME_DETECTED="docker"
+fi
+
+if [ "$RUNTIME_DETECTED" = "docker" ]; then
+    # ----- SELLF DOCKER UPDATE START -----
+    SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+    if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+        echo -e "${RED}❌ Release verification helpers not found: $SELLF_RELEASE_LIB${NC}"
+        echo "   Run the update through ./local/deploy.sh sellf --update"
+        exit 1
+    fi
+    source "$SELLF_RELEASE_LIB"
+
+    if [ "$RESTART_ONLY" = true ]; then
+        echo ""
+        echo "🔄 Restarting Sellf (Docker)..."
+        # Fill in any secret a newer Sellf release now requires but this
+        # install predates (see sellf_ensure_required_secrets). A bare
+        # `docker compose restart` does not recreate the container, so this
+        # only guarantees .env.local itself is complete for the next real
+        # update/recreate — not that the running container picks it up now.
+        sellf_ensure_required_secrets "$ENV_FILE"
+        cp "$ENV_FILE" "$INSTALL_DIR/.env"
+        cd "$INSTALL_DIR"
+        docker compose restart
+        echo ""
+        echo -e "${GREEN}✅ Sellf restarted!${NC}"
+        exit 0
+    fi
+
+    # Reuse the container name already recorded in the compose file (written by
+    # install.sh's Docker mode); fall back to the install.sh naming convention
+    # for an instance whose compose file does not exist yet.
+    DOCKER_NAME=$(grep -m1 '^\s*container_name:' "$INSTALL_DIR/docker-compose.yml" 2>/dev/null | awk '{print $2}')
+    DOCKER_NAME="${DOCKER_NAME:-sellf-${INSTANCE:-default}}"
+
+    echo ""
+    echo "🔏 Verifying signed image manifest..."
+    if ! sellf_docker_deploy "$GITHUB_REPO" "$INSTALL_DIR" "$INSTALL_DIR/admin-panel" "$DOCKER_NAME" "$CURRENT_VERSION"; then
+        echo -e "${RED}❌ Docker image verification failed — nothing was changed${NC}"
+        exit 1
+    fi
+    echo "   Signature and digest OK ($SELLF_RELEASE_VERSION)"
+    echo "   Image: $SELLF_IMAGE_REF"
+
+    if [ "$CURRENT_VERSION" = "$SELLF_RELEASE_VERSION" ] && [ "$CURRENT_VERSION" != "unknown" ]; then
+        echo -e "${YELLOW}⚠️  You already have the latest version ($CURRENT_VERSION)${NC}"
+        # Only prompt when interactive — see the PM2 path below for why.
+        if [ -t 0 ] && [ "${YES_MODE:-}" != "true" ]; then
+            read -r -p "Continue anyway? [y/N]: " CONTINUE
+            if [[ ! "$CONTINUE" =~ ^[YyTt]$ ]]; then
+                echo "Cancelled."
+                exit 0
+            fi
+        else
+            echo "   (non-interactive — re-applying the same version)"
+        fi
+    fi
+
+    echo "$SELLF_RELEASE_VERSION" > "$INSTALL_DIR/admin-panel/version.txt"
+
+    # Fill in any secret/flag this (or a newer) release requires that the
+    # instance does not have yet — same helper the PM2 path below uses, so a
+    # release that adds a new required secret cannot boot-loop a Docker
+    # install that never got a chance to generate it.
+    echo ""
+    echo "🔐 Checking required secrets..."
+    sellf_ensure_required_secrets "$ENV_FILE"
+
+    # Refresh docker-compose's .env from .env.local in case it changed since
+    # install (docker-compose reads .env, not .env.local).
+    cp "$ENV_FILE" "$INSTALL_DIR/.env"
+
+    echo ""
+    echo "🚀 Starting Sellf (Docker)..."
+    cd "$INSTALL_DIR"
+    docker compose up -d
+
+    sleep 3
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo -e "${GREEN}✅ Sellf updated! (Docker mode)${NC}"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "   Previous version: $CURRENT_VERSION"
+    echo "   New version: $SELLF_RELEASE_VERSION"
+    echo ""
+    echo "📋 Useful commands:"
+    echo "   docker ps                                  - container status"
+    echo "   docker logs ${DOCKER_NAME}                 - logs"
+    echo "   cd $INSTALL_DIR && docker compose restart  - restart"
+    echo ""
+
+    exit 0
+    # ----- SELLF DOCKER UPDATE END -----
+fi
+
+# =============================================================================
 # 2. DOWNLOAD NEW VERSION (skip in restart mode)
 # =============================================================================
 
@@ -122,27 +235,57 @@ if [ "$RESTART_ONLY" = false ]; then
     cp "$ENV_FILE" "$INSTALL_DIR/.env.local.backup"
     echo "   .env.local backup created"
 
-    # Download to temporary folder
+    # Release verification helpers (manifest signature, checksum, archive entries)
+    SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+    if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+        echo -e "${RED}❌ Release verification helpers not found: $SELLF_RELEASE_LIB${NC}"
+        echo "   Run the update through ./local/deploy.sh sellf --update"
+        exit 1
+    fi
+    source "$SELLF_RELEASE_LIB"
+
+    # Extraction dir + a separate private dir for the downloaded release assets
     TEMP_DIR=$(mktemp -d)
-    trap "rm -rf $TEMP_DIR" EXIT
+    RELEASE_DIR=$(mktemp -d)
+    trap 'rm -rf "$TEMP_DIR" "$RELEASE_DIR"' EXIT
 
     cd "$TEMP_DIR"
 
     # Check if we have a local file
     if [ -n "$BUILD_FILE" ] && [ -f "$BUILD_FILE" ]; then
+        # A local build is the operator's own artifact: it has no release
+        # signature, so only the archive entries are checked.
         echo "📦 Using local file: $BUILD_FILE"
-        if ! tar -xzf "$BUILD_FILE"; then
+        echo "   (local build — no release signature, checking archive entries only)"
+        if ! sellf_validate_archive "$BUILD_FILE" || ! tar -xzf "$BUILD_FILE"; then
             echo -e "${RED}❌ Failed to extract file${NC}"
             exit 1
         fi
     else
         echo "📥 Downloading from GitHub..."
-        RELEASE_URL="https://github.com/$GITHUB_REPO/releases/latest/download/sellf-build.tar.gz"
-        if ! curl -fsSL "$RELEASE_URL" | tar -xz; then
+        if ! RELEASE_BASE_URL=$(sellf_release_base_url "$GITHUB_REPO") \
+            || ! sellf_download_release "$RELEASE_DIR" "$RELEASE_BASE_URL"; then
             echo -e "${RED}❌ Failed to download new version${NC}"
             echo ""
             echo "If the repo is private, use --build-file:"
             echo "   ./local/deploy.sh sellf --ssh=vps --update --build-file=~/Downloads/sellf-build.tar.gz"
+            exit 1
+        fi
+
+        echo "🔏 Verifying release..."
+        if ! sellf_verify_release "$RELEASE_DIR"; then
+            echo -e "${RED}❌ Release verification failed — nothing was changed${NC}"
+            exit 1
+        fi
+        echo "   Signature, checksum and archive entries OK ($SELLF_RELEASE_VERSION)"
+
+        # Newer or same (re-deploy) → continue; older → refuse.
+        if ! sellf_check_update_version "$CURRENT_VERSION" "$SELLF_RELEASE_VERSION"; then
+            exit 1
+        fi
+
+        if ! tar -xzf "$RELEASE_DIR/sellf-build.tar.gz"; then
+            echo -e "${RED}❌ Failed to extract new version${NC}"
             exit 1
         fi
     fi
@@ -152,9 +295,9 @@ if [ "$RESTART_ONLY" = false ]; then
         exit 1
     fi
 
-    # Check new version
-    NEW_VERSION="unknown"
-    if [ -f "version.txt" ]; then
+    # Check new version (signed manifest for releases, version.txt for local builds)
+    NEW_VERSION="${SELLF_RELEASE_VERSION:-unknown}"
+    if [ "$NEW_VERSION" = "unknown" ] && [ -f "version.txt" ]; then
         NEW_VERSION=$(cat version.txt)
     fi
     echo "   New version: $NEW_VERSION"
@@ -220,60 +363,19 @@ else
     echo "📋 Restart mode - skipped file update"
 fi
 
-# Ensure APP_ENCRYPTION_KEY exists. AES-256-GCM key for every DB-stored secret
-# (Stripe UI-wizard key, webhook signing secret, GUS / Currency API keys).
-# Without it the admin cannot save integration settings and encrypted secrets
-# fail to decrypt. Guard on BOTH names: legacy installs may carry the old
-# STRIPE_ENCRYPTION_KEY (which the app still honours as a fallback) — adding a
-# fresh APP_ENCRYPTION_KEY there would shadow it and make existing ciphertext
-# undecryptable. Generate only when neither exists. NEVER rotate after first set.
-if [ -f "$ENV_FILE" ] && ! grep -qE "^(APP_ENCRYPTION_KEY|STRIPE_ENCRYPTION_KEY)=" "$ENV_FILE"; then
-    printf "\nAPP_ENCRYPTION_KEY=%s\n" "$(openssl rand -base64 32)" >> "$ENV_FILE"
-    echo "   🔐 generated APP_ENCRYPTION_KEY (DO NOT change — encrypts DB secrets)"
+# Ensure every secret/flag production startup requires exists (idempotent,
+# never overwrites — see apps/sellf/release-verify.sh). Shared with the
+# Docker update branch above and with install.sh, so a release that adds a
+# new required secret only needs a change in one place.
+SELLF_RELEASE_LIB="${SELLF_RELEASE_LIB:-$(dirname "${BASH_SOURCE[0]}")/release-verify.sh}"
+if [ ! -f "$SELLF_RELEASE_LIB" ]; then
+    echo -e "${RED}❌ Release verification helpers not found: $SELLF_RELEASE_LIB${NC}"
+    exit 1
 fi
-
-# Ensure CHECKOUT_BINDING_SECRET exists (production refuses to boot
-# without it). Self-hosters upgrading from an older Sellf may not have one
-# yet — generate on first update so the next boot does not fail closed.
-# Existing values left alone so in-flight checkout sessions stay valid.
-if [ -f "$ENV_FILE" ] && ! grep -q "^CHECKOUT_BINDING_SECRET=" "$ENV_FILE"; then
-    printf "\nCHECKOUT_BINDING_SECRET=%s\n" "$(openssl rand -base64 32)" >> "$ENV_FILE"
-    echo "   🔐 generated CHECKOUT_BINDING_SECRET (rotate via incident response only)"
-fi
-
-# Ensure LOGINWALL_SECRET exists. HMAC key for the per-product
-# login-wall handoff token. Rotating invalidates in-flight tokens;
-# visitors transparently get a fresh one via /loginwall/protect.
-if [ -f "$ENV_FILE" ] && ! grep -q "^LOGINWALL_SECRET=" "$ENV_FILE"; then
-    printf "\nLOGINWALL_SECRET=%s\n" "$(openssl rand -hex 32)" >> "$ENV_FILE"
-    echo "   🔐 generated LOGINWALL_SECRET"
-fi
-
-# Ensure CRON_SECRET exists. Without it /api/cron rejects every request
-# and scheduled jobs (access-expired webhooks, webhook log cleanup) do
-# not run. Auto-generate so the endpoint is callable by an authorized
-# scheduler the moment the operator wires one up.
-if [ -f "$ENV_FILE" ] && ! grep -q "^CRON_SECRET=" "$ENV_FILE"; then
-    printf "\nCRON_SECRET=%s\n" "$(openssl rand -base64 32)" >> "$ENV_FILE"
-    echo "   🔐 generated CRON_SECRET (point your scheduler at /api/cron with Authorization: Bearer <value>)"
-fi
-
-# Ensure a captcha is configured. ALTCHA is self-hosted (HMAC proof-of-work,
-# no external account) and gives bot protection on signup/checkout. Skip if
-# Turnstile is already set — it takes priority, so generating ALTCHA there
-# would be dead config. Without any captcha key, forms have no bot protection.
-if [ -f "$ENV_FILE" ] && ! grep -qE "^(ALTCHA_HMAC_KEY|CLOUDFLARE_TURNSTILE_SECRET_KEY)=" "$ENV_FILE"; then
-    printf "\nALTCHA_HMAC_KEY=%s\n" "$(openssl rand -hex 32)" >> "$ENV_FILE"
-    echo "   🔐 generated ALTCHA_HMAC_KEY (self-hosted captcha; Turnstile overrides if you set it)"
-fi
-
-# Ensure TRUSTED_PROXY=true is set. Production startup refuses to boot
-# without it; rate limiting also degrades to a shared "unknown" bucket
-# for every request when it is missing. Stackpilot always deploys behind
-# Caddy as the public entrypoint, so this is the correct topology.
-if [ -f "$ENV_FILE" ] && ! grep -q "^TRUSTED_PROXY=" "$ENV_FILE"; then
-    printf "\nTRUSTED_PROXY=true\n" >> "$ENV_FILE"
-    echo "   🔒 enabled TRUSTED_PROXY (read client IP from last X-Forwarded-For hop)"
+source "$SELLF_RELEASE_LIB"
+if [ -f "$ENV_FILE" ]; then
+    echo "🔐 Checking required secrets..."
+    sellf_ensure_required_secrets "$ENV_FILE"
 fi
 
 if [ -f "$ENV_FILE" ] && ! grep -q "^SELLF_PM2_MAX_MEMORY=" "$ENV_FILE"; then

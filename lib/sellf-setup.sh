@@ -743,6 +743,202 @@ sellf_collect_stripe_config() {
     return 0
 }
 
+# =============================================================================
+# SELF-HOSTED SUPABASE — GOTRUE EMAIL TEMPLATES
+# =============================================================================
+#
+# Sellf's login is a magic link and /auth/callback requires the link to carry
+# token_hash, which GoTrue's default templates do not include. Cloud Supabase
+# gets this via configure_supabase_settings() (Management API, above). This
+# section covers self-hosted Supabase instead:
+#
+#   - SUPABASE_MODE=local: Supabase was deployed BY stackpilot itself
+#     (apps/supabase/install.sh, same server, .env fully under our control)
+#     -> sellf_configure_local_gotrue_templates() wires GoTrue directly and
+#        recreates its container.
+#   - Any other self-hosted Supabase (BYO, Coolify's own Supabase service,
+#     a different VPS): stackpilot has no access to that stack's .env
+#     -> sellf_show_unmanaged_gotrue_instructions() prints the exact lines
+#        to paste in, with the seller's real Sellf domain already filled in.
+#
+# sellf_configure_supabase_post_install() is the single entry point deploy.sh
+# calls; it picks one of the three paths above (or the Cloud Management API).
+
+# Directory of a self-hosted Supabase stack deployed by apps/supabase/install.sh
+# (SUPABASE_MODE=local, same server). Override only for tests.
+SELLF_LOCAL_SUPABASE_STACK_DIR="${SELLF_LOCAL_SUPABASE_STACK_DIR:-/opt/stacks/supabase}"
+
+# Single-quote a string for safe embedding in a remote shell command.
+_sellf_shell_quote() {
+    printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# Build a remote shell snippet that idempotently sets KEY=VALUE pairs in
+# ENV_FILE: replaces an existing "KEY=..." line if present, appends otherwise.
+# KEYs must be fixed literal constants (not user input) -- they are embedded
+# directly into a sed address. VALUEs are always shell-quoted.
+# Usage: _sellf_gotrue_env_script ENV_FILE KEY1 VALUE1 [KEY2 VALUE2 ...]
+_sellf_gotrue_env_script() {
+    local env_file="$1"
+    shift
+    local q_env_file
+    q_env_file=$(_sellf_shell_quote "$env_file")
+
+    local script=":"
+    while [ "$#" -ge 2 ]; do
+        local key="$1"
+        local value="$2"
+        shift 2
+        local q_line
+        q_line=$(_sellf_shell_quote "${key}=${value}")
+        script="$script && sudo sed -i '/^${key}=/d' $q_env_file && printf '%s\\n' $q_line | sudo tee -a $q_env_file >/dev/null"
+    done
+
+    printf '%s' "$script"
+}
+
+# Check whether SUPABASE_MODE=local points at a self-hosted Supabase stack
+# that stackpilot itself deployed (apps/supabase/install.sh, same server).
+sellf_local_supabase_is_managed() {
+    local ssh_alias="$1"
+    ssh "$ssh_alias" "sudo test -f $(_sellf_shell_quote "$SELLF_LOCAL_SUPABASE_STACK_DIR/.env")" 2>/dev/null
+}
+
+# Print copy-pasteable GoTrue env lines for a self-hosted Supabase stack that
+# stackpilot does NOT manage (BYO self-host, Coolify's own Supabase, etc.).
+sellf_show_unmanaged_gotrue_instructions() {
+    local domain="$1"
+
+    echo ""
+    msg "$MSG_SELLF_GOTRUE_UNMANAGED_HEADER"
+    msg "$MSG_SELLF_GOTRUE_UNMANAGED_WHY"
+
+    if [ -z "$domain" ] || [ "$domain" = "-" ]; then
+        echo ""
+        msg "$MSG_SELLF_GOTRUE_NO_DOMAIN"
+        return 0
+    fi
+
+    local base_url="https://$domain"
+    echo ""
+    echo "   GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=${base_url}/auth-email-templates/magic-link.html"
+    echo "   GOTRUE_MAILER_TEMPLATES_CONFIRMATION=${base_url}/auth-email-templates/confirmation.html"
+    echo "   GOTRUE_MAILER_TEMPLATES_RECOVERY=${base_url}/auth-email-templates/recovery.html"
+    echo "   GOTRUE_MAILER_TEMPLATES_INVITE=${base_url}/auth-email-templates/invite.html"
+    echo "   GOTRUE_MAILER_TEMPLATES_EMAIL_CHANGE=${base_url}/auth-email-templates/email-change.html"
+    echo "   GOTRUE_URI_ALLOW_LIST=${base_url}/*"
+    echo ""
+    msg "$MSG_SELLF_GOTRUE_UNMANAGED_RESTART"
+    msg "$MSG_SELLF_GOTRUE_UNMANAGED_DOCS"
+}
+
+# Configure GoTrue on a stackpilot-managed self-hosted Supabase stack
+# (SUPABASE_MODE=local) to serve Sellf's magic-link-compatible templates,
+# then recreate the auth container so the change takes effect.
+# Requires a public Sellf domain: GoTrue fetches the template over HTTP(S),
+# so an SSH-tunnel-only ("-") Sellf install has nothing reachable to point at.
+sellf_configure_local_gotrue_templates() {
+    local domain="$1"
+    local ssh_alias="$2"
+
+    if [ -z "$domain" ] || [ "$domain" = "-" ]; then
+        echo ""
+        msg "$MSG_SELLF_GOTRUE_NO_DOMAIN"
+        return 1
+    fi
+
+    if ! sellf_local_supabase_is_managed "$ssh_alias"; then
+        echo ""
+        msg "$MSG_SELLF_GOTRUE_NOT_MANAGED"
+        sellf_show_unmanaged_gotrue_instructions "$domain"
+        return 1
+    fi
+
+    echo ""
+    msg "$MSG_SELLF_GOTRUE_HEADER"
+
+    local base_url="https://$domain"
+    local env_file="$SELLF_LOCAL_SUPABASE_STACK_DIR/.env"
+
+    # Merge into any existing allow-list rather than clobbering other allowed origins.
+    local current_allow_list
+    current_allow_list=$(ssh "$ssh_alias" "sudo grep -m1 '^GOTRUE_URI_ALLOW_LIST=' $(_sellf_shell_quote "$env_file") 2>/dev/null | cut -d= -f2-" 2>/dev/null)
+
+    local allow_entry="${base_url}/*"
+    local new_allow_list="$allow_entry"
+    if [ -n "$current_allow_list" ]; then
+        if echo "$current_allow_list" | grep -qF "$allow_entry"; then
+            new_allow_list="$current_allow_list"
+        else
+            new_allow_list="${current_allow_list},${allow_entry}"
+        fi
+    fi
+
+    local script
+    script=$(_sellf_gotrue_env_script "$env_file" \
+        "GOTRUE_MAILER_TEMPLATES_MAGIC_LINK" "${base_url}/auth-email-templates/magic-link.html" \
+        "GOTRUE_MAILER_SUBJECTS_MAGIC_LINK" "$(msg "$MSG_SELLF_EMAIL_MAGIC_LINK")" \
+        "GOTRUE_MAILER_TEMPLATES_CONFIRMATION" "${base_url}/auth-email-templates/confirmation.html" \
+        "GOTRUE_MAILER_SUBJECTS_CONFIRMATION" "$(msg "$MSG_SELLF_EMAIL_CONFIRMATION")" \
+        "GOTRUE_MAILER_TEMPLATES_RECOVERY" "${base_url}/auth-email-templates/recovery.html" \
+        "GOTRUE_MAILER_SUBJECTS_RECOVERY" "$(msg "$MSG_SELLF_EMAIL_RECOVERY")" \
+        "GOTRUE_MAILER_TEMPLATES_INVITE" "${base_url}/auth-email-templates/invite.html" \
+        "GOTRUE_MAILER_SUBJECTS_INVITE" "$(msg "$MSG_SELLF_EMAIL_INVITE")" \
+        "GOTRUE_MAILER_TEMPLATES_EMAIL_CHANGE" "${base_url}/auth-email-templates/email-change.html" \
+        "GOTRUE_MAILER_SUBJECTS_EMAIL_CHANGE" "$(msg "$MSG_SELLF_EMAIL_CHANGE")" \
+        "GOTRUE_URI_ALLOW_LIST" "$new_allow_list")
+
+    if ! ssh "$ssh_alias" "$script"; then
+        msg "$MSG_SELLF_GOTRUE_ENV_FAILED"
+        return 1
+    fi
+    msg "$MSG_SELLF_GOTRUE_ENV_UPDATED"
+
+    msg "$MSG_SELLF_GOTRUE_RESTARTING"
+    if ssh "$ssh_alias" "cd $(_sellf_shell_quote "$SELLF_LOCAL_SUPABASE_STACK_DIR") && sudo docker compose up -d --force-recreate auth" >/dev/null 2>&1; then
+        msg "$MSG_SELLF_GOTRUE_RESTARTED"
+    else
+        msg "$MSG_SELLF_GOTRUE_RESTART_FAILED"
+        echo "   cd $SELLF_LOCAL_SUPABASE_STACK_DIR && sudo docker compose up -d --force-recreate auth"
+        return 1
+    fi
+
+    return 0
+}
+
+# Consolidated Sellf post-install Supabase configuration dispatcher.
+# Picks exactly one of: Cloud Management API, stackpilot-managed self-hosted
+# (SUPABASE_MODE=local), or an unmanaged self-hosted Supabase (prints
+# instructions only). Called by deploy.sh once the app is deployed and
+# DOMAIN is known.
+sellf_configure_supabase_post_install() {
+    local domain="$1"
+    local turnstile_secret="$2"
+    local ssh_alias="$3"
+
+    if [ -n "$SUPABASE_TOKEN" ] && [ -n "$PROJECT_REF" ]; then
+        configure_supabase_settings "$domain" "$turnstile_secret" "$ssh_alias"
+        return $?
+    fi
+
+    if [ "${SUPABASE_MODE:-cloud}" = "local" ]; then
+        sellf_configure_local_gotrue_templates "$domain" "$ssh_alias"
+        return $?
+    fi
+
+    # SUPABASE_URL manually provided, no Cloud Management API token, and not
+    # a stackpilot-managed local stack -> only a *.supabase.co URL is Cloud
+    # (just missing a fresh token, e.g. a cached deploy-config.env -- stay a
+    # silent no-op like before, do NOT print self-hosted instructions for it).
+    # Anything else is a self-hosted Supabase stackpilot cannot reach.
+    if [ -n "$SUPABASE_URL" ] && [[ "$SUPABASE_URL" != *".supabase.co"* ]]; then
+        sellf_show_unmanaged_gotrue_instructions "$domain"
+        return 1
+    fi
+
+    return 0
+}
+
 # Show post-installation reminders for Sellf
 sellf_show_post_install_reminders() {
     local DOMAIN="${1:-}"

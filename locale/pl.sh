@@ -604,6 +604,20 @@ MSG_SELLF_EMAIL_RECOVERY="Zresetuj hasło"
 MSG_SELLF_EMAIL_CHANGE="Potwierdź zmianę adresu email"
 MSG_SELLF_EMAIL_INVITE="Zaproszenie do Sellf"
 
+# sellf_configure_local_gotrue_templates / sellf_show_unmanaged_gotrue_instructions
+MSG_SELLF_GOTRUE_NO_DOMAIN="${YELLOW}⚠️  Sellf nie ma jeszcze publicznej domeny -- GoTrue nie może pobrać szablonu przez HTTP.${NC} Przypisz domenę, potem uruchom ponownie deploy.sh, żeby podłączyć maile z linkiem logowania."
+MSG_SELLF_GOTRUE_NOT_MANAGED="${YELLOW}⚠️  SUPABASE_MODE=local, ale nie znaleziono na tym serwerze stosu Supabase wdrożonego przez stackpilot.${NC}"
+MSG_SELLF_GOTRUE_HEADER="📧 Konfiguruję szablony email GoTrue (magic link, self-hosted Supabase)..."
+MSG_SELLF_GOTRUE_ENV_UPDATED="   ✅ Zmienne środowiskowe GoTrue zaktualizowane"
+MSG_SELLF_GOTRUE_ENV_FAILED="${RED}   ❌ Nie udało się zaktualizować zmiennych GoTrue${NC}"
+MSG_SELLF_GOTRUE_RESTARTING="   🔄 Restartuję kontener auth..."
+MSG_SELLF_GOTRUE_RESTARTED="   ✅ Kontener auth zrestartowany -- maile z magic linkiem gotowe"
+MSG_SELLF_GOTRUE_RESTART_FAILED="${RED}   ❌ Nie udało się zrestartować kontenera auth. Uruchom ręcznie:${NC}"
+MSG_SELLF_GOTRUE_UNMANAGED_HEADER="${YELLOW}📧 Szablony email magic-link dla self-hosted Supabase${NC}"
+MSG_SELLF_GOTRUE_UNMANAGED_WHY="   Ten stos Supabase nie został wdrożony przez stackpilot, więc nie można automatycznie edytować jego .env. Domyślne szablony GoTrue nie niosą token_hash, którego wymaga logowanie w Sellf -- dodaj te linie ręcznie:"
+MSG_SELLF_GOTRUE_UNMANAGED_RESTART="   Zrestartuj kontener auth/GoTrue po edycji .env."
+MSG_SELLF_GOTRUE_UNMANAGED_DOCS="   Pełna instrukcja: https://docs.sellf.app/full-stack/#part-2--magic-link-email-templates"
+
 # update_supabase_site_url
 MSG_SELLF_URL_UPDATING="🌐 Aktualizuję Site URL w Supabase: https://%s"
 MSG_SELLF_URL_NO_TOKEN="${RED}   ❌ Brak SUPABASE_TOKEN${NC}"
