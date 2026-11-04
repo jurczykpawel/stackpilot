@@ -152,3 +152,22 @@ test('without a verified offline copy no key is deployed; the rerun verifies the
   await main(['--plan=' + w.plan], w.deps);
   assert.ok(lines(w.log).some(l => l.includes('keys.mjs init') && l.endsWith('--backup-verified /offline/keys.json')));
 });
+
+test('a failed register initialization is retried with the same register id and keys', async () => {
+  const w = world('c');
+  const run = w.deps.run;
+  let fail = true;
+  w.deps.run = (cmd, args, opts) => {
+    if (args.includes('scripts/backup/init-register.mjs') && fail) { fail = false; w.log.push({ line: 'init-register failed', env: opts.env }); throw new Error('B2 deadline'); }
+    return run(cmd, args, opts);
+  };
+  await assert.rejects(main(['--plan=' + w.plan], w.deps), /init-register|B2 deadline/);
+  await main(['--plan=' + w.plan], w.deps);
+  const attempts = w.log.filter(e => e.line.includes('init-register')).map(e => e.env.TOMBSTONE_REGISTRY_ID);
+  assert.equal(attempts.length, 2);
+  assert.equal(attempts[0], attempts[1]);
+  assert.equal(lines(w.log).filter(l => l.includes('keys.mjs init')).length, 1);
+  w.log.length = 0;
+  await main(['--plan=' + w.plan], w.deps);
+  assert.equal(index(w.log, 'init-register'), -1);
+});

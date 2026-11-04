@@ -79,13 +79,18 @@ export async function main(argv, deps = {}) {
     for (const k of ['CONTENT_PUBLIC_KEYS', 'INDEX_KEYS', 'TRANSIT_KEYS']) if (!keys[k]) throw new Error(`Key generation printed no ${k}`);
     generated = { ...keys, API_KEY: randomBytes(32).toString('hex'), ALTCHA_HMAC_KEY: randomBytes(32).toString('hex'), PANEL_ASSERTION_KEYS: ring('panel-1'),
       PRO_WEBHOOK_KEYS: ring('webhook-1'), EGRESS_KEYS: ring('egress-1'), PANEL_TOKEN: `msk_panel_${random()}`, TOMBSTONE_REGISTRY_ID: randomBytes(16).toString('hex') };
+    save('generated.json', generated);
+  }
+  const ids = read('ids.json') ?? {};
+  // The register id is saved before B2 is written, so a retry after a lost response reuses it.
+  if (!ids.register) {
     run('node', ['scripts/backup/init-register.mjs'], { cwd: plan.core, env: { B2_ENDPOINT: plan.backup.endpoint, B2_BUCKET: plan.backup.bucket,
       B2_KEY_ID: user.api.B2_KEY_ID, B2_APP_KEY: user.api.B2_APP_KEY, BACKUP_AGE_RECIPIENT: plan.backup.ageRecipient,
       TOMBSTONE_REGISTRY_ID: generated.TOMBSTONE_REGISTRY_ID, ...plan.backup.tombstonePrefix ? { TOMBSTONE_PREFIX: plan.backup.tombstonePrefix } : {} } });
-    save('generated.json', generated);
+    save('ids.json', { ...ids, register: true });
+    ids.register = true;
   }
 
-  const ids = read('ids.json') ?? {};
   if (worker) {
     ids.egressZone = (await cf.zoneFor(plan.hosts.egress)).name;
     ids.egressToken = await cf.ensureServiceToken(`${i}-egress`, ids.egressToken);
