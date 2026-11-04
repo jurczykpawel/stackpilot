@@ -136,3 +136,19 @@ test('uninstall needs --yes, then removes Cloudflare resources and the server st
   assert.ok(index(w.log, 'MAILSTACK_ACTION=uninstall') < index(w.log, 'remove'), 'server stops before its tunnel disappears');
   assert.ok(existsSync(join(w.deps.home, '.config/stackpilot/mailstack/mailstack-test/generated.json')), 'local keys stay with the owner');
 });
+
+test('without a verified offline copy no key is deployed; the rerun verifies the copy named in the plan', async () => {
+  const w = world('c');
+  const run = w.deps.run;
+  w.deps.run = (cmd, args, opts) => {
+    if (args.includes('init') && !args.includes('--backup-verified')) {
+      writeFileSync(args[2], '{}', { mode: 0o600 });
+      throw new Error('exit 1');
+    }
+    return run(cmd, args, opts);
+  };
+  await assert.rejects(main(['--plan=' + w.plan], w.deps), /Copy .*content-private\.json to offline storage .*\/offline\/keys\.json/);
+  assert.equal(index(w.log, 'init-register'), -1);
+  await main(['--plan=' + w.plan], w.deps);
+  assert.ok(lines(w.log).some(l => l.includes('keys.mjs init') && l.endsWith('--backup-verified /offline/keys.json')));
+});
