@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readPlan, apiConfig, apiEnv, releaseEnv, ingress, serverFiles, services, panelWorkerEnv, resolveSecret } from '../../../apps/mailstack/lib.mjs';
+import { readPlan, apiConfig, apiEnv, releaseEnv, ingress, serverFiles, services, panelWorkerEnv, resolveSecret, publicLookup } from '../../../apps/mailstack/lib.mjs';
 
 const base = {
   instance: 'mailstack-test', ssh: 'vps', accountId: 'a'.repeat(32), ownerEmail: 'owner@example.com',
@@ -81,7 +81,7 @@ test('releaseEnv sets every routing variable explicitly so a stray .env cannot c
     MAILSTACK_CONFIG: '/state/api.json', MAILSTACK_PRO_PATH: '/src/mailstack-pro', MAILSTACK_WORKER_NAME: 'mailstack-test', MAILSTACK_D1_ID: 'd1-api',
     MAILSTACK_D1_PREVIEW_ID: '', MAILSTACK_ROUTE: 'mail.example.com', SES_REGION: 'eu-west-1', SES_CONFIGURATION_SET: '', MAILSTACK_EGRESS_URL: 'https://egress.example.net',
     MAILSTACK_INTERNAL_ROUTE: 'internal.example.com', MAILSTACK_ACCESS_TEAM_DOMAIN: 'team.cloudflareaccess.com', MAILSTACK_ACCESS_AUD: 'aud',
-    MAILSTACK_PANEL_AUDIENCE: '', MAILSTACK_HEALTH_URL: 'https://mail.example.com/health',
+    MAILSTACK_PANEL_AUDIENCE: '', MAILSTACK_HEALTH_URL: '',
   });
   const a = releaseEnv(plan('a'), ids, '/state/api.json');
   assert.equal(a.MAILSTACK_INTERNAL_ROUTE, '');
@@ -141,4 +141,17 @@ test('resolveSecret reads env, file, keystore and Vaultwarden references without
   assert.match(calls[2], /local\/keys\.sh get cloudflare_api_token$/);
   await assert.rejects(resolveSecret('env:MISSING', io), /MISSING is empty/);
   await assert.rejects(resolveSecret('plain-value', io), /env:, file:, bw: or keystore:/);
+});
+
+test('publicLookup resolves through the given public resolver, never the system cache', async () => {
+  const asked = [];
+  const resolver = { resolve4: async host => (asked.push(host), ['192.0.2.7', '192.0.2.8']) };
+  const lookup = publicLookup(resolver);
+  const one = await new Promise((ok, no) => lookup('mail.example.com', {}, (e, a, f) => e ? no(e) : ok([a, f])));
+  assert.deepEqual(one, ['192.0.2.7', 4]);
+  const all = await new Promise((ok, no) => lookup('mail.example.com', { all: true }, (e, a) => e ? no(e) : ok(a)));
+  assert.deepEqual(all, [{ address: '192.0.2.7', family: 4 }, { address: '192.0.2.8', family: 4 }]);
+  assert.deepEqual(asked, ['mail.example.com', 'mail.example.com']);
+  const failing = publicLookup({ resolve4: async () => { throw Object.assign(new Error('nx'), { code: 'ENOTFOUND' }); } });
+  await assert.rejects(new Promise((ok, no) => failing('x.example', {}, e => e ? no(e) : ok())), /nx/);
 });

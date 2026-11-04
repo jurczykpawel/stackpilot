@@ -3,13 +3,15 @@
 // Runs on the owner's computer: keys (core CLI), Cloudflare resources, Workers (core release, Pro panel Worker) and the
 // server stack (install.sh). Keys and resource ids stay in ~/.config/stackpilot/mailstack/<instance>/ (0700/0600).
 import { execFileSync } from 'node:child_process';
+import { Resolver } from 'node:dns/promises';
+import { request } from 'node:https';
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cloudflare } from './cloudflare.mjs';
-import { apiConfig, apiEnv, ingress, panelWorkerEnv, readPlan, releaseEnv, resolveSecret, serverFiles, services } from './lib.mjs';
+import { apiConfig, apiEnv, ingress, panelWorkerEnv, publicLookup, readPlan, releaseEnv, resolveSecret, serverFiles, services } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const random = () => randomBytes(32).toString('base64url');
@@ -18,6 +20,20 @@ const ring = kid => JSON.stringify([{ kid, key: random() }]);
 function realRun(cmd, args, { cwd, env = {}, input, capture } = {}) {
   return execFileSync(cmd, args, { cwd, env: { ...process.env, ...env }, encoding: 'utf8', maxBuffer: 1 << 26,
     input: input ? readFileSync(input) : undefined, stdio: [input ? 'pipe' : 'inherit', capture ? 'pipe' : 'inherit', 'inherit'] }) ?? '';
+}
+
+/** GET through Cloudflare's public resolvers (publicLookup); returns { ok, status, json }. */
+function publicFetch(url) {
+  const resolver = new Resolver();
+  resolver.setServers(['1.1.1.1', '1.0.0.1']);
+  return new Promise((resolve, reject) => {
+    const req = request(url, { lookup: publicLookup(resolver), timeout: 15000, headers: { 'cache-control': 'no-store' } }, res => {
+      let body = '';
+      res.setEncoding('utf8').on('data', chunk => { body += chunk; }).on('end', () =>
+        resolve({ ok: res.statusCode >= 200 && res.statusCode < 300, status: res.statusCode, json: async () => JSON.parse(body) }));
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout'))).on('error', reject).end();
+  });
 }
 
 export async function main(argv, deps = {}) {
@@ -45,6 +61,20 @@ export async function main(argv, deps = {}) {
   const wrangler = `${plan.core}/node_modules/.bin/wrangler`;
   const panelEnv = ids => ({ ...panelWorkerEnv(plan, ids), ...cfEnv, PATH: `${plan.core}/node_modules/.bin:${process.env.PATH}` });
   // Secret files exist only for the one command that reads them.
+  // /health with store ok and, for Workers, the commits of both checkouts (the Node image reports commit dev).
+  const waitHealth = async expected => {
+    const url = `https://${plan.hosts.api}/health`, fetchImpl = deps.fetch ?? publicFetch;
+    let seen = 'no answer';
+    for (let attempt = 0; ; attempt++) {
+      const res = await fetchImpl(url).catch(error => { seen = error.message; });
+      const body = res?.ok ? await res.json().catch(() => ({})) : {};
+      if (res) seen = res.ok ? JSON.stringify({ store: body.store, commit: body.commit, proCommit: body.proCommit }) : `HTTP ${res.status}`;
+      if (body.store === 'ok' && Object.entries(expected).every(([key, value]) => body[key] === value)) return;
+      if (attempt >= 40) throw new Error(`${url} health is not ready or not this version (last: ${seen}); check the Tunnel, the api container or the Worker`);
+      await sleep(3000);
+    }
+  };
+  const head = dir => run('git', ['-C', dir, 'rev-parse', 'HEAD'], { capture: true }).trim();
   const withSecrets = (values, fn) => {
     const path = file('.secrets.json');
     writeFileSync(path, JSON.stringify(values), { mode: 0o600 });
@@ -116,6 +146,7 @@ export async function main(argv, deps = {}) {
     save('api.json', apiConfig(owner, plan, generated));
     withSecrets(apiEnv(plan, generated, user, ids), path => run(wrangler, ['secret', 'bulk', path, '--name', i], { cwd: plan.core, env: cfEnv }));
     run('npm', ['run', 'release'], { cwd: plan.core, env: { ...releaseEnv(plan, ids, file('api.json')), ...cfEnv } });
+    await waitHealth({ commit: head(plan.core), proCommit: head(plan.pro) });
   }
   if (plan.profile === 'a') {
     run('npm', ['run', 'build:panel-worker'], { cwd: plan.pro, env: panelEnv(ids) });
@@ -147,13 +178,7 @@ export async function main(argv, deps = {}) {
   } finally { rmSync(staging, { recursive: true, force: true }); }
 
   if (!worker) {
-    const fetchImpl = deps.fetch ?? fetch;
-    for (let attempt = 0; ; attempt++) {
-      const res = await fetchImpl(`https://${plan.hosts.api}/health`).catch(() => undefined);
-      if (res?.ok && (await res.json()).store === 'ok') break;
-      if (attempt >= 30) throw new Error(`https://${plan.hosts.api}/health is not ready; check the Tunnel and the api container`);
-      await sleep(3000);
-    }
+    await waitHealth({});
   }
   if (!ids.invited || flag('invite')) {
     const invite = plan.profile === 'a'

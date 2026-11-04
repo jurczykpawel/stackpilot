@@ -38,6 +38,8 @@ function world(profile) {
       if (line.includes('container-context.mjs')) { mkdirSync(join(args[2], 'mailstack/src'), { recursive: true }); writeFileSync(join(args[2], 'mailstack/src/a.ts'), w.source); }
       if (cmd === 'tar') w.hashes.push(readFileSync(join(args[1], 'context.sha256'), 'utf8'));
       if (line.includes('invite')) return 'https://panel.example.com/?invite=abc\n';
+      if (line === 'git -C /src/core rev-parse HEAD') return 'core-sha\n';
+      if (line === `git -C ${pro} rev-parse HEAD`) return 'pro-sha\n';
       return '';
     },
     cloudflare: () => ({
@@ -50,9 +52,10 @@ function world(profile) {
       ensureD1: async name => (log.push({ line: `d1 ${name}` }), `${name}-id`),
       remove: async spec => log.push({ line: 'remove', spec }),
     }),
-    fetch: async url => (log.push({ line: `fetch ${url}` }), new Response('{"ok":true,"store":"ok"}', { status: 200 })),
+    fetch: async url => (log.push({ line: `fetch ${url}` }), new Response(JSON.stringify(w.health), { status: 200 })),
+    sleep: async () => {},
   };
-  const w = { plan, deps, log, files, dir, source: 'v1', hashes: [] };
+  const w = { plan, deps, log, files, dir, source: 'v1', hashes: [], health: { ok: true, store: 'ok', commit: 'core-sha', proCommit: 'pro-sha' } };
   return w;
 }
 const lines = log => log.map(e => e.line);
@@ -85,6 +88,31 @@ test('profile a: secrets before release, release before the panel Worker, server
   assert.equal(statSync(state).mode & 0o777, 0o700);
   for (const f of readdirSync(state)) assert.equal(statSync(join(state, f)).mode & 0o777, 0o600, f);
   assert.deepEqual(readdirSync(state).sort(), ['api.json', 'generated.json', 'ids.json']);
+});
+
+test('profiles a and b: the installer, not the release, checks /health and requires the deployed commits', async () => {
+  for (const profile of ['a', 'b']) {
+    const w = world(profile);
+    await main(['--plan=' + w.plan], w.deps);
+    assert.equal(w.log.find(e => e.line === 'npm run release').env.MAILSTACK_HEALTH_URL, '', 'release skips its own check');
+    const at = index(w.log, 'fetch https://mail.example.com/health');
+    assert.ok(at > index(w.log, 'npm run release'), profile);
+    if (profile === 'a') assert.ok(at < index(w.log, 'build:panel-worker'), 'before the panel Worker');
+  }
+});
+
+test('N: a Worker answering with another commit stops the install after the retries', async () => {
+  for (const health of [{ ok: true, store: 'ok', commit: 'old-sha', proCommit: 'pro-sha' }, { ok: true, store: 'ok', commit: 'core-sha', proCommit: 'old' }]) {
+    const w = world('a'); w.health = health;
+    await assert.rejects(main(['--plan=' + w.plan], w.deps), /health/);
+    assert.equal(index(w.log, 'build:panel-worker'), -1);
+    assert.ok(lines(w.log).filter(l => l.startsWith('fetch')).length > 5, 'retried');
+  }
+});
+
+test('profile c: the Node image reports commit dev, so only store ok is required', async () => {
+  const w = world('c'); w.health = { ok: true, store: 'ok', commit: 'dev' };
+  await main(['--plan=' + w.plan], w.deps);
 });
 
 test('a second run reuses keys, register and tokens and creates no new invitation', async () => {

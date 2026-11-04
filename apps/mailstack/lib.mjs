@@ -89,7 +89,8 @@ export function releaseEnv(p, ids, configPath) {
     MAILSTACK_CONFIG: configPath, MAILSTACK_PRO_PATH: p.pro, MAILSTACK_WORKER_NAME: p.instance, MAILSTACK_D1_ID: ids.d1, MAILSTACK_D1_PREVIEW_ID: '',
     MAILSTACK_ROUTE: p.hosts.api, SES_REGION: p.sesRegion, SES_CONFIGURATION_SET: p.sesConfigurationSet, MAILSTACK_EGRESS_URL: `https://${p.hosts.egress}`,
     MAILSTACK_INTERNAL_ROUTE: b ? p.hosts.internal : '', MAILSTACK_ACCESS_TEAM_DOMAIN: b ? ids.teamDomain : '', MAILSTACK_ACCESS_AUD: b ? ids.internalAud : '',
-    MAILSTACK_PANEL_AUDIENCE: b ? '' : p.hosts.internal, MAILSTACK_HEALTH_URL: `https://${p.hosts.api}/health`,
+    // The installer checks /health itself through public DNS (see publicLookup), so the release skips its check.
+    MAILSTACK_PANEL_AUDIENCE: b ? '' : p.hosts.internal, MAILSTACK_HEALTH_URL: '',
   };
 }
 
@@ -133,3 +134,12 @@ export function serverFiles(p, { owner, generated, user, ids }) {
   });
   return files;
 }
+
+/** dns.lookup replacement asking the given resolver (public DNS). The first query for a new custom domain can reach the
+ * local resolver before the record exists; its negative answer is then cached for the zone's SOA minimum (30 min on
+ * Cloudflare), which made a fresh install fail its health check although the Worker was serving. */
+export const publicLookup = resolver => (host, options, callback) => {
+  resolver.resolve4(host).then(addresses => options?.all
+    ? callback(null, addresses.map(address => ({ address, family: 4 })))
+    : callback(null, addresses[0], 4), callback);
+};
