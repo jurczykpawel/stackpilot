@@ -109,7 +109,9 @@ function envFile(vars) {
 export function serverFiles(p, { owner, generated, user, ids }) {
   const secret = content => ({ content, mode: 0o600 });
   const worker = p.profile !== 'c', panel = p.profile !== 'a';
-  const compose = { COMPOSE_PROFILES: 'production', BUILD_CONTEXT: `${p.stackDir}/context`, PANEL_NTFY_URL: user.panel.PANEL_NTFY_URL };
+  // Compose and the firewall name the egress bridges after this value; installations on one host must not share them.
+  const compose = { COMPOSE_PROFILES: 'production', BUILD_CONTEXT: `${p.stackDir}/context`, PANEL_NTFY_URL: user.panel.PANEL_NTFY_URL,
+    EGRESS_BRIDGE: `ms${sha256(p.instance).slice(0, 6)}` };
   if (panel) Object.assign(compose, { PANEL_ORIGIN: `https://${p.hosts.panel}`, API_AUDIENCE: worker ? p.hosts.internal : p.hosts.api,
     PANEL_API_ORIGIN: worker ? `https://${p.hosts.internal}` : 'http://api:8081' },
     worker ? { PANEL_API_ACCESS_ID_FILE: '/run/panel/access-id', PANEL_API_ACCESS_SECRET_FILE: '/run/panel/access-secret' } : {});

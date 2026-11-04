@@ -119,6 +119,10 @@ test('serverFiles writes only what each profile runs, all secrets 0600, no priva
   assert.match(b['.env'].content, /^EGRESS_DENY_ZONES=example\.net$/m);
   assert.match(c['.env'].content, /^PANEL_API_ORIGIN=http:\/\/api:8081$/m);
   assert.match(c['.env'].content, /^COMPOSE_PROFILES=production$/m);
+  const bridge = files => /^EGRESS_BRIDGE=(.*)$/m.exec(files['.env'].content)?.[1];
+  assert.match(bridge(c), /^ms[0-9a-f]{6}$/, 'own bridge names, at most 15 characters with -t');
+  assert.equal(bridge(c), bridge(a), 'stable for an instance');
+  assert.notEqual(bridge(c), bridge(serverFiles(readPlan({ ...base, profile: 'c', instance: 'other' }), { owner, generated, user, ids })));
   assert.match(c['.env'].content, /^PANEL_NTFY_URL=https:\/\/ntfy\.example\/t$/m);
   assert.equal(JSON.parse(c['secrets/panel/license.json'].content).license, 'lic');
   assert.equal(b['secrets/panel/token'].content, 'msk_panel_abc');
