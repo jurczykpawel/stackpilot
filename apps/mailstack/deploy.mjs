@@ -76,7 +76,7 @@ export async function main(argv, deps = {}) {
     let printed;
     try { printed = run('node', ['scripts/keys.mjs', 'init', keyring, ...verify], { cwd: plan.core, capture: true }); }
     catch { throw new Error(`Copy ${keyring} to offline storage at ${plan.keyBackup} (keyBackup), then rerun; no keys were deployed`); }
-    const keys = Object.fromEntries(printed.split('\n').map(l => /^([A-Z_]+)=(.+)$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]));
+    const keys = Object.fromEntries(printed.split('\n').map(l => /^([A-Z_]+)='(.+)'$/.exec(l)).filter(Boolean).map(m => [m[1], m[2]]));
     for (const k of ['CONTENT_PUBLIC_KEYS', 'INDEX_KEYS', 'TRANSIT_KEYS']) if (!keys[k]) throw new Error(`Key generation printed no ${k}`);
     generated = { ...keys, API_KEY: randomBytes(32).toString('hex'), ALTCHA_HMAC_KEY: randomBytes(32).toString('hex'), PANEL_ASSERTION_KEYS: ring('panel-1'),
       PRO_WEBHOOK_KEYS: ring('webhook-1'), EGRESS_KEYS: ring('egress-1'), PANEL_TOKEN: `msk_panel_${random()}`, TOMBSTONE_REGISTRY_ID: randomBytes(16).toString('hex') };

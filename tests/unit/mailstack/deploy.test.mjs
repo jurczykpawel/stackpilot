@@ -29,7 +29,8 @@ function world(profile) {
     run(cmd, args, { cwd, env = {}, input } = {}) {
       const line = [cmd, ...args].join(' ');
       log.push({ line, cwd, env, input });
-      if (line.includes('keys.mjs init')) return 'CONTENT_PUBLIC_KEYS={"keys":[]}\nINDEX_KEYS=[{"kid":"i","key":"x"}]\nTRANSIT_KEYS={"keys":[{"kid":"t","d":"secret"}]}\n';
+      // Exact output format of the core `scripts/keys.mjs init` (emit: NAME='<json>').
+      if (line.includes('keys.mjs init')) return `CONTENT_PUBLIC_KEYS='{"keys":[]}'\nINDEX_KEYS='[{"kid":"i","key":"x"}]'\nTRANSIT_KEYS='{"keys":[{"kid":"t","d":"secret"}]}'\n`;
       if (line.includes('wrangler secret bulk') || line.includes('--secrets-file')) {
         const file = args[args.findIndex(a => a === 'bulk' || a === '--secrets-file') + 1];
         files[args.includes('bulk') ? 'bulk' : 'deploy'] = { mode: statSync(file).mode & 0o777, json: JSON.parse(readFileSync(file, 'utf8')) };
@@ -70,6 +71,7 @@ test('profile a: secrets before release, release before the panel Worker, server
   assert.ok(lines(w.log).includes('tunnel egress.example.net,http_status:404'));
   assert.ok(!lines(w.log).some(l => l.startsWith('access internal')), 'no internal host in profile a');
   const bulk = w.files.bulk;
+  assert.equal(bulk.json.CONTENT_PUBLIC_KEYS, '{"keys":[]}');
   assert.equal(bulk.mode, 0o600);
   assert.equal(bulk.json.EGRESS_ACCESS_CLIENT_SECRET, 'mailstack-test-egress-secret');
   assert.ok(!('PANEL_TOKEN' in bulk.json));
