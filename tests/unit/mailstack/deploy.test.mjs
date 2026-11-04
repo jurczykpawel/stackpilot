@@ -102,7 +102,8 @@ test('profiles a and b: the installer, not the release, checks /health and requi
 });
 
 test('N: a Worker answering with another commit stops the install after the retries', async () => {
-  for (const health of [{ ok: true, store: 'ok', commit: 'old-sha', proCommit: 'pro-sha' }, { ok: true, store: 'ok', commit: 'core-sha', proCommit: 'old' }]) {
+  for (const health of [{ ok: true, store: 'ok', commit: 'old-sha', proCommit: 'pro-sha' }, { ok: true, store: 'ok', commit: 'core-sha', proCommit: 'old' },
+    { ok: false, store: 'unavailable', commit: 'core-sha', proCommit: 'pro-sha' }]) {
     const w = world('a'); w.health = health;
     await assert.rejects(main(['--plan=' + w.plan], w.deps), /health/);
     assert.equal(index(w.log, 'build:panel-worker'), -1);
