@@ -63,6 +63,16 @@ test_rerun_keeps_tls_and_does_not_duplicate_deny_list() {
     assert_eq "1" "$(grep -c '^EGRESS_DENY_CIDRS=' "$STACK_DIR/.env")" "one deny list"
 }
 
+test_rerun_after_compose_networks_keeps_the_deny_list() {
+    install_with "cloudflared egress backup" >/dev/null
+    local first; first=$(grep '^EGRESS_DENY_CIDRS=' "$STACK_DIR/.env")
+    # After the first run Compose has created its bridges (private addresses, already denied by the fixed ranges).
+    printf '#!/bin/bash\nprintf "2: eth0    inet 192.0.2.10/24 brd x scope global eth0\\n2: eth0    inet6 2001:db8:1::7/64 scope global\\n5: msa1b2c3    inet 172.31.250.1/24 brd x scope global msa1b2c3\\n3: docker0    inet 172.18.0.1/16 brd x scope global docker0\\n4: eth1    inet 10.0.0.5/8 scope global eth1\\n6: br-x    inet 192.168.5.1/24 scope global br-x\\n7: tailscale0    inet 100.101.1.2/32 scope global tailscale0\\n8: eth2    inet6 fd00::1/64 scope global\\n"\n' > "$TEST_TMPDIR/bin/ip"
+    install_with "cloudflared egress backup" >/dev/null
+    assert_eq "$first" "$(grep '^EGRESS_DENY_CIDRS=' "$STACK_DIR/.env")" "same deny list, so Compose does not recreate the egress"
+    assert_not_contains "$first" "172.31.250.1" "no Compose bridge address"
+}
+
 test_profile_a_installs_firewall_with_host_addresses_before_compose() {
     install_with "cloudflared egress backup" >/dev/null
     assert_contains "$(grep '^EGRESS_DENY_CIDRS=' "$STACK_DIR/.env")" "203.0.113.7/32" "public IPv4 from trace"

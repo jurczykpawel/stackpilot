@@ -62,14 +62,17 @@ if has egress; then
         echo "Another Mailstack egress uses this host's firewall: $(sudo grep -m1 '^EnvironmentFile=' "$UNIT" | cut -d= -f2-). One egress per host."
         exit 1
     fi
-    # The egress must not reach this host through its own public addresses.
+    # The egress must not reach this host through its own public addresses. Private, CGNAT, link-local, loopback and
+    # ULA addresses are left out: the firewall denies those ranges anyway, and Docker bridges created by Compose would
+    # otherwise change the list on the next run and recreate the egress container.
     DENY=$( {
         for family in 4 6; do
             target=1.1.1.1; [ "$family" = 6 ] && target='[2606:4700:4700::1111]'
             curl -"$family" -fsS --max-time 5 "https://$target/cdn-cgi/trace" 2>/dev/null | sed -n 's/^ip=//p'
         done
         ip -o addr show scope global | awk '{ split($4, a, "/"); print a[1] }'
-    } | awk 'NF { print ($0 ~ /:/) ? $0 "/128" : $0 "/32" }' | sort -u | paste -sd, - )
+    } | grep -viE '^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)' \
+      | awk 'NF { print ($0 ~ /:/) ? $0 "/128" : $0 "/32" }' | sort -u | paste -sd, - )
     [ -n "$DENY" ] || { echo "Cannot determine this host's addresses for the egress firewall."; exit 1; }
     sudo sed -i.bak '/^EGRESS_DENY_CIDRS=/d' "$STACK_DIR/.env" && sudo rm -f "$STACK_DIR/.env.bak"
     echo "EGRESS_DENY_CIDRS=$DENY" | sudo tee -a "$STACK_DIR/.env" >/dev/null
