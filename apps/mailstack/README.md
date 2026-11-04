@@ -12,7 +12,7 @@ Nothing publishes a port: the panel and (in profile c) the API are reached throu
 
 ## Requirements
 
-- On your computer: Node.js 24+, `ssh` access to the server (root or passwordless `sudo`), clean checkouts of `mailstack` and `mailstack-pro` with `npm ci` done, and the release guard satisfied (`HEAD` equal to `origin/main` or a tag reachable from it) for profiles a and b.
+- On your computer: Node.js 24+, `ssh` access to the server (root or passwordless `sudo`), clean checkouts of `mailstack` and `mailstack-pro` with `npm ci` done, and the release guard satisfied for profiles a and b: an `instance` named `mailstack` (production) needs `HEAD` equal to `origin/main` or a tag reachable from it; any other instance needs only clean checkouts.
 - On the server: Linux with Docker Compose v2.24+, `curl`, `openssl`, `ip`, systemd and iptables (profiles a and b).
 - Cloudflare: the hostnames in zones of this account; an API token with Workers Scripts, D1, Workers Custom Domains, Access (apps, service tokens, organization read), Cloudflare Tunnel and DNS edit; a second token with **only** D1 for the backup service. Each API Worker uses one Cron Trigger (five per account on Workers Free).
 - Backups: a B2 bucket, two application keys (register key with `readFiles`+`writeFiles`, backup key with `writeFiles` only, see the core `docs/backup.md`) and the owner's `age` public key. The private `age` key never leaves your computer.
