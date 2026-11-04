@@ -38,6 +38,7 @@ export async function main(argv, deps = {}) {
   const group = async refs => Object.fromEntries(await Promise.all(Object.entries(refs ?? {}).map(async ([k, ref]) => [k, await secret(ref)])));
   const cfToken = await secret(plan.secrets.cloudflare);
   const cf = (deps.cloudflare ?? cloudflare)({ token: cfToken, account: plan.accountId });
+  const zt = plan.secrets.cloudflareZeroTrust ? (deps.cloudflare ?? cloudflare)({ token: await secret(plan.secrets.cloudflareZeroTrust), account: plan.accountId }) : cf;
   const cfEnv = { CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: plan.accountId };
   const ssh = (command, input) => run('ssh', [plan.ssh, command], { input });
   const serverScript = vars => `sudo env STACK_DIR='${plan.stackDir}' ${vars} bash -s`;
@@ -53,8 +54,8 @@ export async function main(argv, deps = {}) {
   if (flag('uninstall')) {
     ssh(serverScript('MAILSTACK_ACTION=uninstall'), join(HERE, 'install.sh'));
     const hosts = ingress(plan).flatMap(r => r.hostname ? [r.hostname] : []);
-    await cf.remove({ workers: { a: [i, plan.workerPanel], b: [i], c: [] }[plan.profile], d1: { a: [i, plan.workerPanel], b: [i], c: [] }[plan.profile],
-      apps: [plan.hosts.panel, ...worker ? [plan.hosts.internal, plan.hosts.egress] : []], tokens: worker ? [`${i}-panel`, `${i}-egress`] : [], tunnel: i, hosts });
+    await cf.remove({ workers: { a: [i, plan.workerPanel], b: [i], c: [] }[plan.profile], d1: { a: [i, plan.workerPanel], b: [i], c: [] }[plan.profile], hosts });
+    await zt.remove({ apps: [plan.hosts.panel, ...worker ? [plan.hosts.internal, plan.hosts.egress] : []], tokens: worker ? [`${i}-panel`, `${i}-egress`] : [], tunnel: i });
     log(`Removed ${i}. The content keys and generated secrets stay in ${state}; delete that directory only when no backup needs them.`);
     return;
   }
@@ -93,17 +94,17 @@ export async function main(argv, deps = {}) {
 
   if (worker) {
     ids.egressZone = (await cf.zoneFor(plan.hosts.egress)).name;
-    ids.egressToken = await cf.ensureServiceToken(`${i}-egress`, ids.egressToken);
-    if (plan.profile === 'b') ids.panelToken = await cf.ensureServiceToken(`${i}-panel`, ids.panelToken);
+    ids.egressToken = await zt.ensureServiceToken(`${i}-egress`, ids.egressToken);
+    if (plan.profile === 'b') ids.panelToken = await zt.ensureServiceToken(`${i}-panel`, ids.panelToken);
     save('ids.json', ids);
   }
-  await cf.ensureAccessApp({ name: `${i} panel`, domain: plan.hosts.panel, email: plan.ownerEmail });
+  await zt.ensureAccessApp({ name: `${i} panel`, domain: plan.hosts.panel, email: plan.ownerEmail });
   if (plan.profile === 'b') {
-    ids.teamDomain = await cf.teamDomain();
-    ids.internalAud = (await cf.ensureAccessApp({ name: `${i} internal API`, domain: plan.hosts.internal, serviceToken: ids.panelToken.tokenId })).aud;
+    ids.teamDomain = await zt.teamDomain();
+    ids.internalAud = (await zt.ensureAccessApp({ name: `${i} internal API`, domain: plan.hosts.internal, serviceToken: ids.panelToken.tokenId })).aud;
   }
-  if (worker) await cf.ensureAccessApp({ name: `${i} egress`, domain: plan.hosts.egress, serviceToken: ids.egressToken.tokenId });
-  const tunnel = await cf.ensureTunnel(i, ingress(plan));
+  if (worker) await zt.ensureAccessApp({ name: `${i} egress`, domain: plan.hosts.egress, serviceToken: ids.egressToken.tokenId });
+  const tunnel = await zt.ensureTunnel(i, ingress(plan));
   ids.tunnelToken = tunnel.token;
   for (const rule of ingress(plan).filter(r => r.hostname)) await cf.ensureCname((await cf.zoneFor(rule.hostname)).id, rule.hostname, `${tunnel.id}.cfargotunnel.com`);
   if (worker) ids.d1 = await cf.ensureD1(i);

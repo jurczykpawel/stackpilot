@@ -28,6 +28,7 @@ export function readPlan(input) {
   for (const field of LICENSE_FIELDS) need(typeof p.license?.[field] === 'string' && p.license[field], `license.${field} is required`);
   const s = p.secrets ?? {};
   need(isRef(s.cloudflare), 'secrets.cloudflare must reference the Cloudflare API token');
+  need(s.cloudflareZeroTrust === undefined || isRef(s.cloudflareZeroTrust), 'secrets.cloudflareZeroTrust must reference a token for Access and Tunnel');
   const required = { api: ['MAILSTACK_LICENSE', 'B2_KEY_ID', 'B2_APP_KEY'], backup: ['B2_KEY_ID', 'B2_APP_KEY', ...p.profile === 'c' ? [] : ['CLOUDFLARE_API_TOKEN']], panel: ['PANEL_NTFY_URL'] };
   for (const [group, names] of Object.entries(required)) {
     for (const name of names) need(isRef(s[group]?.[name]), `secrets.${group}.${name} is required`);

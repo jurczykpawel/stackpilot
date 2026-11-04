@@ -72,9 +72,9 @@ export function cloudflare({ token, account, fetch = globalThis.fetch }) {
       const [found] = await call('GET', acc(`/d1/database?name=${q(name)}`));
       if (found) await call('DELETE', acc(`/d1/database/${found.uuid}`));
     }
-    const appList = await call('GET', acc('/access/apps'));
+    const appList = apps.length ? await call('GET', acc('/access/apps')) : [];
     for (const domain of apps) for (const app of appList.filter(a => a.domain === domain)) await call('DELETE', acc(`/access/apps/${app.id}`));
-    const tokenList = await call('GET', acc('/access/service_tokens'));
+    const tokenList = tokens.length ? await call('GET', acc('/access/service_tokens')) : [];
     for (const name of tokens) for (const t of tokenList.filter(t => t.name === name)) await call('DELETE', acc(`/access/service_tokens/${t.id}`));
     for (const host of hosts) {
       const zone = await zoneFor(host);

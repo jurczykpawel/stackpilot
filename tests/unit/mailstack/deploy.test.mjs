@@ -128,7 +128,7 @@ test('uninstall needs --yes, then removes Cloudflare resources and the server st
   await assert.rejects(main(['--plan=' + w.plan, '--uninstall'], w.deps), /--yes/);
   assert.equal(w.log.length, 0);
   await main(['--plan=' + w.plan, '--uninstall', '--yes'], w.deps);
-  const removal = w.log.find(e => e.line === 'remove').spec;
+  const removal = Object.assign({}, ...w.log.filter(e => e.line === 'remove').map(e => e.spec));
   assert.deepEqual(removal, { workers: ['mailstack-test', 'mailstack-test-panel'], d1: ['mailstack-test', 'mailstack-test-panel'],
     apps: ['panel.example.com', 'internal.example.com', 'egress.example.net'], tokens: ['mailstack-test-panel', 'mailstack-test-egress'],
     tunnel: 'mailstack-test', hosts: ['egress.example.net'] });
@@ -170,4 +170,19 @@ test('a failed register initialization is retried with the same register id and 
   w.log.length = 0;
   await main(['--plan=' + w.plan], w.deps);
   assert.equal(index(w.log, 'init-register'), -1);
+});
+
+test('a separate Zero Trust token handles Access, service tokens and the Tunnel; the main token DNS, D1 and Workers', async () => {
+  const w = world('b');
+  const plan = JSON.parse(readFileSync(w.plan, 'utf8'));
+  plan.secrets.cloudflareZeroTrust = 'env:ZT';
+  writeFileSync(w.plan, JSON.stringify(plan));
+  w.deps.env.ZT = 'zt-token';
+  const factory = w.deps.cloudflare, used = {};
+  w.deps.cloudflare = ({ token }) => Object.fromEntries(Object.entries(factory()).map(([name, fn]) => [name, (...a) => ((used[name] ??= new Set()).add(token), fn(...a))]));
+  await main(['--plan=' + w.plan], w.deps);
+  for (const name of ['ensureAccessApp', 'ensureServiceToken', 'ensureTunnel', 'teamDomain']) assert.deepEqual([...used[name]], ['zt-token'], name);
+  for (const name of ['ensureCname', 'ensureD1', 'zoneFor']) assert.deepEqual([...used[name]], ['cf-token'], name);
+  await main(['--plan=' + w.plan, '--uninstall', '--yes'], w.deps);
+  assert.deepEqual([...used.remove].sort(), ['cf-token', 'zt-token']);
 });
