@@ -14,7 +14,8 @@ function fakeApi() {
     assert.equal(init.headers.authorization, 'Bearer tok');
     const p = pathname.replace('/client/v4', '');
     let m;
-    if (p === '/accounts/acc/d1/database') return method === 'GET' ? ok(db.d1.filter(d => d.name === searchParams.get('name')))
+    // Like the live API (measured 2026-11-04): ?name= matches a substring, newest first.
+    if (p === '/accounts/acc/d1/database') return method === 'GET' ? ok(db.d1.filter(d => d.name.includes(searchParams.get('name'))).reverse())
       : ok(db.d1[db.d1.push({ uuid: `d1-${++n}`, name: body.name }) - 1]);
     if ((m = p.match(/^\/accounts\/acc\/d1\/database\/(.+)$/))) { db.d1 = db.d1.filter(d => d.uuid !== m[1]); return ok(null); }
     if (p === '/zones') return ok(db.zones.filter(z => z.name === searchParams.get('name')));
@@ -52,6 +53,17 @@ function fakeApi() {
   };
   return { db, calls, cf: cloudflare({ token: 'tok', account: 'acc', fetch }) };
 }
+
+test('N: D1 lookup takes the exact name, not a longer name containing it', async () => {
+  const { db, cf } = fakeApi();
+  const api = await cf.ensureD1('mailstack-test'), panel = await cf.ensureD1('mailstack-test-panel');
+  assert.notEqual(api, panel, 'the panel database is created, not the API one reused');
+  db.d1.push({ uuid: 'other', name: 'mailstack-test-preview' });
+  assert.equal(await cf.ensureD1('mailstack-test'), api, 'rerun finds the API database');
+  assert.equal(await cf.ensureD1('mailstack-test-panel'), panel);
+  await cf.remove({ workers: [], d1: ['mailstack-test'], apps: [], tokens: [], hosts: [] });
+  assert.deepEqual(db.d1.map(d => d.name).sort(), ['mailstack-test-panel', 'mailstack-test-preview'], 'uninstall removes only the exact database');
+});
 
 test('ensure functions create once and find on the second run', async () => {
   const { db, calls, cf } = fakeApi();

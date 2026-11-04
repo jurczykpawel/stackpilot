@@ -12,8 +12,10 @@ export function cloudflare({ token, account, fetch = globalThis.fetch }) {
   const acc = path => `/accounts/${account}${path}`;
   const q = encodeURIComponent;
 
+  // The D1 list matches ?name= as a substring (measured): `mailstack` also returns mailstack-staging, mailstack-panel...
+  const findD1 = async name => (await call('GET', acc(`/d1/database?name=${q(name)}`))).find(d => d.name === name);
   async function ensureD1(name) {
-    const [found] = await call('GET', acc(`/d1/database?name=${q(name)}`));
+    const found = await findD1(name);
     return (found ?? await call('POST', acc('/d1/database'), { name })).uuid;
   }
 
@@ -69,7 +71,7 @@ export function cloudflare({ token, account, fetch = globalThis.fetch }) {
       await call('DELETE', acc(`/workers/scripts/${q(name)}?force=true`), undefined, { missingOk: true });
     }
     for (const name of d1) {
-      const [found] = await call('GET', acc(`/d1/database?name=${q(name)}`));
+      const found = await findD1(name);
       if (found) await call('DELETE', acc(`/d1/database/${found.uuid}`));
     }
     const appList = apps.length ? await call('GET', acc('/access/apps')) : [];
