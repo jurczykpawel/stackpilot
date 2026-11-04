@@ -90,8 +90,8 @@ export async function main(argv, deps = {}) {
     return;
   }
   if (flag('status')) {
-    const health = await deps.fetch?.(`https://${plan.hosts.api}/health`) ?? await fetch(`https://${plan.hosts.api}/health`);
-    log(`API ${plan.hosts.api}: ${health.status} ${await health.text()}`);
+    const health = await (deps.fetch ?? publicFetch)(`https://${plan.hosts.api}/health`);
+    log(`API ${plan.hosts.api}: ${health.status} ${JSON.stringify(await health.json().catch(() => null))}`);
     ssh(serverScript('MAILSTACK_ACTION=status'), join(HERE, 'install.sh'));
     return;
   }

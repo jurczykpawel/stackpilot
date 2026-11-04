@@ -127,6 +127,14 @@ test('a second run reuses keys, register and tokens and creates no new invitatio
   assert.deepEqual(JSON.parse(readFileSync(join(w.deps.home, '.config/stackpilot/mailstack/mailstack-test/generated.json'), 'utf8')), first);
 });
 
+test('--status reads /health and the server state without changing anything', async () => {
+  const w = world('a'), out = [];
+  await main(['--plan=' + w.plan, '--status'], { ...w.deps, log: line => out.push(line) });
+  assert.deepEqual(lines(w.log).filter(l => !l.startsWith('fetch') && !l.startsWith('ssh')), [], 'no Cloudflare or local step');
+  assert.ok(out.some(l => l.includes('mail.example.com: 200') && l.includes('core-sha')), out.join('|'));
+  assert.ok(w.log.some(e => e.line.startsWith('ssh vps') && e.line.includes('MAILSTACK_ACTION=status')));
+});
+
 test('--update without an existing installation refuses before any change', async () => {
   const w = world('c');
   await assert.rejects(main(['--plan=' + w.plan, '--update'], w.deps), /No installation state/);
