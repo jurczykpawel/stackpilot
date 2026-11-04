@@ -44,7 +44,8 @@ function fakeApi() {
       : ok(db.dns[db.dns.push({ ...body, id: `r${++n}`, zone: m[1] }) - 1]);
     if ((m = p.match(/^\/zones\/z\d\/dns_records\/(.+)$/))) { db.dns = db.dns.filter(r => r.id !== m[1]); return ok(null); }
     if (p === '/accounts/acc/workers/domains') return ok(db.domains.filter(d => d.service === searchParams.get('service')));
-    if ((m = p.match(/^\/accounts\/acc\/workers\/domains\/(.+)$/))) { db.domains = db.domains.filter(d => d.id !== m[1]); return ok(null); }
+    // Live API (measured 2026-11-04): 200 with an empty body.
+    if ((m = p.match(/^\/accounts\/acc\/workers\/domains\/(.+)$/))) { db.domains = db.domains.filter(d => d.id !== m[1]); return new Response('', { status: 200 }); }
     if ((m = p.match(/^\/accounts\/acc\/workers\/scripts\/(.+)$/))) {
       if (!db.scripts.includes(m[1])) return new Response(JSON.stringify({ success: false, errors: [{ code: 10007, message: 'not found' }] }), { status: 404 });
       db.scripts = db.scripts.filter(s => s !== m[1]); return ok(null);
@@ -101,6 +102,11 @@ test('a lost token secret is rotated instead of creating a duplicate; identity a
   assert.deepEqual(db.apps[0].policies[0].include, [{ email: { email: 'owner@example.com' } }]);
   assert.equal(db.apps[0].session_duration, '8h');
   assert.equal(await cf.teamDomain(), 'team.cloudflareaccess.com');
+});
+
+test('N: an empty error body is still an error', async () => {
+  const cf = cloudflare({ token: 'tok', account: 'acc', fetch: async () => new Response('', { status: 500, statusText: 'Internal' }) });
+  await assert.rejects(cf.ensureD1('x'), /500/);
 });
 
 test('ensureCname refuses to replace a record that does not point at a tunnel', async () => {

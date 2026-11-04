@@ -4,7 +4,9 @@ const API = 'https://api.cloudflare.com/client/v4';
 export function cloudflare({ token, account, fetch = globalThis.fetch }) {
   async function call(method, path, body, { missingOk = false } = {}) {
     const res = await fetch(API + path, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: body && JSON.stringify(body) });
-    const json = await res.json().catch(() => ({ success: false, errors: [{ code: res.status, message: res.statusText }] }));
+    const text = await res.text();
+    if (res.ok && !text) return null; // e.g. DELETE /workers/domains/<id>: 200 with an empty body (measured)
+    let json; try { json = JSON.parse(text); } catch { json = { success: false, errors: [{ code: res.status, message: res.statusText }] }; }
     if (json.success) return json.result;
     if (missingOk && res.status === 404) return null;
     throw new Error(`Cloudflare ${method} ${path.split('?')[0]}: ${(json.errors ?? []).map(e => `${e.code} ${e.message}`).join('; ')}`);
