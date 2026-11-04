@@ -25,6 +25,7 @@ export function readPlan(input) {
   need(!!p.backup.bucket, 'backup.bucket is required');
   need(/^age1[0-9a-z]{58}$/.test(p.backup.ageRecipient ?? ''), 'backup.ageRecipient must be the public age key (age1...)');
   need(/^[a-z]{2}(-[a-z]+)+-\d$/.test(p.sesRegion), 'sesRegion must be an AWS region');
+  need(p.accessTeamDomain === undefined || /^[a-z0-9-]+\.cloudflareaccess\.com$/.test(p.accessTeamDomain), 'accessTeamDomain must be <team>.cloudflareaccess.com');
   for (const field of LICENSE_FIELDS) need(typeof p.license?.[field] === 'string' && p.license[field], `license.${field} is required`);
   const s = p.secrets ?? {};
   need(isRef(s.cloudflare), 'secrets.cloudflare must reference the Cloudflare API token');

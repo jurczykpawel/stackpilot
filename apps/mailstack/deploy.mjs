@@ -130,7 +130,7 @@ export async function main(argv, deps = {}) {
   }
   await zt.ensureAccessApp({ name: `${i} panel`, domain: plan.hosts.panel, email: plan.ownerEmail });
   if (plan.profile === 'b') {
-    ids.teamDomain = await zt.teamDomain();
+    ids.teamDomain = plan.accessTeamDomain ?? await zt.teamDomain(); // the lookup needs Access: Organizations Read
     ids.internalAud = (await zt.ensureAccessApp({ name: `${i} internal API`, domain: plan.hosts.internal, serviceToken: ids.panelToken.tokenId })).aud;
   }
   if (worker) await zt.ensureAccessApp({ name: `${i} egress`, domain: plan.hosts.egress, serviceToken: ids.egressToken.tokenId });

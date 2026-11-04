@@ -49,6 +49,7 @@ Keep the plan outside any repository. Secrets are references, never values: `env
 
 - `instance` names the API Worker and its D1, the panel Worker (`<instance>-panel`), the Tunnel, service tokens and the server directory `/opt/stacks/<instance>`. Use `mailstack` for an existing production Worker of that name.
 - `config` is your Mailstack configuration (brands, logging, webhooks). The installer adds the `panel` client and the Pro extension; your other clients and webhook endpoints stay.
+- `accessTeamDomain` (optional, profile b): your Access team host, e.g. `acme.cloudflareaccess.com`; without it the installer reads it from the account, which needs Access: Organizations Read on the token.
 - `hosts.internal` (profiles a and b) is the internal API host in profile b and the reserved audience of the emergency route in profile a (core `docs/internal-api.md`). Put `hosts.egress` in a zone without webhook receivers: the egress refuses targets in its own zone.
 - `secrets.api` is passed unchanged to the API (Worker secrets or `api.env`): add `TURNSTILE_SECRET`, SMTP settings (profile c, with `"sender": {"type": "smtp"}` in the config) or other provider settings there. `keyBackup` is the offline copy the core key generator verifies before printing any key.
 

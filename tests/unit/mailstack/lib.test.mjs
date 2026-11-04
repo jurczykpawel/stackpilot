@@ -155,3 +155,9 @@ test('publicLookup resolves through the given public resolver, never the system 
   const failing = publicLookup({ resolve4: async () => { throw Object.assign(new Error('nx'), { code: 'ENOTFOUND' }); } });
   await assert.rejects(new Promise((ok, no) => failing('x.example', {}, e => e ? no(e) : ok())), /nx/);
 });
+
+test('accessTeamDomain, when given, must be a Cloudflare Access team host', () => {
+  assert.equal(readPlan({ ...plan('b'), accessTeamDomain: 'acme.cloudflareaccess.com' }).accessTeamDomain, 'acme.cloudflareaccess.com');
+  for (const bad of ['acme.example.com', 'https://acme.cloudflareaccess.com', 'a b.cloudflareaccess.com'])
+    assert.throws(() => readPlan({ ...plan('b'), accessTeamDomain: bad }), /accessTeamDomain/, bad);
+});

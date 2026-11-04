@@ -44,7 +44,7 @@ function world(profile) {
     },
     cloudflare: () => ({
       zoneFor: async host => (log.push({ line: `zone ${host}` }), { id: 'z', name: host.split('.').slice(-2).join('.') }),
-      teamDomain: async () => 'team.cloudflareaccess.com',
+      teamDomain: async () => (log.push({ line: 'team-domain lookup' }), 'team.cloudflareaccess.com'),
       ensureServiceToken: async (name, stored) => (log.push({ line: `token ${name} ${stored ? 'stored' : 'new'}` }), { tokenId: 'tid', id: `${name}-id`, secret: `${name}-secret` }),
       ensureAccessApp: async app => (log.push({ line: `access ${app.domain} ${app.email ? 'email' : 'token'}` }), { id: 'app', aud: 'aud' }),
       ensureTunnel: async (name, rules) => (log.push({ line: `tunnel ${rules.map(r => r.hostname ?? r.service).join(',')}` }), { id: 'tun', token: 'tunnel-token' }),
@@ -161,6 +161,17 @@ test('profile b: panel reaches the internal host through Access with its own ser
     assert.ok(lines(w.log).includes(step), step);
   assert.equal(w.log.find(e => e.line === 'npm run release').env.MAILSTACK_INTERNAL_ROUTE, 'internal.example.com');
   assert.ok(index(w.log, "MAILSTACK_SERVICES='panel cloudflared egress backup'") >= 0);
+});
+
+test('profile b: a team domain in the plan replaces the organization lookup (token without that permission)', async () => {
+  const w = world('b');
+  writeFileSync(w.plan, JSON.stringify({ ...JSON.parse(readFileSync(w.plan, 'utf8')), accessTeamDomain: 'acme.cloudflareaccess.com' }));
+  await main(['--plan=' + w.plan], w.deps);
+  assert.equal(index(w.log, 'team-domain lookup'), -1);
+  assert.equal(w.log.find(e => e.line === 'npm run release').env.MAILSTACK_ACCESS_TEAM_DOMAIN, 'acme.cloudflareaccess.com');
+  const plain = world('b');
+  await main(['--plan=' + plain.plan], plain.deps);
+  assert.equal(plain.log.find(e => e.line === 'npm run release').env.MAILSTACK_ACCESS_TEAM_DOMAIN, 'team.cloudflareaccess.com', 'looked up without it');
 });
 
 test('uninstall needs --yes, then removes Cloudflare resources and the server stack', async () => {
