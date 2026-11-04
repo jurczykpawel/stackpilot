@@ -3,8 +3,8 @@
 // Runs on the owner's computer: keys (core CLI), Cloudflare resources, Workers (core release, Pro panel Worker) and the
 // server stack (install.sh). Keys and resource ids stay in ~/.config/stackpilot/mailstack/<instance>/ (0700/0600).
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -135,6 +135,12 @@ export async function main(argv, deps = {}) {
     copyFileSync(join(plan.pro, 'compose.yml'), join(bundle, 'compose.yml'));
     copyFileSync(join(plan.pro, 'scripts/egress-firewall.sh'), join(bundle, 'egress-firewall.sh'));
     run('node', [join(plan.pro, 'scripts/container-context.mjs'), plan.core, join(bundle, 'context')]);
+    const context = createHash('sha256');
+    for (const name of readdirSync(join(bundle, 'context'), { recursive: true }).sort()) {
+      const path = join(bundle, 'context', name);
+      if (statSync(path).isFile()) context.update(`${name}\0`).update(readFileSync(path)).update('\0');
+    }
+    writeFileSync(join(bundle, 'context.sha256'), context.digest('hex') + '\n');
     run('tar', ['-C', bundle, '-czf', join(staging, 'stack.tgz'), '.']);
     ssh(`sudo mkdir -p '${plan.stackDir}' && sudo rm -rf '${plan.stackDir}/context' && sudo tar -C '${plan.stackDir}' -xzf -`, join(staging, 'stack.tgz'));
     ssh(serverScript(`MAILSTACK_SERVICES='${list}'`), join(HERE, 'install.sh'));

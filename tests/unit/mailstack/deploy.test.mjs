@@ -35,6 +35,8 @@ function world(profile) {
         const file = args[args.findIndex(a => a === 'bulk' || a === '--secrets-file') + 1];
         files[args.includes('bulk') ? 'bulk' : 'deploy'] = { mode: statSync(file).mode & 0o777, json: JSON.parse(readFileSync(file, 'utf8')) };
       }
+      if (line.includes('container-context.mjs')) { mkdirSync(join(args[2], 'mailstack/src'), { recursive: true }); writeFileSync(join(args[2], 'mailstack/src/a.ts'), w.source); }
+      if (cmd === 'tar') w.hashes.push(readFileSync(join(args[1], 'context.sha256'), 'utf8'));
       if (line.includes('invite')) return 'https://panel.example.com/?invite=abc\n';
       return '';
     },
@@ -50,7 +52,8 @@ function world(profile) {
     }),
     fetch: async url => (log.push({ line: `fetch ${url}` }), new Response('{"ok":true,"store":"ok"}', { status: 200 })),
   };
-  return { plan, deps, log, files, dir };
+  const w = { plan, deps, log, files, dir, source: 'v1', hashes: [] };
+  return w;
 }
 const lines = log => log.map(e => e.line);
 const index = (log, text) => lines(log).findIndex(l => l.includes(text));
@@ -187,4 +190,15 @@ test('a separate Zero Trust token handles Access, service tokens and the Tunnel;
   for (const name of ['ensureCname', 'ensureD1', 'zoneFor']) assert.deepEqual([...used[name]], ['cf-token'], name);
   await main(['--plan=' + w.plan, '--uninstall', '--yes'], w.deps);
   assert.deepEqual([...used.remove].sort(), ['cf-token', 'zt-token']);
+});
+
+test('the bundle names its source context by content, so an unchanged rerun skips the image build', async () => {
+  const w = world('c');
+  await main(['--plan=' + w.plan], w.deps);
+  await main(['--plan=' + w.plan], w.deps);
+  w.source = 'v2';
+  await main(['--plan=' + w.plan], w.deps);
+  assert.match(w.hashes[0], /^[0-9a-f]{64}\n$/);
+  assert.equal(w.hashes[0], w.hashes[1]);
+  assert.notEqual(w.hashes[1], w.hashes[2]);
 });

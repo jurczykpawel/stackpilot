@@ -93,8 +93,13 @@ EOF
 fi
 
 BUILD=$(for s in $SERVICES; do [ "$s" = cloudflared ] || printf '%s ' "$s"; done)
-# shellcheck disable=SC2086
-compose build $BUILD
+# Unchanged sources keep the running images: a rebuild would produce new image ids and recreate every container.
+CONTEXT_SHA=$(sudo cat "$STACK_DIR/context.sha256" 2>/dev/null || true)
+if [ -z "$CONTEXT_SHA" ] || [ "$CONTEXT_SHA" != "$(sudo cat "$STACK_DIR/.built-context" 2>/dev/null || true)" ]; then
+    # shellcheck disable=SC2086
+    compose build $BUILD
+    echo "$CONTEXT_SHA" | sudo tee "$STACK_DIR/.built-context" >/dev/null
+fi
 # shellcheck disable=SC2086
 compose up -d --wait --wait-timeout 180 $SERVICES || {
     echo "Services not ready. Logs: cd $STACK_DIR && sudo docker compose -p $PROJECT logs --tail 50"

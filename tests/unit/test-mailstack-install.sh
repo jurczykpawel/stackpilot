@@ -109,4 +109,19 @@ test_uninstall_removes_stack_firewall_and_is_repeatable() {
     assert_eq "0" "$code" "second uninstall succeeds"
 }
 
+test_unchanged_context_skips_build_and_a_new_one_rebuilds() {
+    echo abc > "$STACK_DIR/context.sha256"
+    install_with "api panel cloudflared backup" >/dev/null
+    install_with "api panel cloudflared backup" >/dev/null
+    assert_eq "1" "$(grep -c ' build ' "$CALL_LOG")" "built once for one context"
+    echo def > "$STACK_DIR/context.sha256"
+    install_with "api panel cloudflared backup" >/dev/null
+    assert_eq "2" "$(grep -c ' build ' "$CALL_LOG")" "rebuilt for a new context"
+    MOCK_FAIL=" build " install_with "api panel cloudflared backup" >/dev/null || true
+    echo ghi > "$STACK_DIR/context.sha256"
+    MOCK_FAIL=" build " install_with "api panel cloudflared backup" >/dev/null || true
+    MOCK_FAIL="" install_with "api panel cloudflared backup" >/dev/null
+    assert_eq "4" "$(grep -c ' build ' "$CALL_LOG")" "a failed build is retried"
+}
+
 run_tests "$0"
