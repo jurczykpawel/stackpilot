@@ -65,12 +65,29 @@ Keep the plan outside any repository. Secrets are references, never values: `env
 
 The first run generates the content, index and transit keys with the core `keys init` (after verifying your offline copy), the panel token, assertion, webhook and egress keyrings, the full `API_KEY` and an erasure register id, and writes the register's `genesis` and `head` to B2. Everything is kept in `~/.config/stackpilot/mailstack/<instance>/` (directory 0700, files 0600): back it up with your offline keys. Reruns reuse these values and every Cloudflare resource found by name; a service token whose secret is missing from the state is rotated, never duplicated. Each run ends with a first admin invitation until one was issued.
 
-Order of an install or update: Cloudflare (Access, service tokens, Tunnel, DNS, D1) → Worker secrets with `wrangler secret bulk` → core `npm run release` (migrations, then the same build, health check) → panel Worker (`build:panel-worker`, D1 migrations, deploy with its secrets) → server: the configuration and a source context built by Pro's `container-context.mjs` are copied to `/opt/stacks/<instance>`, the egress firewall becomes the systemd unit `mailstack-egress-firewall` (with this host's public addresses as `EGRESS_DENY_CIDRS`), then the profile's services are built and started. A failed firewall stops before anything starts. One egress per host.
+Order of an install or update: Cloudflare (Access, service tokens, Tunnel, DNS, D1) → Worker secrets with `wrangler secret bulk` → core `npm run release` (migrations, then the same build, health check) → panel Worker (`build:panel-worker`, D1 migrations, deploy with its secrets) → server: the configuration and a source context built by Pro's `container-context.mjs` are copied to `/opt/stacks/<instance>`, the egress firewall becomes the systemd unit `mailstack-egress-firewall` (with this host's public addresses as `EGRESS_DENY_CIDRS`), then the profile's services are built and started. A failed firewall stops before anything starts. One local egress per host; profile b can reuse an external egress (below).
 
-`--uninstall --yes` stops the server stack and removes its volumes, local images, the firewall unit and chains and `/opt/stacks/<instance>`, then the Workers with their custom domains, D1 databases, Access applications, service tokens, Tunnel and its DNS records. Copies and the erasure register in B2 and your local state stay (backups are governed by the bucket lifecycle).
+`--uninstall --yes` stops the server stack and removes its volumes, local images, its own firewall unit and chains (only when the unit names this stack) and `/opt/stacks/<instance>`, then the Workers with their custom domains, D1 databases, Access applications, service tokens, Tunnel and its DNS records. Copies and the erasure register in B2 and your local state stay (backups are governed by the bucket lifecycle).
 
 ## After installing
 
 - Panel: open the invitation, pass Access with your e-mail, register a passkey, import the content keyring (`content-private.json` from the state directory or your offline copy) in the browser.
 - Sending: `API_KEY` in `generated.json` is the full key; create scoped keys with Mailstack Pro.
 - SES events, Turnstile, Sellf hooks and restore procedures: core README, `docs/backup.md`, `docs/internal-api.md`; Pro README for the panel.
+
+## Profile b with a shared or external egress
+
+Keep the existing egress and its host firewall running. Add this optional block to the install plan; `hosts.egress` can be omitted:
+
+```json
+"externalEgress": {
+  "url": "https://egress.example.net",
+  "keys": "file:/home/me/mailstack/own-egress-keys.json",
+  "accessClientId": "file:/home/me/mailstack/egress-access-id",
+  "accessClientSecret": "file:/home/me/mailstack/egress-access-secret"
+}
+```
+
+Before installation, generate a distinct order-signing keyring (`[{"kid":"instance-egress-1","key":"<32 random bytes, base64url>"}]`) and add those entries to the existing egress's `EGRESS_KEYS_FILE`, preserving every existing entry. Restart only that egress so it reads the new ring. The `keys` reference holds only the new installation's entries; the Worker signs with its first entry. Use the existing egress Access service token, or a separate token admitted by its operator. Keep that host in a zone without webhook receivers; its existing deny zones and host firewall still apply. Check `/ready` with Access and a signed test request before using webhooks.
+
+The installer passes the referenced credentials to the new API. It creates no egress container, firewall, Access app, service token, DNS record or Tunnel route for the external URL. Reruns and uninstall leave those shared resources alone. Provisioning and retiring the shared key/token are the egress operator's responsibility: after removing this installation, remove only its signing entries (and a dedicated token if used), retaining all other entries. Do not remove the egress owner stack while dependents use it. This mode is supported only for profile b.

@@ -26,12 +26,12 @@ compose() { sudo docker compose -p "$PROJECT" --project-directory "$STACK_DIR" -
 
 if [ "$ACTION" = uninstall ]; then
     if sudo test -f "$STACK_DIR/compose.yml"; then compose down -v --rmi local --remove-orphans; fi
-    if sudo test -f "$UNIT"; then
+    if sudo test -f "$UNIT" && sudo grep -qx "EnvironmentFile=$STACK_DIR/.env" "$UNIT"; then
+        if sudo test -x "$FIREWALL"; then sudo "$FIREWALL" remove; sudo rm -f "$FIREWALL"; fi
         sudo systemctl disable --now "$UNIT_NAME" || true
         sudo rm -f "$UNIT"
         sudo systemctl daemon-reload
     fi
-    if sudo test -x "$FIREWALL"; then sudo "$FIREWALL" remove; sudo rm -f "$FIREWALL"; fi
     sudo rm -rf "$STACK_DIR"
     echo "Mailstack removed from this server."
     exit 0

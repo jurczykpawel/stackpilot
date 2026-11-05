@@ -45,7 +45,7 @@ export async function main(argv, deps = {}) {
   const state = join(home, '.config/stackpilot/mailstack', plan.instance), file = name => join(state, name);
   const read = name => existsSync(file(name)) ? JSON.parse(readFileSync(file(name), 'utf8')) : undefined;
   const save = (name, value) => { writeFileSync(file(name), JSON.stringify(value, null, 2), { mode: 0o600 }); chmodSync(file(name), 0o600); };
-  const worker = plan.profile !== 'c', i = plan.instance, list = services(plan.profile).join(' ');
+  const worker = plan.profile !== 'c', i = plan.instance, list = services(plan.profile, !!plan.externalEgress).join(' ');
   if (flag('uninstall') && !flag('yes')) throw new Error(`Uninstall removes ${i} with all its data; rerun with --yes`);
   if (flag('update') && !read('generated.json')) throw new Error(`No installation state in ${state}; install first`);
 
@@ -85,7 +85,7 @@ export async function main(argv, deps = {}) {
     ssh(serverScript('MAILSTACK_ACTION=uninstall'), join(HERE, 'install.sh'));
     const hosts = ingress(plan).flatMap(r => r.hostname ? [r.hostname] : []);
     await cf.remove({ workers: { a: [i, plan.workerPanel], b: [i], c: [] }[plan.profile], d1: { a: [i, plan.workerPanel], b: [i], c: [] }[plan.profile], hosts });
-    await zt.remove({ apps: [plan.hosts.panel, ...worker ? [plan.hosts.internal, plan.hosts.egress] : []], tokens: worker ? [`${i}-panel`, `${i}-egress`] : [], tunnel: i });
+    await zt.remove({ apps: [plan.hosts.panel, ...worker ? [plan.hosts.internal, ...plan.externalEgress ? [] : [plan.hosts.egress]] : []], tokens: worker ? [`${i}-panel`, ...plan.externalEgress ? [] : [`${i}-egress`]] : [], tunnel: i });
     log(`Removed ${i}. The content keys and generated secrets stay in ${state}; delete that directory only when no backup needs them.`);
     return;
   }
@@ -98,7 +98,8 @@ export async function main(argv, deps = {}) {
 
   mkdirSync(state, { recursive: true, mode: 0o700 });
   chmodSync(state, 0o700);
-  const user = { api: await group(plan.secrets.api), backup: await group(plan.secrets.backup), panel: await group(plan.secrets.panel) };
+  const user = { api: await group(plan.secrets.api), backup: await group(plan.secrets.backup), panel: await group(plan.secrets.panel),
+    ...plan.externalEgress ? { egress: await group(Object.fromEntries(['keys', 'accessClientId', 'accessClientSecret'].map(k => [k, plan.externalEgress[k]]))) } : {} };
   let generated = read('generated.json');
   if (!generated) {
     // The core CLI prints keys only after verifying an offline copy of the private keyring (prompt on a terminal).
@@ -123,8 +124,10 @@ export async function main(argv, deps = {}) {
   }
 
   if (worker) {
-    ids.egressZone = (await cf.zoneFor(plan.hosts.egress)).name;
-    ids.egressToken = await zt.ensureServiceToken(`${i}-egress`, ids.egressToken);
+    if (!plan.externalEgress) {
+      ids.egressZone = (await cf.zoneFor(plan.hosts.egress)).name;
+      ids.egressToken = await zt.ensureServiceToken(`${i}-egress`, ids.egressToken);
+    }
     if (plan.profile === 'b') ids.panelToken = await zt.ensureServiceToken(`${i}-panel`, ids.panelToken);
     save('ids.json', ids);
   }
@@ -133,7 +136,7 @@ export async function main(argv, deps = {}) {
     ids.teamDomain = plan.accessTeamDomain ?? await zt.teamDomain(); // the lookup needs Access: Organizations Read
     ids.internalAud = (await zt.ensureAccessApp({ name: `${i} internal API`, domain: plan.hosts.internal, serviceToken: ids.panelToken.tokenId })).aud;
   }
-  if (worker) await zt.ensureAccessApp({ name: `${i} egress`, domain: plan.hosts.egress, serviceToken: ids.egressToken.tokenId });
+  if (worker && !plan.externalEgress) await zt.ensureAccessApp({ name: `${i} egress`, domain: plan.hosts.egress, serviceToken: ids.egressToken.tokenId });
   const tunnel = await zt.ensureTunnel(i, ingress(plan));
   ids.tunnelToken = tunnel.token;
   for (const rule of ingress(plan).filter(r => r.hostname)) await cf.ensureCname((await cf.zoneFor(rule.hostname)).id, rule.hostname, `${tunnel.id}.cfargotunnel.com`);

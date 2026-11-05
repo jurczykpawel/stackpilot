@@ -161,3 +161,26 @@ test('accessTeamDomain, when given, must be a Cloudflare Access team host', () =
   for (const bad of ['acme.example.com', 'https://acme.cloudflareaccess.com', 'a b.cloudflareaccess.com'])
     assert.throws(() => readPlan({ ...plan('b'), accessTeamDomain: bad }), /accessTeamDomain/, bad);
 });
+
+const externalEgress = { url: 'https://shared.example.net', keys: 'env:EGRESS_KEYS', accessClientId: 'env:EGRESS_ID', accessClientSecret: 'env:EGRESS_SECRET' };
+test('external egress: profile b uses supplied credentials without local service, route or key files', () => {
+  const p = plan('b', { externalEgress, hosts: { ...base.hosts, egress: undefined } });
+  const u = { ...user, egress: { keys: 'own-ring', accessClientId: 'shared-id', accessClientSecret: 'shared-secret' } };
+  assert.deepEqual(services('b', true), ['panel', 'cloudflared', 'backup']);
+  assert.deepEqual(ingress(p).map(r => r.hostname ?? r.service), ['panel.example.com', 'http_status:404']);
+  assert.equal(releaseEnv(p, ids, '/state/api.json').MAILSTACK_EGRESS_URL, externalEgress.url);
+  const e = apiEnv(p, generated, u, { ...ids, egressToken: undefined });
+  assert.equal(e.EGRESS_KEYS, 'own-ring');
+  assert.equal(e.EGRESS_ACCESS_CLIENT_ID, 'shared-id');
+  assert.equal(e.EGRESS_ACCESS_CLIENT_SECRET, 'shared-secret');
+  const files = serverFiles(p, { owner: {}, generated, user: u, ids });
+  assert.equal(files['secrets/egress/keys'], undefined);
+  assert.doesNotMatch(files['.env'].content, /EGRESS_DENY_ZONES/);
+});
+test('external egress rejects unsupported profiles, non-HTTPS origins and literal secrets', () => {
+  for (const profile of ['a', 'c']) assert.throws(() => plan(profile, { externalEgress }), /externalEgress/);
+  for (const url of ['http://shared.example.net', 'https://shared.example.net/path', 'https://u:p@shared.example.net', 'https://shared.example.net?x=1', 'https://127.0.0.1', 'https://mail.example.com', 'https://panel.example.com', 'https://internal.example.com'])
+    assert.throws(() => plan('b', { externalEgress: { ...externalEgress, url } }), /externalEgress.url/);
+  for (const name of ['keys', 'accessClientId', 'accessClientSecret'])
+    assert.throws(() => plan('b', { externalEgress: { ...externalEgress, [name]: 'literal' } }), /externalEgress/);
+});

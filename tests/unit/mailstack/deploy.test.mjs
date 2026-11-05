@@ -250,3 +250,25 @@ test('the bundle names its source context by content, so an unchanged rerun skip
   assert.equal(w.hashes[0], w.hashes[1]);
   assert.notEqual(w.hashes[1], w.hashes[2]);
 });
+
+test('external egress install, rerun and uninstall never manage the shared endpoint', async () => {
+  const w = world('b');
+  const p = JSON.parse(readFileSync(w.plan, 'utf8'));
+  p.externalEgress = { url: 'https://shared.example.net', keys: 'env:EK', accessClientId: 'env:EI', accessClientSecret: 'env:ES' };
+  delete p.hosts.egress;
+  writeFileSync(w.plan, JSON.stringify(p));
+  Object.assign(w.deps.env, { EK: 'own-keyring', EI: 'existing-id', ES: 'existing-secret' });
+  for (const flags of [[], ['--update']]) {
+    await main(['--plan=' + w.plan, ...flags], w.deps);
+    assert.ok(index(w.log, "MAILSTACK_SERVICES='panel cloudflared backup'") >= 0);
+    assert.equal(w.files.bulk.json.EGRESS_KEYS, 'own-keyring');
+    assert.equal(w.files.bulk.json.EGRESS_ACCESS_CLIENT_SECRET, 'existing-secret');
+    for (const action of ['token mailstack-test-egress', 'access shared.example.net', 'cname shared.example.net', 'zone shared.example.net'])
+      assert.equal(index(w.log, action), -1, action);
+  }
+  w.log.length = 0;
+  await main(['--plan=' + w.plan, '--uninstall', '--yes'], w.deps);
+  const specs = w.log.filter(e => e.line === 'remove').map(e => e.spec);
+  assert.deepEqual(specs[0], { workers: ['mailstack-test'], d1: ['mailstack-test'], hosts: ['panel.example.com'] });
+  assert.deepEqual(specs[1], { apps: ['panel.example.com', 'internal.example.com'], tokens: ['mailstack-test-panel'], tunnel: 'mailstack-test' });
+});

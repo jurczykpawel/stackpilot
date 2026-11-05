@@ -134,4 +134,18 @@ test_unchanged_context_skips_build_and_a_new_one_rebuilds() {
     assert_eq "4" "$(grep -c ' build ' "$CALL_LOG")" "a failed build is retried"
 }
 
+test_external_egress_install_and_uninstall_keep_other_firewall() {
+    printf '[Service]\nEnvironmentFile=/opt/stacks/other/.env\n' > "$MAILSTACK_UNIT_DIR/mailstack-egress-firewall.service"
+    printf '#!/bin/sh\necho "firewall $*" >> "$CALL_LOG"\n' > "$MAILSTACK_SBIN/mailstack-egress-firewall"
+    chmod +x "$MAILSTACK_SBIN/mailstack-egress-firewall"
+    local before; before=$(cat "$MAILSTACK_UNIT_DIR/mailstack-egress-firewall.service")
+    install_with "panel cloudflared backup" >/dev/null
+    install_with "" uninstall >/dev/null
+    assert_eq "$before" "$(cat "$MAILSTACK_UNIT_DIR/mailstack-egress-firewall.service")" "shared unit unchanged"
+    assert_true test -x "$MAILSTACK_SBIN/mailstack-egress-firewall"
+    assert_not_contains "$(cat "$CALL_LOG")" "systemctl" "no shared unit operation"
+    assert_not_contains "$(cat "$CALL_LOG")" "firewall remove" "shared chains preserved"
+    assert_false test -e "$STACK_DIR"
+}
+
 run_tests "$0"
