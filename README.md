@@ -86,6 +86,7 @@ cd stackpilot
 | App | Replaces | Description |
 | :--- | :--- | :--- |
 | [Listmonk](apps/listmonk/) | Mailchimp | High-performance newsletter and mailing list manager. |
+| [Mailstack](apps/mailstack/) | Web3Forms | Forms and transactional email with an encrypted delivery log; Pro panel and webhooks, on Cloudflare Workers or your server (`--plan=`). |
 | [Keila](apps/keila/) | Mailchimp / Brevo | Email marketing platform. Campaigns, newsletters, subscriber management. |
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |

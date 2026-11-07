@@ -121,6 +121,14 @@ show_help() {
 # ARGUMENT PARSING
 # =============================================================================
 
+# Applications that provision Cloudflare and the server themselves (apps/<app>/deploy.mjs) take over the whole command.
+if [[ "${1:-}" =~ ^[a-z0-9-]+$ ]] && [ -f "$REPO_ROOT/apps/$1/deploy.mjs" ]; then
+    APP_ENTRY="$REPO_ROOT/apps/$1/deploy.mjs"
+    shift
+    [ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)" -ge 24 ] || { echo "Node.js 24 or newer is required for this application."; exit 1; }
+    exec node "$APP_ENTRY" "$@"
+fi
+
 load_defaults
 parse_args "$@"
 
