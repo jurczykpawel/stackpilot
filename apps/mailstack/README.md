@@ -20,14 +20,16 @@ Nothing publishes a port: the panel and (in profile c) the API are reached throu
 ## Requirements
 
 - On your computer: Node.js 24+, `ssh` access to the server (root or passwordless `sudo`), clean checkouts of `mailstack` and `mailstack-pro` with `npm ci` done, and the release guard satisfied for profiles a and b: an `instance` named `mailstack` (production) needs `HEAD` equal to `origin/main` or a tag reachable from it; any other instance needs only clean checkouts.
-- On the server: Linux with Docker Compose v2.24+, `curl`, `openssl`, `ip`, systemd and iptables (profiles a and b).
+- On the server: Linux with Docker Compose v2.24.4+, `curl`, `openssl`, `ip`, systemd and iptables (profiles a and b).
 - Cloudflare: the hostnames in zones of this account; an API token with Workers Scripts, D1, Workers Custom Domains, Access (apps, service tokens, organization read), Cloudflare Tunnel and DNS edit; a second token with **only** D1 for the backup service. Each API Worker uses one Cron Trigger (five per account on Workers Free); the
   panel Worker uses none. Cloudflare still applies the documented 10 ms Free CPU
   limit. D1 daily read/write and account storage allowances are shared with every
   other application in the account; a second panel database does not add quota.
   See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
   and [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/).
-- Backups: a B2 bucket, two runtime application keys (register key with `readFiles`+`writeFiles`, backup key with `writeFiles` only; initial register setup also needs `listFiles`, see the core `docs/backup.md`) and the owner's `age` public key. The private `age` key never leaves your computer.
+- Backups: a B2 bucket, two runtime application keys (the `secrets.api` register key needs `readFiles`+`writeFiles`+`listFiles` for the first install, because the installer initializes the register with that key; afterwards you may replace it with a `readFiles`+`writeFiles` key. The backup key needs `writeFiles` only; see the core `docs/backup.md`) and the owner's `age` public key. The private `age` key never leaves your computer.
+- An HTTPS ntfy topic referenced by `secrets.panel.PANEL_NTFY_URL` for panel alerts.
+- For SES: a verified sender identity in `sesRegion` and production access (out of the SES sandbox) to send to arbitrary recipients.
 - A Mailstack Pro license (Sellf) for the panel.
 
 ## Install plan
