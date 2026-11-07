@@ -21,7 +21,7 @@ Nothing publishes a port: the panel and (in profile c) the API are reached throu
 
 - On your computer: Node.js 24+, `ssh` access to the server (root or passwordless `sudo`), clean checkouts of `mailstack` and `mailstack-pro` with `npm ci` done, and the release guard satisfied for profiles a and b: an `instance` named `mailstack` (production) needs `HEAD` equal to `origin/main` or a tag reachable from it; any other instance needs only clean checkouts.
 - On the server: Linux with Docker Compose v2.24.4+, `curl`, `openssl`, `ip`, systemd and iptables (profiles a and b).
-- Cloudflare: the hostnames in zones of this account; an API token with Workers Scripts, D1, Workers Custom Domains, Access (apps, service tokens, organization read), Cloudflare Tunnel and DNS edit; a second token with **only** D1 for the backup service. Each API Worker uses one Cron Trigger (five per account on Workers Free); the
+- Cloudflare: the hostnames in zones of this account; an API token with Workers Scripts, D1, Workers Custom Domains, Access (apps, service tokens, organization read), Cloudflare Tunnel and DNS edit; a second token with **only D1 Write** for the backup service. D1 Read is insufficient: the export endpoint locks the database and requires Write permission (see [Cloudflare export authentication errors](https://developers.cloudflare.com/d1/observability/debug-d1/#error-10000-and-token-permissions)). Each API Worker uses one Cron Trigger (five per account on Workers Free); the
   panel Worker uses none. Cloudflare still applies the documented 10 ms Free CPU
   limit. D1 daily read/write and account storage allowances are shared with every
   other application in the account; a second panel database does not add quota.
@@ -87,7 +87,7 @@ configuration. SMTP is available only in profile (c).
 
 `secrets.cloudflareZeroTrust` is optional: when absent, `secrets.cloudflare` must
 also have Access/Tunnel permissions. When present it separates those operations
-from Worker/D1/DNS management. The backup D1 token remains a third, D1-only token
+from Worker/D1/DNS management. The backup D1 token remains a third token with only D1 Write
 for profiles (a)/(b). Supply `accessTeamDomain` in profile (b) to avoid the Access
 organization-read lookup when the token lacks that permission.
 
@@ -137,6 +137,8 @@ Order of an install or update: Cloudflare (Access, service tokens, Tunnel, DNS, 
   work. `202` accepts an erase job: wait for `done`, then check the result.
 - Worker health checks require `store: ok` plus matching core and Pro SHAs.
   Node checks storage but can report `commit: dev`; retain source/image IDs.
+- Check the `backup` container logs and download/decrypt one B2 copy locally after installation. Installer success and `--status` do not prove a working backup; an insufficient D1 token can leave `backup` restarting while API and panel health checks pass. Never put the broader deployment token in `backup.env`.
+- Use a separate B2 bucket for each independent profile (c) installation: SQLite copies use `mailstack/mailstack-YYYYMMDD.db.age`, without the instance name. Sharing a bucket can replace another installation's same-day copy.
 - Back up local installation state and all key generations separately from database
   copies. Retain the complete B2 erasure register for its lifetime; never apply the
   database-copy lifecycle rule to that prefix. Restore into isolated databases and
