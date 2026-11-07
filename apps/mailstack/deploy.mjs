@@ -166,6 +166,7 @@ export async function main(argv, deps = {}) {
       mkdirSync(dirname(join(bundle, name)), { recursive: true, mode: 0o700 });
       writeFileSync(join(bundle, name), content, { mode });
     }
+    copyFileSync(join(HERE, 'network-subnets.py'), join(bundle, 'network-subnets.py'));
     copyFileSync(join(plan.pro, 'compose.yml'), join(bundle, 'compose.yml'));
     copyFileSync(join(plan.pro, 'scripts/egress-firewall.sh'), join(bundle, 'egress-firewall.sh'));
     run('node', [join(plan.pro, 'scripts/container-context.mjs'), plan.core, join(bundle, 'context')]);

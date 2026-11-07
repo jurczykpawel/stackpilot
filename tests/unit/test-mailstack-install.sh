@@ -11,19 +11,28 @@ setup() {
     export TEST_TMPDIR STACK_DIR="$TEST_TMPDIR/stacks/mailstack-test" CALL_LOG="$TEST_TMPDIR/calls"
     export MAILSTACK_SBIN="$TEST_TMPDIR/sbin" MAILSTACK_UNIT_DIR="$TEST_TMPDIR/units" MOCK_FAIL=""
     mkdir -p "$TEST_TMPDIR/bin" "$MAILSTACK_SBIN" "$MAILSTACK_UNIT_DIR" "$STACK_DIR/secrets/panel" "$STACK_DIR/secrets/tunnel" "$STACK_DIR/secrets/egress"
+    cp "$REPO_ROOT/apps/mailstack/network-subnets.py" "$STACK_DIR/network-subnets.py"
     printf 'services: {}\n' > "$STACK_DIR/compose.yml"
     printf '#!/bin/sh\necho "firewall $*" >> "$CALL_LOG"\n[ "$MOCK_FAIL" != firewall ]\n' > "$STACK_DIR/egress-firewall.sh"
     printf 'COMPOSE_PROFILES=production\nPANEL_ORIGIN=https://panel.example.com\nEGRESS_DENY_ZONES=example.net\n' > "$STACK_DIR/.env"
     printf 'tok' > "$STACK_DIR/secrets/tunnel/token"
-    for cmd in docker systemctl; do
-        printf '#!/bin/bash\necho "%s $*" >> "$CALL_LOG"\n[ -z "$MOCK_FAIL" ] || [[ "%s $*" != *"$MOCK_FAIL"* ]]\n' "$cmd" "$cmd" > "$TEST_TMPDIR/bin/$cmd"
-    done
+    printf '#!/bin/bash\necho "systemctl $*" >> "$CALL_LOG"\n[ -z "$MOCK_FAIL" ] || [[ "systemctl $*" != *"$MOCK_FAIL"* ]]\n' > "$TEST_TMPDIR/bin/systemctl"
+    cat > "$TEST_TMPDIR/bin/docker" <<'MOCK'
+#!/bin/bash
+echo "docker $*" >> "$CALL_LOG"
+[ -z "$MOCK_FAIL" ] || [[ "docker $*" != *"$MOCK_FAIL"* ]] || exit 1
+case "$*" in
+  'network ls -q') echo demo; exit 0 ;;
+  'network inspect demo') printf '[{"IPAM":{"Config":[{"Subnet":"172.17.0.0/16"}]}}]'; exit 0 ;;
+esac
+[ -z "$MOCK_FAIL" ] || [[ "docker $*" != *"$MOCK_FAIL"* ]]
+MOCK
     printf '#!/bin/bash\ncase "$1" in chown) echo "chown $*" >> "$CALL_LOG"; exit 0;; esac\n"$@"\n' > "$TEST_TMPDIR/bin/sudo"
     cat > "$TEST_TMPDIR/bin/curl" <<'MOCK'
 #!/bin/bash
 case "$*" in *-4*) printf 'fl=1\nip=203.0.113.7\nts=1\n' ;; *-6*) printf 'ip=2001:db8:1::7\n' ;; esac
 MOCK
-    printf '#!/bin/bash\nprintf "2: eth0    inet 192.0.2.10/24 brd x scope global eth0\\n2: eth0    inet6 2001:db8:1::7/64 scope global\\n"\n' > "$TEST_TMPDIR/bin/ip"
+    printf '#!/bin/bash\n[ "$1" != -j ] || { echo "[]"; exit 0; }\nprintf "2: eth0    inet 192.0.2.10/24 brd x scope global eth0\\n2: eth0    inet6 2001:db8:1::7/64 scope global\\n"\n' > "$TEST_TMPDIR/bin/ip"
     chmod +x "$TEST_TMPDIR/bin/"*
     export PATH="$TEST_TMPDIR/bin:$ORIGINAL_PATH"
 }
@@ -67,7 +76,7 @@ test_rerun_after_compose_networks_keeps_the_deny_list() {
     install_with "cloudflared egress backup" >/dev/null
     local first; first=$(grep '^EGRESS_DENY_CIDRS=' "$STACK_DIR/.env")
     # After the first run Compose has created its bridges (private addresses, already denied by the fixed ranges).
-    printf '#!/bin/bash\nprintf "2: eth0    inet 192.0.2.10/24 brd x scope global eth0\\n2: eth0    inet6 2001:db8:1::7/64 scope global\\n5: msa1b2c3    inet 172.31.250.1/24 brd x scope global msa1b2c3\\n3: docker0    inet 172.18.0.1/16 brd x scope global docker0\\n4: eth1    inet 10.0.0.5/8 scope global eth1\\n6: br-x    inet 192.168.5.1/24 scope global br-x\\n7: tailscale0    inet 100.101.1.2/32 scope global tailscale0\\n8: eth2    inet6 fd00::1/64 scope global\\n"\n' > "$TEST_TMPDIR/bin/ip"
+    printf '#!/bin/bash\n[ "$1" != -j ] || { echo "[]"; exit 0; }\nprintf "2: eth0    inet 192.0.2.10/24 brd x scope global eth0\\n2: eth0    inet6 2001:db8:1::7/64 scope global\\n5: msa1b2c3    inet 172.31.250.1/24 brd x scope global msa1b2c3\\n3: docker0    inet 172.18.0.1/16 brd x scope global docker0\\n4: eth1    inet 10.0.0.5/8 scope global eth1\\n6: br-x    inet 192.168.5.1/24 scope global br-x\\n7: tailscale0    inet 100.101.1.2/32 scope global tailscale0\\n8: eth2    inet6 fd00::1/64 scope global\\n"\n' > "$TEST_TMPDIR/bin/ip"
     install_with "cloudflared egress backup" >/dev/null
     assert_eq "$first" "$(grep '^EGRESS_DENY_CIDRS=' "$STACK_DIR/.env")" "same deny list, so Compose does not recreate the egress"
     assert_not_contains "$first" "172.31.250.1" "no Compose bridge address"
@@ -146,6 +155,27 @@ test_external_egress_install_and_uninstall_keep_other_firewall() {
     assert_not_contains "$(cat "$CALL_LOG")" "systemctl" "no shared unit operation"
     assert_not_contains "$(cat "$CALL_LOG")" "firewall remove" "shared chains preserved"
     assert_false test -e "$STACK_DIR"
+}
+
+test_inventory_failure_stops_before_build_or_firewall() {
+    export MOCK_FAIL="network inspect"
+    local code=0 before; before=$(cat "$STACK_DIR/.env")
+    install_with "cloudflared egress backup" >/dev/null || code=$?
+    assert_not_eq "0" "$code" "inventory is required"
+    assert_eq "$before" "$(cat "$STACK_DIR/.env")" "no settings changed"
+    assert_not_contains "$(cat "$CALL_LOG")" " build " "no build"
+    assert_not_contains "$(cat "$CALL_LOG")" "systemctl" "no firewall change"
+}
+
+test_records_two_available_subnets_and_keeps_them_on_update() {
+    install_with "api" >/dev/null
+    assert_contains "$(cat "$STACK_DIR/.env")" "INTERNAL_SUBNET=10.253.0.0/24" "explicit internal subnet"
+    assert_contains "$(cat "$STACK_DIR/.env")" "EGRESS_SUBNET=10.253.1.0/24" "explicit egress subnet"
+    grep -vE '^(INTERNAL_SUBNET|EGRESS_SUBNET)=' "$STACK_DIR/.env" > "$TEST_TMPDIR/env"
+    cat "$TEST_TMPDIR/env" > "$STACK_DIR/.env"
+    install_with "api" >/dev/null
+    assert_contains "$(cat "$STACK_DIR/.env")" "EGRESS_SUBNET=10.253.1.0/24" "preserved across a bundle update"
+    assert_eq "1" "$(grep -c '^INTERNAL_SUBNET=' "$STACK_DIR/.env")" "one subnet setting"
 }
 
 run_tests "$0"

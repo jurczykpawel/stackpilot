@@ -36,7 +36,10 @@ function world(profile) {
         files[args.includes('bulk') ? 'bulk' : 'deploy'] = { mode: statSync(file).mode & 0o777, json: JSON.parse(readFileSync(file, 'utf8')) };
       }
       if (line.includes('container-context.mjs')) { mkdirSync(join(args[2], 'mailstack/src'), { recursive: true }); writeFileSync(join(args[2], 'mailstack/src/a.ts'), w.source); }
-      if (cmd === 'tar') w.hashes.push(readFileSync(join(args[1], 'context.sha256'), 'utf8'));
+      if (cmd === 'tar') {
+        assert.ok(existsSync(join(args[1], 'network-subnets.py')), 'server bundle includes network selection');
+        w.hashes.push(readFileSync(join(args[1], 'context.sha256'), 'utf8'));
+      }
       if (line.includes('invite')) return 'https://panel.example.com/?invite=abc\n';
       if (line === 'git -C /src/core rev-parse HEAD') return 'core-sha\n';
       if (line === `git -C ${pro} rev-parse HEAD`) return 'pro-sha\n';
