@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 
 const script = new URL('../../../apps/mailstack/network-subnets.py', import.meta.url).pathname;
-const select = (occupied, saved = {}) => JSON.parse(execFileSync('python3', ['-B', '-c', `
+const select = (occupied, saved = {}, egress = true) => JSON.parse(execFileSync('python3', ['-B', '-c', `
 import importlib.util,json,sys
 spec=importlib.util.spec_from_file_location('subnets',sys.argv[1]); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 print(json.dumps(m.select_subnets(**json.loads(sys.stdin.read()))))
-`, script], { input: JSON.stringify({ occupied, saved }), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }));
+`, script], { input: JSON.stringify({ occupied, saved, egress }), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }));
 
 test('chooses two private /24 networks outside occupied Docker pools and host routes', () => {
   const occupied = Array.from({ length: 15 }, (_, n) => `172.${17 + n}.0.0/16`);
@@ -65,4 +65,12 @@ with tempfile.TemporaryDirectory() as directory:
     except subprocess.CalledProcessError: pass
     assert env.read_bytes()==before
 `, script], { stdio: 'pipe' });
+});
+
+test('updates keep unused egress settings when another Node stack uses that range', () => {
+  const first = select([]);
+  const second = select([first.INTERNAL_SUBNET]);
+  assert.equal(second.INTERNAL_SUBNET, first.EGRESS_SUBNET);
+  assert.deepEqual(select([second.INTERNAL_SUBNET], first, false), first);
+  assert.throws(() => select([second.INTERNAL_SUBNET], first, true));
 });

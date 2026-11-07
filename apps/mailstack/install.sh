@@ -46,7 +46,7 @@ has() { [[ " $SERVICES " == *" $1 "* ]]; }
 sudo find "$STACK_DIR" -type d -path "$STACK_DIR/secrets*" -exec chmod 700 {} +
 sudo find "$STACK_DIR" -maxdepth 1 -name '*.env' -exec chmod 600 {} +
 sudo chmod 600 "$STACK_DIR/.env"
-sudo python3 "$STACK_DIR/network-subnets.py" "$STACK_DIR" "$PROJECT"
+sudo python3 "$STACK_DIR/network-subnets.py" "$STACK_DIR" "$PROJECT" "$SERVICES"
 
 if has panel && ! sudo test -s "$STACK_DIR/secrets/panel/tls.key"; then
     PANEL_HOST=$(sudo grep -m1 '^PANEL_ORIGIN=' "$STACK_DIR/.env" | sed 's|^PANEL_ORIGIN=https://||')
