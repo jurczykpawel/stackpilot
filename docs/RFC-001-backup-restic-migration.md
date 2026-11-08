@@ -11,7 +11,7 @@
 
 Stackpilot obecnie używa **rclone sync** + **pg_dump | gzip** + ręczna rotacja `find -mtime` jako stack backup. Proponuję migrację na **restic native** z Cloudflare R2 jako default backendem.
 
-Driver: audyt dzisiejszego setupu produkcyjnego (Mikrus steve160) ujawnił że obecne podejście Stackpilot ma 5 luk które restic rozwiązuje by design.
+Driver: audyt dzisiejszego setupu produkcyjnego (VPS operatora) ujawnił że obecne podejście Stackpilot ma 5 luk które restic rozwiązuje by design.
 
 ## Motivation
 
@@ -342,7 +342,7 @@ PL + EN messages dla wszystkich nowych UX flow w `lib/locale/`.
 
 **Phase 6: Tests (4-6h)**
 
-Manual tests na test VPS Mikrus (hanna):
+Manual tests na testowym VPS:
 - Wizard z każdym providerem (R2, B2, S3, SFTP, local)
 - Backup → restore cycle dla każdego providera
 - DB backup dla PG + MySQL + SQLite stacków
@@ -426,6 +426,6 @@ Effort estimate: **~22-30h (3-4 sesje robocze)**.
 - Restic GitHub: https://github.com/restic/restic
 - Cloudflare R2 docs: https://developers.cloudflare.com/r2/
 - Backblaze B2 docs: https://www.backblaze.com/docs/cloud-storage
-- Case study setup (Mikrus 2026-05-11): memory `mikrus-prod-backup-audit.md`
+- Private operator backup audit (kept outside this repository).
 - Storage choice rule: memory `feedback_backup_storage_choice.md`
 - Real-world examples on TrueNAS: memory `truenas-restic-glacier.md`, `immich-backup.md`

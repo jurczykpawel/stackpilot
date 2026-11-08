@@ -311,9 +311,9 @@ Add path-level HTTP redirects to a domain that is already configured (via static
 ./local/remove-redirect.sh DOMAIN PATH [SSH_ALIAS]
 
 # Examples:
-./local/add-redirect.sh techskills.academy /protocol-autonomy https://sellf.techskills.academy/some-product mikrus
+./local/add-redirect.sh example.com /product https://shop.example.com/some-product vps
 ./local/add-redirect.sh example.com /old https://new.example.com vps --code=302
-./local/remove-redirect.sh techskills.academy /protocol-autonomy mikrus
+./local/remove-redirect.sh example.com /product vps
 ```
 
 Idempotent: re-running `add-redirect.sh` for the same `DOMAIN + PATH` replaces the existing target. Default code is `301` (permanent).
