@@ -418,18 +418,20 @@ cd "$STANDALONE_DIR"
 # Clear system HOSTNAME (it's the machine name, not the listen address)
 # Without this ${HOSTNAME:-::} never falls back to :: because the system always sets HOSTNAME
 unset HOSTNAME
-set -a
-source .env.local
-set +a
-export PORT="${PORT:-3333}"
-# :: listens on IPv4 and IPv6; firewall (iptables) restricts external direct access
-export HOSTNAME="${HOSTNAME:-::}"
+pm2 delete "$PM2_NAME" 2>/dev/null || true
+PM2_NAME="$PM2_NAME" node <<'NODE'
+const { readFileSync } = require('node:fs');
+const { parseEnv } = require('node:util');
+const { execFileSync } = require('node:child_process');
+const env = { ...process.env, ...parseEnv(readFileSync('.env.local', 'utf8')) };
+env.PORT ||= '3333';
+env.HOSTNAME ||= '::';
+execFileSync('pm2', ['start', 'server.js', '--name', process.env.PM2_NAME,
+  '--interpreter', 'node', '--max-memory-restart', env.SELLF_PM2_MAX_MEMORY || '512M',
+  '--node-args=--max-old-space-size=' + (env.SELLF_NODE_MAX_OLD_SPACE || '400')],
+  { env, stdio: 'inherit' });
+NODE
 
-pm2 delete $PM2_NAME 2>/dev/null || true
-# IMPORTANT: use --interpreter node, NOT "node server.js" in quotes
-pm2 start server.js --name $PM2_NAME --interpreter node \
-  --max-memory-restart "${SELLF_PM2_MAX_MEMORY:-512M}" \
-  --node-args="--max-old-space-size=${SELLF_NODE_MAX_OLD_SPACE:-400}"
 pm2 save
 
 # Wait and check
