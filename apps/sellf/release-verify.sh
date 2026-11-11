@@ -122,7 +122,18 @@ _sellf_download_assets() {
 # sellf_download_release DIR BASE_URL — downloads the four tarball release
 # assets into DIR (a private directory created by the caller).
 sellf_download_release() {
-    _sellf_download_assets "$1" "$2" "$SELLF_RELEASE_ASSETS"
+    # V2 binds the minimum updater. Legacy releases (through 10.6) have no V2.
+    # A successfully downloaded V2 must verify; only its absence uses legacy.
+    local status
+    status=$(curl -sSL --proto '=https' --proto-redir '=https' -w '%{http_code}' \
+        -o "$1/sellf-build.v2.manifest" "$2/sellf-build.v2.manifest") || return 1
+    case "$status" in
+        200) _sellf_download_assets "$1" "$2" 'sellf-build.v2.manifest.sig sellf-build.tar.gz sellf-build.tar.gz.sha256' ;;
+        404)
+            rm -f "$1/sellf-build.v2.manifest"
+            _sellf_download_assets "$1" "$2" "$SELLF_RELEASE_ASSETS" ;;
+        *) _sellf_release_error "${MSG_SELLF_UPDATER_DOWNLOAD_FAILED:-Could not download the signed updater requirement}"; return 1 ;;
+    esac
 }
 
 # sellf_download_image_manifest DIR BASE_URL — downloads the signed image
@@ -133,9 +144,9 @@ sellf_download_image_manifest() {
 }
 
 # sellf_parse_manifest FILE — sets SELLF_MANIFEST_VERSION and SELLF_MANIFEST_SHA256.
-# The file must be exactly "version=<calver>\nsha256=<hex>\n", nothing more.
+# Legacy has two lines; an explicitly selected V2 adds min_updater_version.
 sellf_parse_manifest() {
-    local file="$1" line1 line2 version sha lines bytes
+    local file="$1" extended="${2:-false}" line1 line2 version sha lines bytes expected_lines=2 expected_bytes minimum=1 line3=""
     SELLF_MANIFEST_VERSION=""
     SELLF_MANIFEST_SHA256=""
     line1=$(sed -n 1p "$file")
@@ -144,10 +155,27 @@ sellf_parse_manifest() {
     sha="${line2#sha256=}"
     lines=$(wc -l < "$file" | tr -d ' ')
     bytes=$(wc -c < "$file" | tr -d ' ')
+    expected_bytes=$(( ${#line1} + ${#line2} + 2 ))
+    if [ "$extended" = true ]; then
+        line3=$(sed -n 3p "$file")
+        minimum="${line3#min_updater_version=}"
+        if [ "$line3" != "min_updater_version=$minimum" ] || ! [[ "$minimum" =~ ^[1-9][0-9]{0,8}$ ]]; then
+            _sellf_release_error "${MSG_SELLF_UPDATER_INVALID:-Invalid min_updater_version}"
+            return 1
+        fi
+        expected_lines=3
+        expected_bytes=$(( expected_bytes + ${#line3} + 1 ))
+    fi
     if [ "$line1" != "version=$version" ] || [ "$line2" != "sha256=$sha" ] \
         || ! _sellf_is_calver "$version" || ! [[ "$sha" =~ ^[0-9a-f]{64}$ ]] \
-        || [ "$lines" != "2" ] || [ "$bytes" != "$(( ${#line1} + ${#line2} + 2 ))" ]; then
+        || [ "$lines" != "$expected_lines" ] || [ "$bytes" != "$expected_bytes" ]; then
         _sellf_release_error "Release manifest is not in the expected format (version=, sha256=)"
+        return 1
+    fi
+    if [ "$minimum" -gt 2 ]; then
+        local minimum_error
+        printf -v minimum_error "${MSG_SELLF_UPDATER_MINIMUM:-Release requires updater %s; update Stackpilot before retrying.}" "$minimum"
+        _sellf_release_error "$minimum_error"
         return 1
     fi
     SELLF_MANIFEST_VERSION="$version"
@@ -187,10 +215,14 @@ sellf_validate_archive() {
 # sellf_verify_release DIR — checks the downloaded release in DIR and sets
 # SELLF_RELEASE_VERSION from the signed manifest.
 sellf_verify_release() {
-    local dir="$1" asset pubkey_file checksum actual
+    local dir="$1" asset pubkey_file checksum actual manifest=sellf-build.manifest extended=false assets="$SELLF_RELEASE_ASSETS"
     SELLF_RELEASE_VERSION=""
-
-    for asset in $SELLF_RELEASE_ASSETS; do
+    if [ -e "$dir/sellf-build.v2.manifest" ] || [ -e "$dir/sellf-build.v2.manifest.sig" ]; then
+        manifest=sellf-build.v2.manifest
+        extended=true
+        assets='sellf-build.tar.gz sellf-build.tar.gz.sha256 sellf-build.v2.manifest sellf-build.v2.manifest.sig'
+    fi
+    for asset in $assets; do
         if [ ! -s "$dir/$asset" ]; then
             _sellf_release_error "Release asset missing: $asset"
             return 1
@@ -209,12 +241,12 @@ sellf_verify_release() {
         return 1
     fi
     if ! openssl pkeyutl -verify -pubin -inkey "$pubkey_file" -rawin \
-        -in "$dir/sellf-build.manifest" -sigfile "$dir/sellf-build.manifest.sig" >/dev/null 2>&1; then
+        -in "$dir/$manifest" -sigfile "$dir/$manifest.sig" >/dev/null 2>&1; then
         _sellf_release_error "Release manifest signature is not valid for the Sellf release key"
         return 1
     fi
 
-    sellf_parse_manifest "$dir/sellf-build.manifest" || return 1
+    sellf_parse_manifest "$dir/$manifest" "$extended" || return 1
 
     checksum=$(awk 'NR==1{print $1}' "$dir/sellf-build.tar.gz.sha256")
     if [ "$checksum" != "$SELLF_MANIFEST_SHA256" ]; then

@@ -332,6 +332,43 @@ else
     echo "📋 Restart mode - skipped downloading new version"
 fi
 
+# ----- SELLF DOWNLOADED UPDATER START -----
+# Release verification and safe extraction have already completed above. New
+# Sellf packages own migrations, restart, health checks and code rollback in the
+# same update. Old/local packages without this protocol retain the legacy path.
+if [ "$RESTART_ONLY" = false ] && [ -f "$TEMP_DIR/scripts/upgrade.sh" ] \
+    && grep -qx '# sellf-upgrade-stage2:1' "$TEMP_DIR/scripts/upgrade.sh"; then
+    umask 077
+    STAGE2_DIR=$(mktemp -d)
+    mv "$TEMP_DIR" "$STAGE2_DIR/extracted"
+    rm -rf "$RELEASE_DIR"
+    TEMP_DIR="$STAGE2_DIR"
+    RELEASE_DIR=""
+    # Match Sellf's runtime path and per-instance lock. FD 200 is inherited by
+    # the verified script; it stays locked until the whole update has finished.
+    # /run exists; only the final sellf directory needs the private mode.
+    # shellcheck disable=SC2174
+    if [ "$(id -u)" = 0 ] && mkdir -p -m 700 /run/sellf 2>/dev/null; then
+        RUNTIME_DIR=/run/sellf
+    else
+        RUNTIME_DIR=/tmp
+    fi
+    TOKEN=$(cat /proc/sys/kernel/random/uuid)
+    LOCK_FILE="$RUNTIME_DIR/sellf-upgrade-$(basename "$INSTALL_DIR").lock"
+    exec 200>"$LOCK_FILE"
+    if ! flock -n 200; then
+        printf '%s\n' "$MSG_SELLF_UPDATE_LOCKED" >&2
+        exit 1
+    fi
+    trap 'rm -rf "$TEMP_DIR"; rm -f "$LOCK_FILE"' EXIT
+    PM2_BIN=$(command -v pm2)
+    bash "$TEMP_DIR/extracted/scripts/upgrade.sh" "$TOKEN" "$INSTALL_DIR/admin-panel" --apply-verified \
+        "$TEMP_DIR" "v${NEW_VERSION#v}" "$PM2_BIN" "$PM2_NAME" \
+        "$RUNTIME_DIR/sellf-upgrade-$TOKEN.json" "$RUNTIME_DIR/sellf-upgrade-$TOKEN.log" "$LOCK_FILE"
+    exit $?
+fi
+# ----- SELLF DOWNLOADED UPDATER END -----
+
 # =============================================================================
 # 3. STOP APPLICATION
 # =============================================================================

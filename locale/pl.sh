@@ -1672,3 +1672,8 @@ MSG_WIZARD_CF_MULTIPLE_ACCOUNTS="Dostępnych jest kilka kont — wybierz jedno:"
 MSG_WIZARD_CF_SCOPE_OK="Uprawnienie OK: %s"
 MSG_WIZARD_CF_SCOPE_MISSING="Brak uprawnienia: %s"
 MSG_WIZARD_CF_SAVED="Zapisano dane Cloudflare w keystore"
+
+MSG_SELLF_UPDATE_LOCKED="Inna aktualizacja Sellf już trwa."
+MSG_SELLF_UPDATER_INVALID="Nieprawidłowe min_updater_version"
+MSG_SELLF_UPDATER_MINIMUM="Wydanie wymaga aktualizatora %s; zaktualizuj Stackpilot przed ponowieniem."
+MSG_SELLF_UPDATER_DOWNLOAD_FAILED="Nie udało się pobrać podpisanego wymagania aktualizatora"

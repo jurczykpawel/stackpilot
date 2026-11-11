@@ -275,6 +275,19 @@ Configuration is saved to `~/.config/stackpilot/sellf/deploy-config.env` and reu
 
 An update never goes backwards: a release older than the installed version is refused. Re-deploying the version you already run is allowed (interactive runs ask first; `--yes` re-applies it).
 
+For PM2 packages with Sellf's `# sellf-upgrade-stage2:1` protocol, Stackpilot
+hands its verified private extraction to the runner in that package. Backup,
+migrations, restart, health checks and code rollback then use the new release's
+logic during this same update. The instance lock and progress/log paths follow
+Sellf's UI contract. Old packages and `--restart` keep the existing path.
+
+The verifier prefers `sellf-build.v2.manifest` plus its Ed25519 signature. V2 adds
+`min_updater_version`; this Stackpilot bootstrap supports updater 2. An invalid
+V2 signature never falls back to legacy. Releases through 10.6 still use their
+two-line manifest. 2026.11.0 retains legacy assets with minimum 1, allowing the
+old installed updater's first hop; use current Stackpilot to run the downloaded
+runner on that hop. A newer minimum requires updating Stackpilot first.
+
 On a Docker install, `--update` verifies a fresh signed `sellf-image.manifest`, pulls the new
 image by digest, recreates the container, and re-extracts migrations from the verified image —
 it detects the Docker install from its `docker-compose.yml` and never touches PM2. `--restart` on

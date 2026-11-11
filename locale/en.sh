@@ -1673,3 +1673,8 @@ MSG_WIZARD_CF_MULTIPLE_ACCOUNTS="Multiple accounts available — pick one:"
 MSG_WIZARD_CF_SCOPE_OK="Scope OK: %s"
 MSG_WIZARD_CF_SCOPE_MISSING="Missing scope: %s"
 MSG_WIZARD_CF_SAVED="Saved Cloudflare credentials to keystore"
+
+MSG_SELLF_UPDATE_LOCKED="Another Sellf update is already running."
+MSG_SELLF_UPDATER_INVALID="Invalid min_updater_version"
+MSG_SELLF_UPDATER_MINIMUM="Release requires updater %s; update Stackpilot before retrying."
+MSG_SELLF_UPDATER_DOWNLOAD_FAILED="Could not download the signed updater requirement"

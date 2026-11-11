@@ -111,19 +111,24 @@ install_mock_curl() {
     mkdir -p "$TEST_TMPDIR/bin"
     cat > "$TEST_TMPDIR/bin/curl" <<'EOF'
 #!/bin/bash
-out="" url=""
+out="" url="" format=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -o) out="$2"; shift ;;
-        --proto|--proto-redir|-w) shift ;;
+        -w) format="$2"; shift ;;
+        --proto|--proto-redir) shift ;;
         -*) ;;
         *) url="$1" ;;
     esac
     shift
 done
 src="$RELEASE_FIXTURES/${url##*/}"
-[ -f "$src" ] || exit 22
+if [ ! -f "$src" ]; then
+    if [ "$format" = '%{http_code}' ]; then printf '404'; exit 0; fi
+    exit 22
+fi
 cp "$src" "$out"
+if [ "$format" = '%{http_code}' ]; then printf '200'; fi
 EOF
     chmod +x "$TEST_TMPDIR/bin/curl"
     export PATH="$TEST_TMPDIR/bin:$PATH"
@@ -375,5 +380,46 @@ test_scripts_check_local_build_entries() {
 # =============================================================================
 # Run
 # =============================================================================
+
+sign_v2() {
+    local dir="$1" minimum="$2"
+    cp "$dir/sellf-build.manifest" "$dir/sellf-build.v2.manifest"
+    printf 'min_updater_version=%s\n' "$minimum" >> "$dir/sellf-build.v2.manifest"
+    openssl pkeyutl -sign -inkey "$TEST_TMPDIR/release.key" -rawin \
+        -in "$dir/sellf-build.v2.manifest" -out "$dir/sellf-build.v2.manifest.sig"
+}
+
+test_v2_manifest_passes_without_legacy_assets() {
+    make_release "$TEST_TMPDIR/rel"
+    sign_v2 "$TEST_TMPDIR/rel" 2
+    rm "$TEST_TMPDIR/rel/sellf-build.manifest" "$TEST_TMPDIR/rel/sellf-build.manifest.sig"
+    sellf_verify_release "$TEST_TMPDIR/rel" || return
+    assert_eq '2026.9.3' "$SELLF_RELEASE_VERSION"
+}
+
+test_v2_too_new_is_refused() {
+    make_release "$TEST_TMPDIR/rel"
+    sign_v2 "$TEST_TMPDIR/rel" 3
+    assert_refused "$TEST_TMPDIR/rel" 'update Stackpilot' 'minimum enforced'
+}
+
+test_v2_bad_signature_never_falls_back() {
+    make_release "$TEST_TMPDIR/rel"
+    sign_v2 "$TEST_TMPDIR/rel" 1
+    printf 'tampered\n' >> "$TEST_TMPDIR/rel/sellf-build.v2.manifest"
+    assert_refused "$TEST_TMPDIR/rel" 'signature' 'no legacy fallback'
+}
+
+test_download_prefers_v2() {
+    make_release "$TEST_TMPDIR/rel"
+    sign_v2 "$TEST_TMPDIR/rel" 2
+    export RELEASE_FIXTURES="$TEST_TMPDIR/rel"
+    install_mock_curl
+    mkdir "$TEST_TMPDIR/download"
+    sellf_download_release "$TEST_TMPDIR/download" 'https://github.com/example/releases/download/v2026.9.3' || return
+    assert_true test -s "$TEST_TMPDIR/download/sellf-build.v2.manifest"
+    assert_false test -e "$TEST_TMPDIR/download/sellf-build.manifest"
+    sellf_verify_release "$TEST_TMPDIR/download"
+}
 
 run_tests "$0"
