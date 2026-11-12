@@ -60,7 +60,7 @@ test_profile_c_builds_and_starts_without_firewall() {
     assert_not_contains "$calls" "firewall" "no egress firewall in profile c"
     assert_true test -s "$STACK_DIR/secrets/panel/tls.key"
     assert_contains "$(openssl x509 -in "$STACK_DIR/secrets/panel/tls.crt" -noout -ext subjectAltName 2>/dev/null)" "panel.example.com" "certificate names the panel host"
-    assert_eq "600" "$(stat -f %Lp "$STACK_DIR/secrets/panel/tls.key" 2>/dev/null || stat -c %a "$STACK_DIR/secrets/panel/tls.key")" "key mode"
+    assert_eq "600" "$(stat -c %a "$STACK_DIR/secrets/panel/tls.key" 2>/dev/null || stat -f %Lp "$STACK_DIR/secrets/panel/tls.key")" "key mode"
 }
 
 test_rerun_keeps_tls_and_does_not_duplicate_deny_list() {

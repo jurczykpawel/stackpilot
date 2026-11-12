@@ -38,13 +38,13 @@ test_set_creates_file_with_0600() {
         FAIL=$((FAIL+1)); FAILED+=("file not created at $f")
     fi
     local perms
-    perms=$(stat -f '%Lp' "$f" 2>/dev/null || stat -c '%a' "$f" 2>/dev/null)
+    perms=$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null)
     assert_eq "600" "$perms" "file perms are 0600"
 }
 
 test_set_creates_dir_with_0700() {
     local perms
-    perms=$(stat -f '%Lp' "$STACKPILOT_KEYSTORE_FILE_DIR" 2>/dev/null || stat -c '%a' "$STACKPILOT_KEYSTORE_FILE_DIR" 2>/dev/null)
+    perms=$(stat -c '%a' "$STACKPILOT_KEYSTORE_FILE_DIR" 2>/dev/null || stat -f '%Lp' "$STACKPILOT_KEYSTORE_FILE_DIR" 2>/dev/null)
     assert_eq "700" "$perms" "dir perms are 0700"
 }
 
