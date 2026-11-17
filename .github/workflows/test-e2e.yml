@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup SSH key
         env:
@@ -41,7 +41,7 @@ jobs:
           SUITE: ${{ github.event.inputs.suite || '' }}
           QUICK: ${{ github.event.inputs.quick && '--quick' || '' }}
         run: |
-          ARGS="e2e --ssh=$SSH_HOST"
-          [ -n "$SUITE" ] && ARGS="$ARGS --suite=$SUITE"
-          [ -n "$QUICK" ] && ARGS="$ARGS $QUICK"
-          bash tests/run.sh $ARGS --verbose
+          args=(e2e "--ssh=$SSH_HOST")
+          if [ -n "$SUITE" ]; then args+=("--suite=$SUITE"); fi
+          if [ -n "$QUICK" ]; then args+=("$QUICK"); fi
+          bash tests/run.sh "${args[@]}" --verbose
