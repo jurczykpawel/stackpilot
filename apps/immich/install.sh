@@ -10,7 +10,8 @@
 # Initial startup takes 5-10 minutes on a cold server.
 # Monitor progress: docker compose logs -f immich-machine-learning
 #
-# MEMORY: Minimum 3.5 GB RAM. Recommended: 4 GB (Mikrus 3.5 / Hetzner CAX11+).
+# MEMORY: 4 GB host works with full ML if the ML container may use ~1.3 GB (measured on
+# Mikrus 3.5-class LXC, 1 vCPU: ML peak 1.27 GB, 300 photos with faces in ~12 min).
 
 set -e
 
@@ -86,7 +87,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 1536M  # 1024M caused repeated server OOM kills during startup on arm64.
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -101,7 +102,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 2048M  # 1024M kills the worker when face + CLIP + OCR models load together (measured 2026-11-22)
 
   redis:
     container_name: immich_redis
@@ -140,24 +141,24 @@ sudo docker compose pull
 echo "--- Starting Immich ---"
 sudo docker compose up -d
 
-# Wait for the server to respond (up to 120s)
-echo "--- Waiting for Immich to start ---"
+echo "--- Waiting for Immich to become healthy ---"
+WAIT_STARTED=$SECONDS
 READY=0
-for i in $(seq 1 24); do
-    if sudo docker compose exec -T immich-server wget -qO- http://localhost:2283/api/server/ping 2>/dev/null | grep -q pong; then
+while (( SECONDS - WAIT_STARTED < 120 )); do
+    if [ "$(sudo docker inspect --format '{{.State.Health.Status}}' immich_server)" = "healthy" ] &&
+        curl -fs --max-time 3 "http://127.0.0.1:${PORT}/api/server/ping" | grep -q pong; then
         READY=1
         break
     fi
-    echo "   ... ${i}/24 (${i}0s elapsed)"
+    echo "   ... $((SECONDS - WAIT_STARTED))s elapsed"
     sleep 5
 done
-
 if [ "$READY" -eq 0 ]; then
-    echo "⚠️  Immich did not respond in 120s. Check logs:"
-    echo "   ssh <server> 'cd /opt/stacks/immich && docker compose logs --tail 50'"
-else
-    echo "✅ Immich is responding."
+    echo "Error: Immich did not become ready. On the server, check:" >&2
+    echo "   cd $STACK_DIR && sudo docker compose logs --tail 50" >&2
+    exit 1
 fi
+echo "✅ Immich is responding."
 
 # Configure reverse proxy if domain provided
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "-" ]; then
@@ -187,4 +188,4 @@ echo "     activates ~5 min after the first photo is uploaded."
 echo ""
 echo "Useful commands:"
 echo "  Logs:    ssh <server> 'cd /opt/stacks/immich && docker compose logs -f'"
-echo "  Update:  ssh <server> 'cd /opt/stacks/immich && docker compose pull && docker compose up -d'"
+echo "  Backups and updates: see the StackPilot Immich README."
