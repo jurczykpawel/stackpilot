@@ -9,6 +9,8 @@
 #   Exit code 0 = all keys match; exit code 1 = mismatches found.
 
 set -e
+# Compare identifier names with the same byte ordering on every platform.
+export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

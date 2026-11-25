@@ -13,6 +13,13 @@ set -o pipefail
 
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# This suite reserves its own stacks and handles its own cleanup.
+for arg in "$@"; do
+    if [ "$arg" = --suite=email-apps ]; then
+        exec bash "$E2E_DIR/email-apps.sh" "$@"
+    fi
+done
+
 # Load config and libs
 source "$E2E_DIR/config.sh"
 source "$E2E_DIR/lib/assertions.sh"

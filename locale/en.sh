@@ -1398,14 +1398,14 @@ MSG_CADDY_DONE_USAGE="   Usage: sp-expose app.domain.com 5000"
 # ── system/docker-setup.sh ───────────────────────────────────
 MSG_DOCKER_MISSING="🐳 Docker not found — installing automatically..."
 MSG_DOCKER_INSTALL_FAILED="❌ Docker installation failed. Install Docker manually: curl -fsSL https://get.docker.com | sh"
-MSG_DOCKER_STEP1="--- 1. Running official NOOBS Docker installation ---"
+MSG_DOCKER_STEP1="--- 1. Installing Docker engine ---"
 MSG_DOCKER_STEP2="--- 2. Applying VPS-specific optimizations (Log Rotation) ---"
 MSG_DOCKER_STEP3="--- 3. Restarting Docker to apply changes ---"
 MSG_DOCKER_STEP4="--- 4. Verifying settings ---"
 MSG_DOCKER_CONFIG_HDR="Docker configuration (/etc/docker/daemon.json):"
 MSG_DOCKER_LOG_DRV="Logging Driver: %s"
 MSG_DOCKER_LIVE_RESTORE="Live Restore: %s"
-MSG_DOCKER_DONE="✅ Docker is installed (via NOOBS) and optimized for your VPS!"
+MSG_DOCKER_DONE="✅ Docker is installed and optimized for your VPS!"
 MSG_DOCKER_STORAGE_RETRY="⚙️  Docker storage error detected — restarting daemon and retrying..."
 
 # ── system/pm2-setup.sh ───────────────────────────────────────

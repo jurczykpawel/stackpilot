@@ -15,7 +15,8 @@
 
 # i18n
 _SE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -z "${TOOLBOX_LANG+x}" ]; then
+# Child processes inherit TOOLBOX_LANG, but locale messages are shell-local.
+if [ -z "${MSG_SE_INSTALLING_TOOLBOX+x}" ]; then
     source "$_SE_DIR/i18n.sh"
 fi
 

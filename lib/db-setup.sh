@@ -220,8 +220,16 @@ setup_bundled_db() {
 
     BUNDLED_DB_TYPE="$DB_TYPE"
 
-    # Generate random credentials
-    DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
+    # Re-install: the existing db-data volume keeps its original password, so reuse it.
+    local existing_pass=""
+    if [ -n "${APP_NAME:-}" ]; then
+        existing_pass=$(server_exec "grep -m1 -E '^ *(POSTGRES|MYSQL)_PASSWORD:' '/opt/stacks/$APP_NAME/docker-compose.yaml' 2>/dev/null | sed 's/^[^:]*: *//'" 2>/dev/null | tr -d '[:space:]') || existing_pass=""
+    fi
+    if [[ "$existing_pass" =~ ^[A-Za-z0-9]{8,}$ ]]; then
+        DB_PASS="$existing_pass"
+    else
+        DB_PASS=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 24)
+    fi
     DB_USER="app"
     DB_NAME="appdb"
 

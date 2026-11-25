@@ -81,7 +81,7 @@ assert_contains() {
     local message="${3:-assert_contains}"
     _TR_TOTAL=$((_TR_TOTAL + 1))
 
-    if echo "$haystack" | grep -qF "$needle"; then
+    if echo "$haystack" | grep -qF -- "$needle"; then
         return 0
     else
         echo -e "    ${_TR_RED}FAIL${_TR_NC}: $message"
@@ -98,7 +98,7 @@ assert_not_contains() {
     local message="${3:-assert_not_contains}"
     _TR_TOTAL=$((_TR_TOTAL + 1))
 
-    if ! echo "$haystack" | grep -qF "$needle"; then
+    if ! echo "$haystack" | grep -qF -- "$needle"; then
         return 0
     else
         echo -e "    ${_TR_RED}FAIL${_TR_NC}: $message"

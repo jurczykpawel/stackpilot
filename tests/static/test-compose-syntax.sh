@@ -34,10 +34,7 @@ SKIP_APPS="coolify sellf littlelink cookie-hub dockge"
 
 # Apps where heredoc extraction is known to produce incomplete YAML
 # (multi-part heredocs, env_file references, conditional composition).
-# poststack defers ${POSTGRES_*} to compose-level interpolation via bash-escaped \$,
-# which this no-bash extractor can't unescape — the real compose is validated in
-# tests/unit/test-poststack-install.sh (docker compose config on the generated file).
-BEST_EFFORT_APPS="typebot vaultwarden postiz routepix social-media-generator filebrowser stirling-pdf poststack ksef-gateway"
+BEST_EFFORT_APPS="typebot vaultwarden postiz routepix social-media-generator filebrowser stirling-pdf ksef-gateway"
 
 echo "--- Compose Syntax Validation ---"
 echo ""
@@ -119,15 +116,25 @@ for install_sh in "$REPO_ROOT"/apps/*/install.sh; do
     export MYSQL_ROOT_PASSWORD="rootpass123"
     export MYSQL_PASSWORD="mysqlpass123"
     export CAP_ALLOWED_ORIGINS="https://app.example.com"
+    export IMAGE_TAG="latest"
+    export IMAGE_REPO="ghcr.io/stackpilot/test"
+    export IMAGE="stackpilot/test:latest"
+    export APP_URL="https://app.example.com"
+    export API_ENDPOINT="https://app.example.com"
+    export DB_PASSWORD="testpass123"
+    export MONGO_ROOT_PASSWORD="testpass123"
+    export POSTGRES_USER="testuser"
+    export POSTGRES_PASSWORD="testpass123"
+    export POSTGRES_DB="testdb"
 
-    # Extract the first heredoc that writes to a yaml/yml file
+    # Extract the first heredoc that writes a Compose file
     # This is a best-effort extraction — some complex scripts may not work
     extracted=false
 
     # Strategy: find lines like "cat <<EOF | sudo tee docker-compose.yaml" or similar
     # Then capture until EOF
     while IFS= read -r line; do
-        if [[ "$line" =~ cat[[:space:]]+\<\<[\'\"]*([A-Za-z_]+)[\'\"]*.*\.(ya?ml) ]]; then
+        if [[ "$line" =~ cat[[:space:]]+\<\<[\'\"]*([A-Za-z_]+)[\'\"]*.*(docker-compose|compose)\.ya?ml ]]; then
             delimiter="${BASH_REMATCH[1]}"
             # Read until delimiter
             content=""
@@ -137,31 +144,21 @@ for install_sh in "$REPO_ROOT"/apps/*/install.sh; do
                 fi
                 content+="$inner_line"$'\n'
             done
-            # Substitute env vars using envsubst
-            if command -v envsubst &>/dev/null; then
-                echo "$content" | envsubst > "$compose_file"
+            # Quoted heredocs reach Compose literally. In unquoted heredocs,
+            # escaped dollars survive shell expansion for Compose to handle.
+            if [[ "$line" =~ \<\<[\'\"] ]]; then
+                printf '%s' "$content" > "$compose_file"
+            elif command -v envsubst &>/dev/null; then
+                printf '%s' "$content" | sed 's/\\\$/__SP_COMPOSE_DOLLAR__/g' |
+                    envsubst | sed 's/__SP_COMPOSE_DOLLAR__/\$/g' > "$compose_file"
             else
-                echo "$content" > "$compose_file"
+                echo 'envsubst is required for unquoted Compose heredocs' >&2
+                exit 1
             fi
             extracted=true
             break
         fi
     done < "$install_sh"
-
-    if [ "$extracted" = false ]; then
-        # Fallback: try a simpler extraction with sed
-        # Look for heredoc pattern: cat <<EOF ... EOF or cat <<'EOF' ... EOF
-        heredoc_content=$(sed -n '/cat <<.*EOF.*\.\(yaml\|yml\)/,/^EOF$/p' "$install_sh" 2>/dev/null | sed '1d;$d')
-
-        if [ -n "$heredoc_content" ]; then
-            if command -v envsubst &>/dev/null; then
-                echo "$heredoc_content" | envsubst > "$compose_file"
-            else
-                echo "$heredoc_content" > "$compose_file"
-            fi
-            extracted=true
-        fi
-    fi
 
     if [ "$extracted" = false ]; then
         SKIP=$((SKIP + 1))

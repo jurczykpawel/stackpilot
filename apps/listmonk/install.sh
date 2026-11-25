@@ -19,7 +19,7 @@
 set -e
 
 APP_NAME="listmonk"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
 PORT=${PORT:-9000}
 
 echo "--- 📧 Listmonk Setup ---"
@@ -135,7 +135,8 @@ sudo docker compose run --rm listmonk ./listmonk --install --yes || echo "Migrat
 sudo docker compose up -d
 
 # Health check
-source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
+_HC=/opt/stackpilot/lib/health-check.sh
+[ -f "$_HC" ] && source "$_HC"
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Installation failed!"; exit 1; }
 else
@@ -147,16 +148,23 @@ else
     fi
 fi
 
-# Enable daily database vacuum (prevents DB bloat)
-echo "Enabling daily database vacuum..."
-VACUUM_SQL="UPDATE settings SET value='{\"vacuum\": true, \"vacuum_cron_interval\": \"0 2 * * *\"}' WHERE key='maintenance.db';"
-{
+# Daily vacuum (prevents DB bloat) and bounce processing (without it the bounce webhook returns 503 and bounces are lost)
+echo "Enabling daily database vacuum and bounce processing..."
+SETTINGS_SQL="UPDATE settings SET value='{\"vacuum\": true, \"vacuum_cron_interval\": \"0 2 * * *\"}' WHERE key='maintenance.db';
+UPDATE settings SET value='true' WHERE key IN ('bounce.enabled', 'bounce.webhooks_enabled', 'bounce.ses_enabled');"
+if {
     if [ -n "$BUNDLED_DB_TYPE" ]; then
-        sudo docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -c "$VACUUM_SQL"
+        sudo docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -c "$SETTINGS_SQL"
     else
-        PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "$VACUUM_SQL"
+        PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "$SETTINGS_SQL"
     fi
-} >/dev/null 2>&1 && echo "✅ Daily vacuum enabled (2:00 AM)" || echo "⚠️  Could not enable vacuum — configure in Settings → Maintenance"
+} >/dev/null 2>&1; then
+    # Listmonk reads settings only at startup.
+    sudo docker compose restart listmonk >/dev/null
+    echo "✅ Daily vacuum (2:00 AM) and bounce processing enabled"
+else
+    echo "⚠️  Could not apply settings — enable them in Settings → Maintenance and Settings → Bounces"
+fi
 
 # Caddy/HTTPS - configure reverse proxy if domain is set
 if [ -n "$DOMAIN" ]; then

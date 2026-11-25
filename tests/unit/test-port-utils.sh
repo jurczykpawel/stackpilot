@@ -67,4 +67,30 @@ test_find_free_port_single_used() {
 # Run
 # =============================================================================
 
+setup() { TEST_TMPDIR=$(mktemp -d); }
+teardown() { rm -rf "$TEST_TMPDIR"; }
+server_exec_timeout() { bash -c "$2"; }
+test_existing_port_prefers_saved_host_port() {
+    printf '3561\n' > "$TEST_TMPDIR/.stackpilot-port"
+    printf 'PORT=3000\n' > "$TEST_TMPDIR/.env.local"
+    assert_eq 3561 "$(read_existing_app_port "$TEST_TMPDIR/.stackpilot-port" "$TEST_TMPDIR/.env.local")"
+}
+test_existing_port_accepts_default_as_existing() {
+    printf '3560\n' > "$TEST_TMPDIR/.stackpilot-port"
+    assert_eq 3560 "$(read_existing_app_port "$TEST_TMPDIR/.stackpilot-port" "$TEST_TMPDIR/missing")"
+}
+test_existing_port_keeps_legacy_env_support() {
+    printf 'PORT=3334\n' > "$TEST_TMPDIR/.env.local"
+    assert_eq 3334 "$(read_existing_app_port "$TEST_TMPDIR/missing" "$TEST_TMPDIR/.env.local")"
+}
+test_existing_port_rejects_invalid_values() {
+    local value port rc
+    for value in 0 65536 -1 abc 003560 '3560; echo extra'; do
+        printf '%s\n' "$value" > "$TEST_TMPDIR/.stackpilot-port"
+        rc=0
+        port=$(read_existing_app_port "$TEST_TMPDIR/.stackpilot-port" "$TEST_TMPDIR/missing") || rc=$?
+        assert_eq '' "$port"
+        assert_not_eq 0 "$rc"
+    done
+}
 run_tests "$0"

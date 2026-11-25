@@ -73,6 +73,29 @@ test_fetch_database_bundled_generates_creds() {
     assert_not_eq "" "$DB_NAME" "bundled generates DB_NAME"
 }
 
+test_bundled_reinstall_keeps_existing_password() {
+    _reset_db
+    local stacks
+    stacks=$(mktemp -d)
+    mkdir -p "$stacks/myapp"
+    printf 'services:\n  db:\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: OldSecret123\n' \
+        > "$stacks/myapp/docker-compose.yaml"
+    server_exec() { bash -c "${1//\/opt\/stacks/$STACKS}"; }
+    STACKS="$stacks" APP_NAME=myapp DB_SOURCE=bundled
+    fetch_database "postgres" > /dev/null 2>&1
+    assert_eq "OldSecret123" "$DB_PASS" "re-install reuses the bundled DB password"
+
+    _reset_db
+    APP_NAME=freshapp DB_SOURCE=bundled
+    fetch_database "postgres" > /dev/null 2>&1
+    assert_not_eq "OldSecret123" "$DB_PASS" "fresh install generates a new password"
+    assert_not_eq "" "$DB_PASS" "fresh install password is not empty"
+
+    server_exec() { bash -c "$1"; }
+    unset APP_NAME STACKS
+    rm -rf "$stacks"
+}
+
 test_fetch_database_unknown_source() {
     _reset_db
     DB_SOURCE="nonexistent"

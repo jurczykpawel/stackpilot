@@ -1,9 +1,9 @@
 # StackPilot
 
-**The AI-native self-hosting toolkit. Deploy 36+ production-optimized apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS — or to Cloudflare Pages — with a single command.**
+**The AI-native self-hosting toolkit. Deploy 40+ production-optimized apps plus static sites (Astro, Next.js, Hugo, Eleventy, …) to any VPS — or to Cloudflare Pages — with a single command.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-![Apps: 36+](https://img.shields.io/badge/Apps-36%2B-blue)
+![Apps: 40+](https://img.shields.io/badge/Apps-40%2B-blue)
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
 [![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
@@ -26,7 +26,7 @@ cd stackpilot
 - **One command, production-ready**: Each app is deployed with a single `deploy.sh` call. Memory limits, log rotation, health checks, security headers, and database provisioning are handled automatically.
 - **Zero platform overhead**: No web dashboard to maintain, no background services eating RAM. Just Bash scripts, SSH, and Docker. Your server resources go to your apps, not the platform.
 - **Database flexibility**: Bundled containers (auto-provisioned, zero config) or external databases. WordPress also supports SQLite. Your choice, per app.
-- **36+ curated apps**: Not a marketplace of untested community templates. Every app config is tuned and tested for small VPS environments (512MB--2GB RAM).
+- **40+ curated apps**: Not a marketplace of untested community templates. Every app config is tuned and tested for small VPS environments (512MB--2GB RAM).
 
 ---
 
@@ -86,6 +86,9 @@ cd stackpilot
 | :--- | :--- | :--- |
 | [Listmonk](apps/listmonk/) | Mailchimp | High-performance newsletter and mailing list manager. |
 | [Mailstack](apps/mailstack/) | Web3Forms | Forms and transactional email with an encrypted delivery log; Pro panel and webhooks, on Cloudflare Workers or your server (`--plan=`). |
+| [Plunk](apps/plunk/) | SendGrid / Resend | Transactional and marketing email on AWS SES; bundled PostgreSQL, Redis and storage. |
+| [MailCheap](apps/mailcheap/) | Mailchimp / beehiiv | Newsletter platform with API/MCP; locally built image and bundled MongoDB. |
+| [Notifuse](apps/notifuse/) | Mailchimp / Brevo | Email marketing and transactional email with bundled PostgreSQL. |
 | [Keila](apps/keila/) | Mailchimp / Brevo | Email marketing platform. Campaigns, newsletters, subscriber management. |
 | [Typebot](apps/typebot/) | Typeform | Conversational forms and chatbots. Lead capture, surveys. |
 | [Postiz](apps/postiz/) | Buffer / Hootsuite | Schedule posts to X, LinkedIn, Instagram, Facebook, TikTok. |
@@ -127,8 +130,9 @@ cd stackpilot
 | [Supabase](apps/supabase/) | Firebase / Neon | Self-hosted PostgreSQL + Auth + Storage + Realtime + Studio. |
 | [MCP Docker](apps/mcp-docker/) | - | Let AI assistants manage Docker containers on your server. |
 | [sGTM](apps/sgtm/) | - | Server-side Google Tag Manager. 1st-party analytics, reliable tracking without ad blockers. |
+| [KSeF Gateway](apps/ksef-gateway/) | - | REST API for Poland's national e-invoicing system (KSeF): send and receive invoices, PDFs with a verification QR code. |
 | [Countdown Timer](apps/countdown-timer/) | - | Animated countdown GIF generator for emails and landing pages. (PHP, no Docker) |
-| [Coolify](apps/coolify/) | Heroku / Vercel / Netlify | Self-hostable PaaS — deploy apps, databases, and services from Git. Requires 8GB+ RAM (takes over ports 80/443). |
+| [Coolify](apps/coolify/) | Heroku / Vercel / Netlify | Self-hostable PaaS — deploy apps, databases, and services from Git. Requires 4GB+ RAM, 8GB recommended (takes over ports 80/443). |
 
 ### AI and Data
 
@@ -136,8 +140,6 @@ cd stackpilot
 | :--- | :--- | :--- |
 | [PicoClaw](apps/picoclaw/) | OpenClaw | Ultra-lightweight AI assistant (Telegram/Discord/Slack). ~10MB image, 64MB RAM. Security-hardened. |
 | [Crawl4AI](apps/crawl4ai/) | Firecrawl | Web crawler that turns sites into clean Markdown for LLMs and RAG pipelines. |
-| [Crawl4AI](apps/crawl4ai/) | ScrapingBee | AI web scraper with REST API. Markdown output, JS rendering. |
-| [Coolify](apps/coolify/) | Heroku / Vercel | Full PaaS with 280+ one-click apps. Requires 8GB+ RAM. |
 
 > Every app has its own `README.md` with detailed docs, requirements, and configuration options.
 
@@ -422,7 +424,7 @@ Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, 
 Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN can achieve perfect Lighthouse scores (Performance, Accessibility, Best Practices, SEO — all 100). The key is proper development: defer non-critical resources (fonts, analytics) after `window.load`, avoid CPU-intensive CSS like SVG `feTurbulence`, inline small assets as base64 to eliminate LCP from external network requests, and use `font-display: optional` to prevent font-swap LCP spikes.
 
 **How much RAM do I need?**
-512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 8GB+.
+512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 4GB+ (8GB recommended).
 
 **How do databases work?**
 Apps that need PostgreSQL or MySQL can use a bundled database container (auto-provisioned, zero config) or connect to an external database you provide. WordPress also supports SQLite for simple sites.
@@ -437,7 +439,7 @@ Run `deploy.sh` again. The script detects existing installations and pulls the l
 Yes. Add your own `apps/<name>/install.sh` installer (see GUIDE.md) -- you are not limited to the built-in apps.
 
 **How is this different from Coolify?**
-Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard, built-in Traefik, and its own PostgreSQL/Redis. It is powerful but heavyweight. StackPilot is minimal: Bash scripts + SSH + Docker. No platform overhead, no web UI to maintain. Note: Coolify itself can be deployed *via* StackPilot on servers with 8GB+ RAM.
+Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard, built-in Traefik, and its own PostgreSQL/Redis. It is powerful but heavyweight. StackPilot is minimal: Bash scripts + SSH + Docker. No platform overhead, no web UI to maintain. Note: Coolify itself can be deployed *via* StackPilot on servers with 4GB+ RAM (8GB recommended).
 
 ---
 
@@ -445,7 +447,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 
 ### Completed
 
-- [x] 36+ production-optimized app deployments
+- [x] 40+ production-optimized app deployments
 - [x] CLI deploy with interactive prompts
 - [x] Caddy auto-HTTPS and Cloudflare DNS integration
 - [x] Bundled database provisioning (PostgreSQL, MySQL, SQLite)
@@ -550,16 +552,22 @@ StackPilot includes a comprehensive test suite:
 ./tests/run.sh e2e --ssh=your-vps --suite=deploy-no-db
 ./tests/run.sh e2e --ssh=your-vps --app=ntfy
 
+# Email apps: fresh deployment, HTTP and database persistence across restart
+./tests/run.sh e2e --ssh=your-vps --suite=email-apps
+# Optional public HTTPS checks through the existing Cloudflare/Caddy flow
+./tests/run.sh e2e --ssh=your-vps --suite=email-apps \
+  --domain-type=cloudflare --domain-suffix=sp-test.example.com
+
 # Run everything
 ./tests/run.sh all --ssh=your-vps
 ```
 
-| Suite | Tests | Runtime | What it checks |
-| :--- | :--- | :--- | :--- |
-| Unit | 67 | <1s | CLI parser, i18n, DB setup, domain setup, ports, resources, providers |
-| Static | 4 | ~8s | ShellCheck (95 files), install.sh contract, compose syntax, locale coverage |
-| E2E (quick) | ~15 | ~15min | Core apps on a real server: deploy, health, cleanup |
-| E2E (full) | ~37 | ~45-60min | All 37 apps — auto-skips apps that exceed server resources |
+| Suite | What it checks |
+| :--- | :--- |
+| Unit | CLI parser, i18n, database/domain setup, ports, resources, providers, installer configuration and runner behavior |
+| Static | ShellCheck, installer contract, generated Compose syntax and locale coverage |
+| E2E (quick/full) | Real-server deployment, health and cleanup across the selected application suites |
+| E2E `email-apps` | Fresh deployment, HTTP health and console, optional public HTTPS, database persistence and unchanged credentials across restart |
 
 **E2E suites:**
 
@@ -567,6 +575,7 @@ StackPilot includes a comprehensive test suite:
 | :--- | :--- | :--- |
 | `deploy-no-db` | ntfy, uptime-kuma, filebrowser, minio, gotenberg, linkstack | SSH access |
 | `deploy-postgres` | umami, nocodb, listmonk, n8n, typebot, affine, postiz | SSH access |
+| `email-apps` | plunk, mailcheap, notifuse; HTTP and DB persistence | Fresh stack names; Plunk SES bootstrap config and prebuilt MailCheap image; optional Cloudflare credentials |
 | `deploy-mysql` | wordpress | SSH access |
 | `deploy-tcp` | redis, mcp-docker | SSH access |
 | `domain-cloudflare` | ntfy, littlelink, cookie-hub | Cloudflare API token |
@@ -581,6 +590,8 @@ StackPilot includes a comprehensive test suite:
 | `i18n` | ntfy with `TOOLBOX_LANG=pl` | SSH access |
 
 Apps that require more RAM/disk than the server has are automatically **skipped** (not failed). On a 1GB VPS the heavy apps (typebot, affine, postiz, crawl4ai) skip; on a 2-4GB VPS they run.
+
+The `email-apps` suite refuses existing stacks and cleans only resources it created. Public test names are `<app>-<domain-suffix>` (for example `notifuse-sp-test.example.com`). It does not send emails; complete provider setup and delivery checks separately before using campaigns. See each app README for prerequisites.
 
 CI runs unit + static tests on every push and PR. E2E tests run nightly or on-demand.
 
@@ -654,6 +665,6 @@ MIT -- see [LICENSE](LICENSE) for details.
 
 ---
 
-*Self-hosted infrastructure toolkit. Deploy 36+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
+*Self-hosted infrastructure toolkit. Deploy 40+ open-source apps (n8n, WordPress, Listmonk, Typebot, NocoDB, Vaultwarden, and more) to any VPS with one command. Replace $300+/month in SaaS subscriptions with a $5/month server.*
 
 ![](https://stats.techskills.academy/pixels/github?url=/readme/stackpilot)
