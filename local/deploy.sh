@@ -1284,8 +1284,9 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
     printf "║  %s\n" "$MSG_HEALTH_HEADER"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
-    msg "$MSG_HEALTH_RAM" "$POST_RAM_AVAIL" "$POST_RAM_TOTAL" "$RAM_USED_PCT" "$RAM_LABEL"
-    msg "$MSG_HEALTH_DISK" "$DISK_AVAIL_GB" "$DISK_TOTAL_GB" "$DISK_USED_PCT" "$DISK_LABEL"
+    # Labels carry \033 colour codes; %s arguments are not escape-interpreted.
+    msg "$MSG_HEALTH_RAM" "$POST_RAM_AVAIL" "$POST_RAM_TOTAL" "$RAM_USED_PCT" "$(printf '%b' "$RAM_LABEL")"
+    msg "$MSG_HEALTH_DISK" "$DISK_AVAIL_GB" "$DISK_TOTAL_GB" "$DISK_USED_PCT" "$(printf '%b' "$DISK_LABEL")"
     echo ""
 
     if [ "$HEALTH_LEVEL" -eq 0 ]; then
