@@ -132,7 +132,6 @@ ensure_toolbox() {
         rsync -az --delete \
             --exclude '.git' \
             --exclude 'node_modules' \
-            --exclude 'mcp-server' \
             --exclude '.claude' \
             --exclude '*.md' \
             "$REPO_ROOT_SE/" "$ALIAS:/opt/stackpilot/" 2>/dev/null

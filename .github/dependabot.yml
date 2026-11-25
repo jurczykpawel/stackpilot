@@ -1,27 +1,5 @@
 version: 2
 updates:
-- package-ecosystem: npm
-  directory: /mcp-server
-  schedule:
-    interval: monthly
-    time: '10:00'
-    timezone: Europe/Warsaw
-  open-pull-requests-limit: 1
-  cooldown:
-    default-days: 14
-  allow:
-  - dependency-name: '*'
-    update-types:
-    - version-update:semver-patch
-    - version-update:semver-minor
-  groups:
-    maintenance:
-      patterns:
-      - '*'
-    security:
-      applies-to: security-updates
-      patterns:
-      - '*'
 - package-ecosystem: github-actions
   directory: /
   schedule:

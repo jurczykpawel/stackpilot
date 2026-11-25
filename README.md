@@ -7,11 +7,11 @@
 ![Any VPS](https://img.shields.io/badge/Platform-Any%20VPS-orange)
 [![GitHub Stars](https://img.shields.io/github/stars/jurczykpawel/stackpilot?style=social)](https://github.com/jurczykpawel/stackpilot)
 
-[Docs](docs/) | [Issues](https://github.com/jurczykpawel/stackpilot/issues) | [MCP Docs](https://modelcontextprotocol.io/)
+[Docs](docs/) | [Issues](https://github.com/jurczykpawel/stackpilot/issues)
 
 ---
 
-Replace $300+/month in SaaS subscriptions with a $5/month server. StackPilot is the only self-hosting toolkit with [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) integration -- AI assistants like Claude can deploy and manage apps directly.
+Replace $300+/month in SaaS subscriptions with a $5/month server. StackPilot is a Bash + SSH + Docker toolkit: one command per app.
 
 ```bash
 git clone https://github.com/jurczykpawel/stackpilot.git
@@ -23,7 +23,6 @@ cd stackpilot
 
 ## Why StackPilot?
 
-- **AI-native deployment**: The only self-hosting toolkit with native MCP integration. AI assistants can deploy, configure, and troubleshoot your apps through natural conversation. No other tool does this.
 - **One command, production-ready**: Each app is deployed with a single `deploy.sh` call. Memory limits, log rotation, health checks, security headers, and database provisioning are handled automatically.
 - **Zero platform overhead**: No web dashboard to maintain, no background services eating RAM. Just Bash scripts, SSH, and Docker. Your server resources go to your apps, not the platform.
 - **Database flexibility**: Bundled containers (auto-provisioned, zero config) or external databases. WordPress also supports SQLite. Your choice, per app.
@@ -266,8 +265,6 @@ To update StackPilot later, re-run the bootstrap one-liner.
 
 ## Deployment Modes
 
-StackPilot supports two deployment modes: **CLI** for direct control, and **AI/MCP** for conversational deployment.
-
 ### CLI Mode
 
 Run `deploy.sh` from your local machine. It connects to your server over SSH, handles domain configuration, database provisioning, and health checks.
@@ -287,36 +284,6 @@ Run `deploy.sh` from your local machine. It connects to your server over SSH, ha
 ./local/deploy.sh uptime-kuma --domain-type=local --yes
 ./local/deploy.sh wordpress --domain-type=caddy --domain=blog.example.com
 ```
-
-### AI/MCP Mode
-
-Install the MCP server and let Claude (or any MCP-compatible AI) deploy apps conversationally.
-
-```bash
-npx stackpilot-mcp
-```
-
-Or add it to your Claude Code MCP config:
-
-```json
-{
-  "mcpServers": {
-    "stackpilot": {
-      "command": "npx",
-      "args": ["-y", "stackpilot-mcp"]
-    }
-  }
-}
-```
-
-Then talk to Claude naturally:
-
-- *"Deploy n8n on my server"*
-- *"Set up Uptime Kuma with a Cloudflare domain"*
-- *"Check server status and free RAM"*
-- *"Configure backups to Google Drive"*
-
-The AI handles SSH connection, port allocation, domain setup, database provisioning, and post-deploy verification.
 
 ---
 
@@ -418,7 +385,6 @@ Details: [docs/ssh-tunnels.md](docs/ssh-tunnels.md)
 | **Approach** | Bash + SSH + Docker | Full PaaS platform | Git-push PaaS | Docker/SSH deploy tool |
 | **GitHub stars** | New | ~50k | ~32k | ~14k |
 | **Min. RAM** | 512MB | 2GB+ | 1GB+ | 512MB |
-| **AI integration** | Native MCP server | No | No | No |
 | **Pre-built apps** | 36 production-optimized + static site hosting | 280+ (community) | Via plugins | None (bring your own) |
 | **Complexity** | Single deploy command | Web dashboard | CLI + buildpacks | YAML config files |
 | **Dependencies** | Bash, SSH, Docker | Docker, Traefik, PostgreSQL, Redis | Docker, Nginx, buildpacks | Docker, Ruby |
@@ -468,13 +434,10 @@ Apps run in isolated Docker containers. External access is HTTPS-only via Caddy.
 Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved.
 
 **Can I deploy custom Docker apps?**
-Yes. Via the MCP server, you can deploy any Docker Compose stack -- not just the 36 built-in apps. The AI generates the compose file and deploys it.
-
-**What is MCP?**
-[Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants interact with external tools. StackPilot's MCP server (`stackpilot-mcp`) gives Claude (and other compatible AIs) the ability to deploy apps, check server status, configure domains, and set up backups -- all through natural conversation.
+Yes. Add your own `apps/<name>/install.sh` installer (see GUIDE.md) -- you are not limited to the built-in apps.
 
 **How is this different from Coolify?**
-Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard, built-in Traefik, and its own PostgreSQL/Redis. It is powerful but heavyweight. StackPilot is minimal: Bash scripts + SSH + Docker. No platform overhead, no web UI to maintain. StackPilot also includes native AI/MCP integration that Coolify does not have. Note: Coolify itself can be deployed *via* StackPilot on servers with 8GB+ RAM.
+Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard, built-in Traefik, and its own PostgreSQL/Redis. It is powerful but heavyweight. StackPilot is minimal: Bash scripts + SSH + Docker. No platform overhead, no web UI to maintain. Note: Coolify itself can be deployed *via* StackPilot on servers with 8GB+ RAM.
 
 ---
 
@@ -484,7 +447,6 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 
 - [x] 36+ production-optimized app deployments
 - [x] CLI deploy with interactive prompts
-- [x] MCP server for AI-driven deployment
 - [x] Caddy auto-HTTPS and Cloudflare DNS integration
 - [x] Bundled database provisioning (PostgreSQL, MySQL, SQLite)
 - [x] Encrypted backups to Google Drive / Dropbox / S3
@@ -649,7 +611,6 @@ Configuration is stored in `~/.config/stackpilot/`.
 | **Bash** | Install scripts, deploy, backup, diagnostics |
 | **Docker / Docker Compose** | Application containerization |
 | **Caddy** | Reverse proxy with automatic HTTPS (Let's Encrypt) |
-| **TypeScript** | MCP server (Model Context Protocol) |
 | **SSH / rsync** | Remote server management and file sync |
 | **Cloudflare API** | Automatic DNS configuration |
 | **rclone** | Encrypted cloud backups (Google Drive, Dropbox, S3) |

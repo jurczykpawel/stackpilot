@@ -32,7 +32,6 @@ Zamiast tego:
 
 Projekt obejmuje:
 - Skrypty bash (lib/, local/, system/, apps/)
-- Serwer MCP (mcp-server/)
 - Konfiguracje Docker (apps/*/install.sh)
 
 ### Poza zakresem

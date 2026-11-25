@@ -452,10 +452,7 @@ The `backup-core.sh` script uses rclone to sync this directory to the cloud.
 For apps using PostgreSQL or MySQL, an automatic daily database dump can be configured:
 
 ```bash
-# Via MCP:
-setup_backup(backup_type='db')
-
-# Or manually on the server:
+# Manually on the server:
 # The setup-db-backup.sh script auto-detects running database containers
 # and sets up a cron job for daily dumps.
 ```
