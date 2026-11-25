@@ -608,7 +608,6 @@ locale/          -> Language files (en.sh, pl.sh)
 system/          -> System scripts (Docker, Caddy, backup, power tools)
 tests/           -> Test suites (unit/, static/, e2e/)
 docs/            -> Documentation (Cloudflare, backups, SSH tunnels, CLI reference)
-contrib/         -> Provider-specific deployment scripts
 ```
 
 Configuration is stored in `~/.config/stackpilot/`.
