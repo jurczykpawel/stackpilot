@@ -33,7 +33,6 @@ installers/      -> Template + build.sh for stackpilot.techskills.academy/<app> 
 tests/           -> Test suites (unit/, static/, e2e/)
 contrib/         -> Provider-specific deployment scripts (mikrus/)
 docs/            -> Documentation (Cloudflare, CLI reference)
-mcp-server/      -> MCP server for AI assistants (TypeScript)
 ```
 
 ## One-liner Install Endpoints
@@ -152,16 +151,15 @@ ssh -L 5001:localhost:5001 vps
 - If you register while the app is down/restarting, the domain gets broken and cannot be fixed (no delete via API)
 - Docker auto-binds to both `0.0.0.0:PORT` and `[::]:PORT` with `PORT:PORT` syntax — no extra config needed
 
-**After `deploy_app` with a domain configured** -- domain is set up automatically, no extra steps needed.
-**After `deploy_custom_app`** -- use `setup_domain` to assign a domain.
+After `./local/deploy.sh` with a domain configured, the domain is set up automatically, no extra steps needed.
 
-## Backup (MCP: `setup_backup`)
+## Backup
 
-After deployment, backup status is checked. If no backup is configured, the agent receives a warning and should suggest setting one up.
+After deployment, check whether a backup is configured; if not, suggest setting one up.
 
 Backup types:
-- `setup_backup(backup_type='db')` -- automatic daily database backup (cron on server)
-- `setup_backup(backup_type='cloud')` -- cloud backup (Google Drive, Dropbox, S3) -- requires running `./local/setup-backup.sh` locally (OAuth in browser)
+- DB backup -- automatic daily database dump (cron on server): `./local/setup-backup.sh`
+- Cloud backup (Google Drive, Dropbox, S3) -- `./local/setup-backup.sh` locally (OAuth in browser)
 
 The toolbox is automatically installed on the server (git clone from GitHub) if not already present.
 
@@ -200,17 +198,7 @@ Digital products sales platform (Gumroad/EasyCart alternative). Sells one-time p
 - `cloud` (default) — external Supabase.com (free tier available)
 - `local` — self-hosted Supabase Docker on the same server (no external account needed)
 
-**MCP deployment** -- full flow without pasting secrets:
-```
-# Step 1: Agent calls setup_sellf_config() -> opens browser for Supabase login
-# Step 2: User provides one-time verification code (8 chars, NOT a secret)
-# Step 3: Agent calls setup_sellf_config(verification_code="ABCD1234") -> fetches projects
-# Step 4: User picks a project -> agent calls setup_sellf_config(project_ref="xxx")
-#          -> keys fetched automatically and saved to ~/.config/stackpilot/sellf/deploy-config.env
-# Step 5: Agent calls deploy_app(app_name="sellf") -> config loaded from file
-```
-
-**SECURITY:** Do NOT ask the user to paste keys (service_role, Stripe SK) into the conversation -- they would travel through the API. Use `setup_sellf_config` -- secrets never enter the conversation.
+**SECURITY:** Do NOT ask the user to paste keys (service_role, Stripe SK) into the conversation -- they would travel through the API. Use `./local/setup-sellf-config.sh` -- secrets stay in `~/.config/stackpilot/sellf/deploy-config.env`.
 
 **CLI deployment:**
 ```bash
@@ -299,8 +287,6 @@ Detailed flow + custom domain scenarios: `docs/cloudflare-pages-deploy.md`.
 ```
 
 Deploys Caddy + PHP-FPM on the host. Auto-installs both if missing.
-
-MCP: `deploy_site` with a PHP project (detects `index.php` or `.php` files).
 
 ### Redirects
 

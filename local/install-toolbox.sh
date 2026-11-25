@@ -56,7 +56,6 @@ msg "$MSG_TB_COPYING"
 rsync -az --delete \
     --exclude '.git' \
     --exclude 'node_modules' \
-    --exclude 'mcp-server' \
     --exclude '.claude' \
     --exclude '*.md' \
     "$REPO_ROOT/" "$SSH_ALIAS:/opt/stackpilot/"

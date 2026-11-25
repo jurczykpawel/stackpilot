@@ -14,10 +14,7 @@ Automatic daily backup of databases running on your server. Auto-detects Postgre
 
 **Setup:**
 ```bash
-# Via MCP:
-setup_backup(backup_type='db')
-
-# Or via CLI:
+# Via CLI:
 ./local/setup-backup.sh vps
 ```
 

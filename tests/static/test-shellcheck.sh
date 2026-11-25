@@ -38,7 +38,6 @@ SKIP_PATTERNS=(
     "locale/en.sh"
     "locale/pl.sh"
     "tests/mocks/"
-    "mcp-server/"
     "node_modules/"
     ".git/"
 )

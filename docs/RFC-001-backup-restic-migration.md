@@ -299,17 +299,6 @@ fi
 - Per-snapshot, per-path support
 - Confirmation prompt z "this will overwrite existing files"
 
-**Phase 3: MCP server (mcp-server/, 3-4h)**
-
-Update `mcp-server/src/tools/setup-backup.ts`:
-- New provider picker
-- Returns: provider, repo URL, password (warned displayed-only)
-
-Update `mcp-server/src/lib/backup-check.ts`:
-- `restic snapshots --json` → parse → return last snapshot per tag
-- Heartbeat file freshness
-- Integrity check status
-
 **NEW tools:**
 - `list_snapshots(tag?)` — returns paginated list
 - `restore_file(snapshot_id, path, target_dir)` — selective restore
@@ -347,7 +336,6 @@ Manual tests na testowym VPS:
 - Backup → restore cycle dla każdego providera
 - DB backup dla PG + MySQL + SQLite stacków
 - Healthcheck alert flow
-- MCP tools end-to-end
 
 ### Backward compatibility / migration
 
@@ -365,7 +353,7 @@ Migration guide w docs: "Migrating from rclone (legacy)" — opisany ale nie aut
 
 Zachować rclone dla files SOURCES, dorzucić restic-stdin tylko dla DB. **Odrzucone** bo:
 - Wciąż mamy rclone limitations (no dedup, no snapshots) dla files
-- Dwa różne backup tools = większy MCP server + wizard complexity
+- Dwa różne backup tools = większa złożoność wizarda
 - Mniejszy improvement vs full restic
 
 ### Alternative C: Restic + rclone as backend (`rclone:` repo)
@@ -403,7 +391,6 @@ Może być wdrożone jako **hotfix** ZANIM RFC zostanie zaimplementowany (1-toke
 
 ## Open questions
 
-1. Czy MCP server update jest w scope tego RFC czy osobny? **Sugeruję ten sam** — całość spójna.
 2. Czy support dla custom retention (user-configurable) w wizardzie czy tylko default? **Sugeruję default w wizard + advanced config w docs** (edit `restic.env` ręcznie).
 3. Czy `system/healthcheck-backup.sh` integruje się z istniejącym `notify.sh` (ntfy/email) czy ma własny? **Sugeruję integrację** — single notify dispatcher across all Stackpilot.
 4. Czy zachować `apps/n8n/backup.sh` (logical JSON export) czy zastąpić generic restic? **Sugeruję zachować** — JSON export to portable backup (możesz odtworzyć n8n od zera lub migrować między instancjami), restic to "snapshot raw state". **Dual layer**, oba mają sens.
