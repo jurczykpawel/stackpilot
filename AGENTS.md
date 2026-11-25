@@ -31,7 +31,6 @@ locale/          -> i18n language files (en.sh, pl.sh)
 system/          -> System scripts (docker, caddy, backup-core)
 installers/      -> Template + build.sh for stackpilot.techskills.academy/<app> oneliner endpoints
 tests/           -> Test suites (unit/, static/, e2e/)
-contrib/         -> Provider-specific deployment scripts (mikrus/)
 docs/            -> Documentation (Cloudflare, CLI reference)
 ```
 
@@ -71,6 +70,13 @@ Provider-specific code lives in `lib/providers/<provider>/`. Detection is in `li
 ./tests/run.sh static       # shellcheck, install contract, compose syntax, locale coverage
 ./tests/run.sh e2e --ssh=HOST  # E2E integration tests on a real server
 ```
+
+## Git Hooks (pre-commit framework)
+
+Install once per clone: `pre-commit install` (installs the pre-commit and pre-push hooks from `.pre-commit-config.yaml`).
+
+- pre-commit: TruffleHog secret scan.
+- pre-push: **no unhandled open pull requests.** The push is refused while any open PR other than the one for the branch being pushed exists (Dependabot included). Handle them first: merge after review and green CI, fix, or close with a reason. Emergency bypass only: `git push --no-verify`.
 
 ## Dual-Mode Operation (local + on-server)
 

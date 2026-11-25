@@ -10,7 +10,8 @@ on:
       - 'apps/**'
       - 'locale/**'
       - 'tests/**'
-      - '.github/workflows/test-unit.yml'
+      - '.githooks/**'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
@@ -20,6 +21,8 @@ on:
       - 'apps/**'
       - 'locale/**'
       - 'tests/**'
+      - '.githooks/**'
+      - '.github/workflows/**'
 
 jobs:
   test:

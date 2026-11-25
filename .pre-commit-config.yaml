@@ -1,3 +1,5 @@
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   - repo: https://github.com/trufflesecurity/trufflehog
     rev: v3.88.24
@@ -8,3 +10,13 @@ repos:
         language: golang
         pass_filenames: false
         stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: open-pull-requests
+        name: No unhandled open pull requests
+        entry: .githooks/pre-push-open-prs.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
