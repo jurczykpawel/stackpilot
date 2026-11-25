@@ -53,6 +53,15 @@ find_free_port_remote() {
     echo "$port"
 }
 
+# Read the published host port saved by an installer, with legacy env fallback.
+read_existing_app_port() {
+    local marker="$1" legacy_env="$2" port
+    port=$(server_exec_timeout 5 "if [ -f '$marker' ]; then cat '$marker'; else grep -m1 '^PORT=' '$legacy_env' 2>/dev/null | cut -d= -f2; fi" 2>/dev/null) || return 1
+    [[ "$port" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$port" -le 65535 ] || return 1
+    printf '%s\n' "$port"
+}
+
 # Export functions
 export -f find_free_port
 export -f find_free_port_remote
+export -f read_existing_app_port

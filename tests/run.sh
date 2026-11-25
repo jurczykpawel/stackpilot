@@ -33,6 +33,7 @@ SSH_ALIAS=""
 E2E_SUITE=""
 E2E_APP=""
 QUICK=false
+E2E_EXTRA_ARGS=()
 
 for arg in "$@"; do
     case "$arg" in
@@ -42,6 +43,7 @@ for arg in "$@"; do
         --suite=*)  E2E_SUITE="${arg#--suite=}" ;;
         --app=*)    E2E_APP="${arg#--app=}" ;;
         --quick)    QUICK=true ;;
+        --domain-type=*|--domain-suffix=*|--cleanup=*) E2E_EXTRA_ARGS+=("$arg") ;;
         -*)         ;; # ignore unknown flags
         *)
             # First non-flag argument is the suite
@@ -101,6 +103,7 @@ run_test_file() {
 
     if [ "$exit_code" -ne 0 ]; then
         FAILED_FILES+=("$name")
+        [ "$failed" -gt 0 ] || TOTAL_FAIL=$((TOTAL_FAIL + 1))
     fi
 }
 
@@ -175,29 +178,32 @@ run_e2e() {
         return 0
     fi
 
-    # Build args for E2E runner
-    local e2e_args="--ssh=$SSH_ALIAS"
-    [ -n "$E2E_SUITE" ] && e2e_args="$e2e_args --suite=$E2E_SUITE"
-    [ -n "$E2E_APP" ] && e2e_args="$e2e_args --app=$E2E_APP"
-    [ "$QUICK" = true ] && e2e_args="$e2e_args --quick"
+    local e2e_args=("--ssh=$SSH_ALIAS")
+    [ -z "$E2E_SUITE" ] || e2e_args+=("--suite=$E2E_SUITE")
+    [ -z "$E2E_APP" ] || e2e_args+=("--app=$E2E_APP")
+    [ "$QUICK" != true ] || e2e_args+=("--quick")
+    e2e_args+=("${E2E_EXTRA_ARGS[@]}")
 
-    # Delegate to E2E runner (it has its own summary)
-    bash "$TESTS_DIR/e2e/test-runner-e2e.sh" $e2e_args
-    local e2e_exit=$?
+    export E2E_RESULTS_DIR="${E2E_RESULTS_DIR:-$TESTS_DIR/e2e/results}"
+    local tap_file="$E2E_RESULTS_DIR/results.tap" e2e_exit=0
+    mkdir -p "$E2E_RESULTS_DIR"
+    : > "$tap_file"
+    bash "$TESTS_DIR/e2e/test-runner-e2e.sh" "${e2e_args[@]}" || e2e_exit=$?
 
-    # Count pass/fail from TAP output
-    local tap_file="$TESTS_DIR/e2e/results/results.tap"
-    if [ -f "$tap_file" ]; then
-        local tap_pass tap_fail
-        tap_pass=$(grep "^ok " "$tap_file" | grep -cv SKIP 2>/dev/null || true)
-        tap_fail=$(grep -c "^not ok " "$tap_file" 2>/dev/null || true)
-        tap_pass=${tap_pass:-0}
-        tap_fail=${tap_fail:-0}
-        TOTAL_PASS=$((TOTAL_PASS + tap_pass))
-        TOTAL_FAIL=$((TOTAL_FAIL + tap_fail))
+    local tap_pass tap_fail tap_skip tap_total tap_plan
+    tap_pass=$(grep '^ok ' "$tap_file" | grep -cv SKIP || true)
+    tap_fail=$(grep -c '^not ok ' "$tap_file" || true)
+    tap_skip=$(grep '^ok ' "$tap_file" | grep -c SKIP || true)
+    tap_total=$((tap_pass + tap_fail + tap_skip))
+    tap_plan=$(sed -n 's/^1\.\.\([0-9][0-9]*\).*/\1/p' "$tap_file" | tail -1)
+    TOTAL_PASS=$((TOTAL_PASS + tap_pass))
+    TOTAL_FAIL=$((TOTAL_FAIL + tap_fail))
+    TOTAL_SKIP=$((TOTAL_SKIP + tap_skip))
+    if [ "$e2e_exit" -ne 0 ] || [ "$tap_total" -eq 0 ] || [ "$tap_plan" != "$tap_total" ]; then
+        FAILED_FILES+=("e2e (exit $e2e_exit; TAP $tap_total/${tap_plan:-missing})")
+        [ "$tap_fail" -gt 0 ] || TOTAL_FAIL=$((TOTAL_FAIL + 1))
     fi
-
-    return "$e2e_exit"
+    return 0
 }
 
 # =============================================================================
@@ -266,6 +272,9 @@ case "$SUITE" in
         echo "  --suite=NAME        E2E suite name"
         echo "  --app=NAME          E2E single app"
         echo "  --quick             E2E quick mode (1 variant per app)"
+        echo "  --domain-type=TYPE  E2E email apps: local or cloudflare"
+        echo "  --domain-suffix=DNS E2E email apps: test domain suffix"
+        echo "  --cleanup=POLICY    E2E cleanup policy"
         exit 1
         ;;
 esac

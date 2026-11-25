@@ -22,7 +22,7 @@ E2E_MIN_DISK=3000   # available disk (MB) — 3GB baseline to leave OS room
 E2E_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Results directory
-E2E_RESULTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/results"
+E2E_RESULTS_DIR="${E2E_RESULTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/results}"
 mkdir -p "$E2E_RESULTS_DIR"
 
 # Colors

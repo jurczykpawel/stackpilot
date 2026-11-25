@@ -17,6 +17,7 @@ source "$TESTS_DIR/test-runner.sh"
 # =============================================================================
 
 MOCK_BIN=""
+ORIGINAL_PATH="$PATH"
 
 setup() {
     TEST_TMPDIR=$(mktemp -d)
@@ -50,11 +51,18 @@ exit 0
 EOF
     chmod +x "$MOCK_BIN/sleep"
 
-    export PATH="$MOCK_BIN:$PATH"
+    cat > "$MOCK_BIN/curl" <<'EOF'
+#!/bin/bash
+printf '%s' "${CURL_STATUS:-200}"
+EOF
+    chmod +x "$MOCK_BIN/curl"
+    printf 'source "%s/lib/health-check.sh"\n' "$REPO_ROOT" > "$TEST_TMPDIR/bash-env"
+    export PATH="$MOCK_BIN:$ORIGINAL_PATH"
 }
 
 teardown() {
-    unset CONTAINER_CONFIG DOMAIN PORT STACK_DIR
+    PATH="$ORIGINAL_PATH"
+    unset CONTAINER_CONFIG DOMAIN PORT STACK_DIR CURL_STATUS
     if [ -n "$TEST_TMPDIR" ] && [ -d "$TEST_TMPDIR" ]; then
         rm -rf "$TEST_TMPDIR"
     fi
@@ -65,7 +73,7 @@ run_install() {
     local extra_env="${1:-}"
     local stack_dir="$TEST_TMPDIR/stacks/sgtm"
     mkdir -p "$stack_dir"
-    eval "$extra_env STACK_DIR='$stack_dir' bash '$INSTALL_SH'" 2>&1
+    eval "$extra_env BASH_ENV='$TEST_TMPDIR/bash-env' STACK_DIR='$stack_dir' bash '$INSTALL_SH'" 2>&1
 }
 
 compose_file() {
@@ -108,6 +116,7 @@ test_succeeds_with_container_config() {
     rc=$?
     set -e
     assert_eq "0" "$rc" "exits 0 when CONTAINER_CONFIG is provided (output: ${output:0:200})"
+    assert_contains "$output" 'HTTP 200' 'shared HTTP readiness helper is exercised'
 }
 
 test_compose_file_created() {
@@ -164,6 +173,12 @@ test_success_warns_when_no_domain() {
     local fake_config="ZW52LCJodHRwczovL2V4YW1wbGUuY29tIl0="
     output=$(run_install "CONTAINER_CONFIG='$fake_config'" 2>&1) || true
     assert_contains "$output" "domain" "warns when no domain is configured"
+}
+
+test_unresponsive_http_does_not_report_success() {
+    local code=0
+    CURL_STATUS=000 run_install "CONTAINER_CONFIG='example-config'" > /dev/null 2>&1 || code=$?
+    assert_eq 1 "$code" 'running containers without HTTP readiness are not successful'
 }
 
 # =============================================================================

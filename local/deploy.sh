@@ -71,7 +71,7 @@ Modes:
   --dry-run            Show what would be executed without running
   --update             Update existing application (instead of installing)
   --restart            Restart without updating (e.g. after .env change) - used with --update
-  --build-file=PATH    Use local tar.gz file (for --update, when repo is private)
+  --build-file=PATH    Local Sellf build or MailCheap Docker image archive
   --help, -h           Show this help
 
 Examples:
@@ -105,6 +105,9 @@ Examples:
 
   # Update from local file (when repo is private)
   ./local/deploy.sh sellf --ssh=vps --update --build-file=~/Downloads/sellf-build.tar.gz
+
+  # Install MailCheap from a locally built Docker image
+  ./local/deploy.sh mailcheap --ssh=vps --build-file=/tmp/mailcheap-image.tar --domain-type=local --yes
 
   # Restart without updating (e.g. after .env change)
   ./local/deploy.sh sellf --ssh=vps --update --restart
@@ -601,8 +604,8 @@ fi
 DEFAULT_PORT=$(grep -E "^PORT=" "$SCRIPT_PATH" 2>/dev/null | head -1 | sed -E 's/.*[=:-]([0-9]+).*/\1/')
 PORT_OVERRIDE=""
 
-if [ -n "$DEFAULT_PORT" ]; then
-    # For re-deploys: if an existing .env.local already has a PORT, reuse it.
+if [ -n "$DEFAULT_PORT" ] && ! grep -qx '# PORT_MANAGED=true' "$SCRIPT_PATH"; then
+    # Reuse the installer host-port marker, with Sellf .env.local fallback.
     # This avoids picking a different port when the old process still holds the
     # original port (it will be stopped by install.sh before Docker/PM2 starts).
     # Derive INSTALL_DIR using the same logic as install.sh (domain → instance name).
@@ -612,7 +615,7 @@ if [ -n "$DEFAULT_PORT" ]; then
     else
         _EXISTING_ENV="/opt/stacks/${APP_NAME}/admin-panel/.env.local"
     fi
-    _EXISTING_PORT=$(server_exec_timeout 5 "grep -m1 '^PORT=' '$_EXISTING_ENV' 2>/dev/null | cut -d= -f2" 2>/dev/null | tr -d '[:space:]')
+    _EXISTING_PORT=$(read_existing_app_port "/opt/stacks/$APP_NAME/.stackpilot-port" "$_EXISTING_ENV") || _EXISTING_PORT=""
 
     if [ -n "$_EXISTING_PORT" ] && [ "$_EXISTING_PORT" != "$DEFAULT_PORT" ]; then
         # Re-deploy with a previously assigned non-default port — preserve it
@@ -646,7 +649,7 @@ DB_ENV_VARS=""
 DB_TYPE=""
 NEEDS_DB=false
 NEEDS_DOMAIN=false
-APP_PORT=""
+APP_PORT="$DEFAULT_PORT"
 
 # Check if application requires a database
 # WordPress with WP_DB_MODE=sqlite does not need MySQL
@@ -1004,7 +1007,11 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 # Auto-install Docker if missing (skip for sellf pm2 mode — doesn't need Docker)
-if [ "$APP_NAME" != "sellf" ] || [ "${RUNTIME:-pm2}" = "docker" ]; then
+DOCKER_REQUIRED=true
+if grep -qx '# DOCKER_REQUIRED=false' "$SCRIPT_PATH"; then
+    DOCKER_REQUIRED=false
+fi
+if [ "$DOCKER_REQUIRED" = true ] && { [ "$APP_NAME" != "sellf" ] || [ "${RUNTIME:-pm2}" = "docker" ]; }; then
     if ! server_exec "command -v docker >/dev/null 2>&1"; then
         echo ""
         msg "$MSG_DOCKER_MISSING"
