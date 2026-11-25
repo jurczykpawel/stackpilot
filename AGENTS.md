@@ -27,7 +27,7 @@ local/           -> User scripts (deploy, backup, setup)
 apps/<app>/      -> App installers (install.sh + README.md)
 lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils)
 lib/providers/   -> Provider plugins (mikrus/, generic hooks via detect.sh)
-locale/          -> i18n language files (en.sh, pl.sh) — 1325 MSG_* keys each
+locale/          -> i18n language files (en.sh, pl.sh)
 system/          -> System scripts (docker, caddy, backup-core)
 installers/      -> Template + build.sh for stackpilot.techskills.academy/<app> oneliner endpoints
 tests/           -> Test suites (unit/, static/, e2e/)
@@ -67,7 +67,7 @@ Provider-specific code lives in `lib/providers/<provider>/`. Detection is in `li
 
 ```bash
 ./tests/run.sh              # unit + static (default)
-./tests/run.sh unit         # 66 unit tests
+./tests/run.sh unit         # unit tests
 ./tests/run.sh static       # shellcheck, install contract, compose syntax, locale coverage
 ./tests/run.sh e2e --ssh=HOST  # E2E integration tests on a real server
 ```
@@ -310,11 +310,11 @@ On the server, the helper is `sp-redirect add|remove|list <domain> [<path> [<tar
 
 Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `/etc/caddy/Caddyfile` only contains `import /etc/caddy/conf.d/*.caddy`. Each call to `add-static-hosting.sh`, `add-php-hosting.sh`, or `add-redirect.sh` updates exactly one file in `conf.d/`.
 
-## Applications (37)
+## Applications
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, linkstack, listmonk, littlelink, mailstack, mcp-docker, minio, n8n, nocodb, ntfy, picoclaw, postiz, poststack, redis, routepix, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
+affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, ksef-gateway, linkstack, listmonk, littlelink, mailcheap, mailstack, mcp-docker, minio, n8n, nocodb, notifuse, ntfy, picoclaw, plunk, postiz, poststack, redis, routepix, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
 
 Plus static site hosting (Astro, Next.js static export, Hugo, Eleventy, SvelteKit, Gatsby, Docusaurus, VitePress, MkDocs) via `local/deploy-static.sh` — see GUIDE.md.
 
@@ -322,7 +322,7 @@ Details for a specific app (ports, requirements, DB) -> `apps/<app>/README.md` o
 
 ### Coolify (special flow)
 
-Coolify is a full PaaS (private Heroku) -- **only for servers with 8GB+ RAM and 80GB+ disk**.
+Coolify is a full PaaS (private Heroku) -- **only for servers with 4GB+ RAM (enforced by the installer); 8GB RAM and 80GB disk recommended**.
 Does not use `DOMAIN_TYPE`, `DB_*`, or `/opt/stacks/`. Delegates to the official Coolify installer (`curl | bash`), which installs Docker, Traefik, PostgreSQL, Redis and creates `/data/coolify/`.
 Takes over ports 80/443 -- **do not mix with other toolbox apps.**
 
@@ -435,15 +435,3 @@ Detailed documentation -> **`GUIDE.md`** (operational reference):
 Other sources:
 - `apps/<app>/README.md` - per-application details
 - `docs/CLI-REFERENCE.md` - full CLI parameter reference
-
-## Active Refactor
-
-**STATUS:** The refactor plan in `REFACTOR-PLAN.md` tracks the merge of mikrus-toolbox into stackpilot.
-
-**Completed:** Phase 1 (i18n), Phase 2 (providers), Phase 3 (unit tests), Phase 4 (static validation), Phase 6 (test runner + CI).
-**Remaining:** Phase 5 (E2E integration tests), Phase 7 (finalization — archive mikrus-toolbox, production test on Mikrus).
-
-At the start of every session involving this project, READ `REFACTOR-PLAN.md` first to:
-1. Check current progress (look for `- [x]` vs `- [ ]`)
-2. Continue from the first uncompleted task
-3. Update checkboxes as work is completed

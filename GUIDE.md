@@ -92,6 +92,9 @@ Applications are located in `apps/<name>/install.sh`:
 | **nocodb** | Database (alt. Airtable) | PostgreSQL | 8080 |
 | **listmonk** | Newsletter and mailing | PostgreSQL* | 9000 |
 | **mailstack** | Forms and transactional email (profiles a/b/c, see its README) | SQLite or D1 | none (Tunnel) |
+| **plunk** | Transactional and marketing email (AWS SES) | Bundled PostgreSQL + Redis + MinIO | 3560 |
+| **mailcheap** | Newsletters and API/MCP (local image build required) | Bundled MongoDB | 3000 |
+| **notifuse** | Email marketing and transactional email | Bundled PostgreSQL 17 | 8081 |
 | **keila** | Email marketing (alt. Mailchimp/Brevo) | PostgreSQL | 4500 |
 | **typebot** | Chatbot builder | PostgreSQL* | 8081/8082 |
 | **affine** | Knowledge base (alt. Notion/Miro) | PostgreSQL | 3010 |
@@ -118,8 +121,9 @@ Applications are located in `apps/<name>/install.sh`:
 | **routepix** | Visualize travel routes from geotagged photos | - | 3000 |
 | **immich** | Self-hosted photo/video library (alt. Google Photos) | PostgreSQL | 2283 |
 | **supabase** | Self-hosted PostgreSQL + Auth + Storage + Studio | PostgreSQL | 54321 |
-| **coolify** | Full PaaS with 280+ one-click apps (requires 8GB+ RAM) | PostgreSQL | 8000 |
+| **coolify** | Full PaaS with 280+ one-click apps (requires 4GB+ RAM, 8GB recommended) | PostgreSQL | 8000 |
 | **countdown-timer** | Animated countdown GIF generator for emails/web (PHP) | - | 8086 |
+| **ksef-gateway** | REST API for Poland's KSeF e-invoicing system | - | 8080 |
 
 *PostgreSQL with an asterisk requires `gen_random_uuid()` (PG 13+). Applies to: n8n, umami, listmonk, typebot, postiz, affine. Use `bundled` or a dedicated database (PG 13+).
 
