@@ -77,11 +77,11 @@ _redis_shared_configure_site() {
 f=/var/www/html/wp-config-performance.php
 [ -f "$f" ] || exit 0
 IFS= read -r password
-awk -v q="'" -v password="$password" '
+PASSWORD="$password" awk -v q="'" '
     index($0, q "WP_REDIS_PASSWORD" q) { next }
     { print }
     index($0, "define(" q "WP_REDIS_PORT" q) {
-        print "defined(" q "WP_REDIS_PASSWORD" q ") || define(" q "WP_REDIS_PASSWORD" q ", " q password q ");"
+        print "defined(" q "WP_REDIS_PASSWORD" q ") || define(" q "WP_REDIS_PASSWORD" q ", " q ENVIRON["PASSWORD"] q ");"
     }' "$f" > "$f.new" && cat "$f.new" > "$f" && rm "$f.new" && grep -q WP_REDIS_PASSWORD "$f"
 CLIENTEOF
 )

@@ -255,6 +255,17 @@ test_url_client_of_another_redis_is_left_alone() {
     assert_eq "$other" "$(cat "$STACKS_DIR/postiz/docker-compose.yaml")"
     assert_not_contains "$(calls)" 'postiz|'
 }
+test_site_password_is_not_a_command_argument() {
+    existing_installation
+    printf '#!/bin/bash\nprintf "%%s\\n" "$@" >> "%s"\nexec "%s" "$@"\n' "$TEST_TMPDIR/awk.args" "$(PATH="$ORIGINAL_PATH" command -v awk)" > "$TEST_TMPDIR/bin/awk"
+    chmod +x "$TEST_TMPDIR/bin/awk"
+    update_wordpress
+    local password
+    password=$(shared_password)
+    assert_contains "$(cat "$STACKS_DIR/wordpress-blog/html/wp-config-performance.php")" "${password:-missing}"
+    assert_contains "$(cat "$TEST_TMPDIR/awk.args")" 'WP_REDIS_PORT' 'the config rewrite ran through the recorder'
+    assert_not_contains "$(cat "$TEST_TMPDIR/awk.args")" "${password:-missing}"
+}
 test_stopped_clients_stay_stopped() {
     existing_installation
     RUNNING='' update_wordpress
