@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# StackPilot - n8n (External Database Optimized)
-# Installs n8n optimized for low-RAM environment, connecting to external PostgreSQL.
+# StackPilot - n8n
+# Installs n8n with an external PostgreSQL or a bundled PostgreSQL container.
 # Author: Paweł (Lazy Engineer)
 #
 # REQUIREMENTS: PostgreSQL with pgcrypto extension!
@@ -28,7 +28,11 @@ else
 fi
 
 echo "--- 🧠 n8n Setup (Smart Mode) ---"
-echo "This setup uses External PostgreSQL (saves RAM and CPU on your VPS)."
+if [ -n "${BUNDLED_DB_TYPE:-}" ]; then
+    echo "This setup runs a bundled PostgreSQL container next to n8n (~1.5 GB RAM recommended)."
+else
+    echo "This setup uses an external PostgreSQL (saves RAM and CPU on your VPS)."
+fi
 echo ""
 
 # 1. Validate database credentials

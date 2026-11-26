@@ -424,7 +424,7 @@ Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, 
 Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN can achieve perfect Lighthouse scores (Performance, Accessibility, Best Practices, SEO — all 100). The key is proper development: defer non-critical resources (fonts, analytics) after `window.load`, avoid CPU-intensive CSS like SVG `feTurbulence`, inline small assets as base64 to eliminate LCP from external network requests, and use `font-display: optional` to prevent font-swap LCP spikes.
 
 **How much RAM do I need?**
-512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 4GB+ (8GB recommended).
+512MB handles Caddy + 1 lightweight app. n8n needs about 1GB with an external database and about 1.5GB with the bundled one, so a 1GB server fits n8n with an external database and little else. 2GB runs n8n with its bundled database plus a few lightweight apps, or a stack of 10+ lightweight apps without n8n. Coolify requires 4GB+ (8GB recommended).
 
 **How do databases work?**
 Apps that need PostgreSQL or MySQL can use a bundled database container (auto-provisioned, zero config) or connect to an external database you provide. WordPress also supports SQLite for simple sites.
