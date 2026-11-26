@@ -127,7 +127,7 @@ By default, auto-detection: if port 6379 is listening on the server, WordPress c
 
 The shared Redis is published only on the Docker bridge address (containers reach it as `host-gateway:6379`) and requires a password, generated once and stored in `/opt/stacks/redis-shared/.env` (mode 600). Sites get it automatically (`.redis-pass` in each stack). Anything else you connected to it by hand needs the same address and password.
 
-**Existing installations:** run the update once. It keeps cached data and site content, adds the password to the shared Redis and to every site using it (plus stacks configured with `redis://host-gateway:6379`, such as Postiz), and reloads them. Sites may report a Redis connection error for a few seconds while this happens. The previous Compose file is kept as `docker-compose.yaml.bak`.
+**Existing installations:** run the update once. It keeps cached data and site content, adds the password to the shared Redis and to every site using it (plus stacks configured with a `redis://…host-gateway:6379` URL, such as a Postiz installation that uses it), and reloads them. Sites may report a Redis connection error for a few seconds while this happens. The previous Compose file is kept as `docker-compose.yaml.bak`.
 
 ```bash
 ./local/deploy.sh wordpress --ssh=ALIAS --update

@@ -200,6 +200,23 @@ test_update_without_shared_cache_creates_none() {
     assert_false test -e "$SHARED"
     assert_contains "$(cat "$TEST_TMPDIR/output")" 'stack update: wordpress'
 }
+test_url_client_with_an_old_password_gets_the_current_one() {
+    existing_installation
+    printf '      - REDIS_URL=redis://:old-secret@host-gateway:6379\n' > "$STACKS_DIR/postiz/docker-compose.yaml"
+    update_wordpress
+    local password
+    password=$(shared_password)
+    assert_eq "      - REDIS_URL=redis://:${password:-missing}@host-gateway:6379" "$(cat "$STACKS_DIR/postiz/docker-compose.yaml")"
+    assert_contains "$(calls)" 'postiz|compose up -d'
+}
+test_url_client_of_another_redis_is_left_alone() {
+    existing_installation
+    local other='      - REDIS_URL=redis://:own-secret@cache.example.com:6379'
+    echo "$other" > "$STACKS_DIR/postiz/docker-compose.yaml"
+    update_wordpress
+    assert_eq "$other" "$(cat "$STACKS_DIR/postiz/docker-compose.yaml")"
+    assert_not_contains "$(calls)" 'postiz|'
+}
 test_stopped_clients_stay_stopped() {
     existing_installation
     RUNNING='' update_wordpress

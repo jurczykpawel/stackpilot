@@ -104,13 +104,19 @@ _redis_shared_reload_site() {
     sudo chmod 600 "$dir/.redis-pass"
 }
 
-# Other stacks that were pointed at the shared cache by URL (e.g. Postiz).
+# Other stacks that were pointed at the shared cache by URL (e.g. Postiz),
+# with no password or an earlier one.
+_REDIS_SHARED_URL='redis://(:[^@]*@)?host-gateway:6379'
+
 _redis_shared_url_client() {
-    local dir="$1" password="$2" content old='redis://host-gateway:6379'
+    local dir="$1" password="$2" content updated
     content=$(sudo cat "$dir/docker-compose.yaml")
+    updated=$(printf '%s\n' "$content" \
+        | URL="$_REDIS_SHARED_URL" PASSWORD="$password" awk \
+            '{ gsub(ENVIRON["URL"], "redis://:" ENVIRON["PASSWORD"] "@host-gateway:6379"); print }')
+    [ "$updated" != "$content" ] || return 0
     echo "🔑 Updating cache settings: $(basename "$dir")"
-    printf '%s\n' "${content//"$old"/redis://:$password@host-gateway:6379}" \
-        | sudo tee "$dir/docker-compose.yaml" > /dev/null
+    printf '%s\n' "$updated" | sudo tee "$dir/docker-compose.yaml" > /dev/null
     (
         cd "$dir" || exit 1
         if [ -n "$(sudo docker compose ps --status running -q)" ]; then
@@ -132,7 +138,7 @@ redis_shared_apply() {
         [ -f "$dir/docker-compose.yaml" ] || continue
         if [ "$(cat "$dir/.redis-host" 2>/dev/null)" = "host-gateway" ]; then
             [ "$(sudo cat "$dir/.redis-pass" 2>/dev/null)" = "$password" ] || sites+=("$dir")
-        elif sudo grep -q 'redis://host-gateway:6379' "$dir/docker-compose.yaml"; then
+        elif sudo grep -qE "$_REDIS_SHARED_URL" "$dir/docker-compose.yaml"; then
             url_clients+=("$dir")
         fi
     done
