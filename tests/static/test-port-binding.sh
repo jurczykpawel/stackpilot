@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # StackPilot - Port Binding Validation
+# Installers that publish a port declare it as PORT= so deploy.sh can detect it.
 # Every published port starts with ${BIND_ADDR} or a literal 127.0.0.1, or is listed below with a reason.
 # BIND_ADDR must be empty for Cytrus (direct routing) and 127.0.0.1: for every other domain type.
 # Coolify (upstream installer), Mailstack (compose file from its own repository) and the Supabase
@@ -80,11 +81,19 @@ for script in "$REPO_ROOT"/apps/*/*.sh; do
     done
 done
 
+# deploy.sh learns the port from the first PORT= line; without it the domain never reaches the installer
+for script in "$REPO_ROOT"/apps/*/install.sh; do
+    [ -n "$(published_lines "$script")" ] || continue
+    grep -qE '^PORT=(\$\{PORT:-)?[0-9]+' "$script" && continue
+    FAIL=$((FAIL + 1))
+    echo "  ✗ ${script#"$REPO_ROOT"/}: publishes a port but has no PORT=\${PORT:-N} line"
+done
+
 echo ""
 echo "  Published port lines: $CHECKED, problems: $FAIL"
 
 if [ "$CHECKED" -eq 0 ] || [ "$FAIL" -gt 0 ]; then
-    echo "FAIL — use \${BIND_ADDR} (see AGENTS.md, Code Style) or add a justified exception"
+    echo "FAIL — use \${BIND_ADDR} and PORT=\${PORT:-N} (see AGENTS.md, Code Style) or add a justified exception"
     exit 1
 fi
 echo "PASS — all published ports follow the binding convention"

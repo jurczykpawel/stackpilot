@@ -16,8 +16,9 @@ set -e
 
 APP_NAME="minio"
 STACK_DIR="/opt/stacks/$APP_NAME"
-API_PORT=${PORT:-9000}
-CONSOLE_PORT=${CONSOLE_PORT:-9001}
+PORT=${PORT:-9001}  # Console (Web UI): the port the domain points at
+CONSOLE_PORT=$PORT
+API_PORT=${API_PORT:-9000}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
 if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
@@ -90,6 +91,7 @@ EOF
 
 echo "--- Starting MinIO ---"
 sudo docker compose up -d
+printf '%s\n' "$PORT" | sudo tee "$STACK_DIR/.stackpilot-port" >/dev/null
 
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true

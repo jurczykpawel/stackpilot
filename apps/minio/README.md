@@ -17,6 +17,8 @@ DEFAULT_BUCKET=myfiles \
 ./local/deploy.sh minio --ssh=ALIAS
 ```
 
+`PORT` sets the Console port (default 9001, the one the domain points at), `API_PORT` the S3 API port (default 9000).
+
 ## Requirements
 
 - **RAM:** ~256MB
