@@ -158,7 +158,7 @@ if [ "$USE_LOCAL_MINIO" == "true" ]; then
 cat <<EOF | sudo tee -a docker-compose.yaml
 
   cap-minio:
-    image: minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z
     command: server /data --console-address ":9001"
     restart: unless-stopped
     ports:

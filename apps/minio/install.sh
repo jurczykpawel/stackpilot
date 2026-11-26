@@ -2,10 +2,10 @@
 
 # StackPilot - MinIO (S3-Compatible Object Storage)
 # Self-hosted S3-compatible storage for files, backups, and media.
-# https://min.io/
+# https://silo.pgsty.com/ (community-maintained MinIO fork, see README)
 # Author: Paweł (Lazy Engineer)
 #
-# IMAGE_SIZE_MB=300  # minio/minio:latest ~300MB
+# IMAGE_SIZE_MB=250  # pgsty/silo ~220MB
 #
 # MinIO can be used as storage for:
 # - Cap (video recordings)
@@ -64,7 +64,7 @@ cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 
 services:
   minio:
-    image: minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z
     container_name: minio
     command: server /data --console-address ":9001"
     restart: unless-stopped

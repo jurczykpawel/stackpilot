@@ -19,6 +19,7 @@ User-facing changes to StackPilot. Entries are dated; the project follows the `m
 
 ### Fixed
 
+- **MinIO** (also the MinIO bundled with Cap and Plunk) installs again: the `minio/minio` image no longer exists, so the installers now use the maintained fork `pgsty/silo`, pinned to `RELEASE.2026-11-12T00-00-00Z`. Reasons and upgrade steps: `apps/minio/README.md` (#36).
 - Docker installation on a clean Debian server through the one-line installer (#28).
 - `--domain-type=caddy` reporting a configured domain without Caddy on the server (#25).
 - Application ports published on all interfaces although the documentation says `127.0.0.1` (#26).

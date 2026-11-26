@@ -19,10 +19,18 @@ DEFAULT_BUCKET=myfiles \
 
 `PORT` sets the Console port (default 9001, the one the domain points at), `API_PORT` the S3 API port (default 9000).
 
+## Image
+
+The installer uses `pgsty/silo:RELEASE.2026-11-12T00-00-00Z`, the same image as the MinIO bundled with Cap and Plunk.
+
+- MinIO, Inc. stopped the community distribution: the `minio/minio` image is gone from Docker Hub and the GitHub repository is archived (last release October 2025). Its successor, AIStor, is a separately licensed product.
+- [Silo](https://github.com/pgsty/silo) (Pigsty, formerly `pgsty/minio`) is a maintained fork of the open-source MinIO server (AGPLv3) with security fixes, the full web console and multi-arch images. It keeps the `MINIO_*` variables, the `server` command, the S3 API and the data format, and ships the client as `mc` and `mcli`.
+- The tag is pinned so a re-deploy does not change the server version. To upgrade, read the [release notes](https://github.com/pgsty/silo/releases), change the tag in `/opt/stacks/minio/docker-compose.yaml` and run `sudo docker compose up -d` there.
+
 ## Requirements
 
 - **RAM:** ~256MB
-- **Disk:** ~300MB image + stored files
+- **Disk:** ~250MB image + stored files
 - **Port:** 9000 (S3 API), 9001 (Console Web UI)
 
 > When deployed **with a domain**, Caddy exposes the **Console (port 9001)** at `https://<domain>`.
