@@ -277,6 +277,41 @@ test_restore_app_recreates_database_from_dump() {
     assert_eq "docker compose up -d" "$(grep '^docker compose' "$LOG" | tail -1)" "stack started last"
 }
 
+test_anonymous_volume_is_recorded_by_service_and_path() {
+    mkdir -p "$STACKS/mongo-app" "$T/vol/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/_data"
+    add_container "c1|$STACKS/mongo-app|mongo|mongo:7|true" "volume|mongo-app_data|$T/vol/data|/data/db" \
+        "volume|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|$T/vol/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/_data|/data/configdb"
+    bash "$ENGINE" run > "$T/out" 2>&1
+    assert_eq "0" "$?" "run succeeds" || cat "$T/out"
+    assert_contains "$(cat "$T/sent/volumes/mongo-app.list")" "$(printf '@mongo:/data/configdb\t%s' "$T/vol/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/_data")" "recorded by service and path"
+}
+
+test_restore_anonymous_volume_into_the_new_container() {
+    local meta="$SNAP$T/stage" old="$T/vol/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/_data"
+    mkdir -p "$meta/volumes" "$SNAP$old" "$SNAP$STACKS/mongo-app" "$STACKS/mongo-app" "$T/newanon"
+    echo mongo-app > "$meta/stacks.list"
+    printf '@mongo:/data/configdb\t%s\n' "$old" > "$meta/volumes/mongo-app.list"
+    echo "config-kept" > "$SNAP$old/marker"
+    echo "services: {}" > "$SNAP$STACKS/mongo-app/docker-compose.yaml"
+    printf 'volume|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|%s|/data/configdb\n' "$T/newanon" > "$FIX/mounts/c1"
+    bash "$ENGINE" restore latest mongo-app --yes > "$T/out" 2>&1
+    assert_eq "0" "$?" "restore succeeds" || cat "$T/out"
+    assert_eq "config-kept" "$(cat "$T/newanon/marker" 2>/dev/null)" "data copied into the new anonymous volume"
+}
+
+test_restore_reports_a_volume_it_could_not_find() {
+    local meta="$SNAP$T/stage"
+    mkdir -p "$meta/volumes" "$SNAP$STACKS/app" "$STACKS/app"
+    echo app > "$meta/stacks.list"
+    printf '@web:/missing\t/old\n' > "$meta/volumes/app.list"
+    echo "services: {}" > "$SNAP$STACKS/app/docker-compose.yaml"
+    : > "$FIX/mounts/c1"
+    bash "$ENGINE" restore latest app --yes > "$T/out" 2>&1
+    assert_not_eq "0" "$?" "restore reports the problem"
+    assert_contains "$(cat "$T/out")" "@web:/missing" "volume named"
+    assert_eq "docker compose up -d" "$(grep '^docker compose' "$LOG" | tail -1)" "app still started"
+}
+
 test_restore_unknown_app_fails_before_touching_anything() {
     mkdir -p "$SNAP$T/stage"
     echo umami > "$SNAP$T/stage/stacks.list"

@@ -112,6 +112,8 @@ collect_containers() {
                     EXCLUDES+=(--exclude "$SRC")
                 fi
             elif [ "$TYPE" = volume ]; then
+                # Anonymous volumes get a new random name; restore finds them by service and path.
+                [[ ! "$NAME" =~ ^[0-9a-f]{64}$ ]] || NAME="@$SVC:$DEST"
                 VOLUMES+=("$STACK|$NAME|$SRC")
             fi
         done < <(docker inspect -f '{{range .Mounts}}{{.Type}}|{{.Name}}|{{.Source}}|{{.Destination}}{{println}}{{end}}' "$ID")
@@ -333,6 +335,22 @@ wait_for_db() {
     return 1
 }
 
+# Mountpoint of a named volume, or of "@service:/path" (anonymous volume) in the recreated stack.
+volume_path() {
+    local DIR=$1 NAME=$2 SVC DEST ID
+    if [[ "$NAME" != @* ]]; then
+        docker volume inspect -f '{{.Mountpoint}}' "$NAME"
+        return
+    fi
+    SVC=${NAME#@}
+    DEST=${SVC#*:}
+    SVC=${SVC%%:*}
+    ID=$(stack_compose "$DIR" ps -aq "$SVC" | head -1)
+    [ -n "$ID" ] || return 1
+    docker inspect -f '{{range .Mounts}}{{.Type}}|{{.Name}}|{{.Source}}|{{.Destination}}{{println}}{{end}}' "$ID" |
+        awk -F'|' -v d="$DEST" '$4 == d { print $3; exit }'
+}
+
 restore_stack() {
     local SNAP=$1 STACK=$2 META=$3 WORK=$4
     local DIR="$STACKS_DIR/$STACK" MOUNT DUMP SVC KIND TYPE REF NAME OLD NEW N ORIG ID
@@ -350,7 +368,8 @@ restore_stack() {
         stack_compose "$DIR" create
         if [ -f "$META/volumes/$STACK.list" ]; then
             while IFS=$'\t' read -r NAME OLD; do
-                NEW=$(docker volume inspect -f '{{.Mountpoint}}' "$NAME")
+                NEW=$(volume_path "$DIR" "$NAME") || NEW=""
+                [ -n "$NEW" ] || { warn "Volume $NAME of $STACK not found, its data was not restored"; continue; }
                 restic restore "$SNAP" --target "$WORK/volume" --include "$OLD"
                 find "$NEW" -mindepth 1 -delete
                 cp -a "$WORK/volume$OLD/." "$NEW/"
@@ -410,6 +429,7 @@ cmd_restore() {
         [ -z "$APP" ] || [ "$STACK" = "$APP" ] || continue
         restore_stack "$SNAP" "$STACK" "$META" "$RESTORE_WORK"
     done < "$META/stacks.list"
+    [ "$FAILED" -eq 0 ] || die "Restore finished with errors, see above"
     log "Restore finished"
 }
 
