@@ -30,8 +30,9 @@ server_exec() {
         esac
         return 0
     fi
-    local cmd="${1//\/etc\/caddy/$FAKE/etc/caddy}"
-    cmd="${cmd//\/tmp\//$FAKE/tmp/}"
+    # /tmp first: on Linux $FAKE is itself under /tmp/, so it must be inserted afterwards
+    local cmd="${1//\/tmp\//$FAKE/tmp/}"
+    cmd="${cmd//\/etc\/caddy/$FAKE/etc/caddy}"
     PATH="$FAKE/bin" "$FAKE/bin/bash" -c "$cmd"
 }
 
