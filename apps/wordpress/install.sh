@@ -598,6 +598,28 @@ if [ "$WP_DB_MODE" = "sqlite" ]; then
     WP_CONFIG_VOLUME="      - ./wp-config.php:/var/www/html/wp-config.php"
 fi
 
+# --- Bundled MySQL (deploy.sh --db-source=bundled): the database runs in this stack ---
+WP_DB_SERVICE=""
+WP_DB_VOLUME=""
+if [ "$WP_DB_MODE" != "sqlite" ] && [ "${BUNDLED_DB_TYPE:-}" = "mysql" ]; then
+    WP_DB_SERVICE="
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+    volumes:
+      - db-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 512M"
+    WP_DB_VOLUME="  db-data:"
+fi
+
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:
   wordpress:
@@ -663,9 +685,11 @@ $WP_EXTRA_HOSTS
       resources:
         limits:
           memory: $NGINX_MEMORY
+$WP_DB_SERVICE
 
 volumes:
   ${APP_NAME}-html:
+$WP_DB_VOLUME
 EOF
 
 # Clean empty lines from YAML (from empty conditional blocks)

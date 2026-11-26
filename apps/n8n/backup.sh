@@ -59,4 +59,4 @@ sudo rm -rf "$TIMESTAMP"
 ls -tp "n8n_backup_"* | grep -v '/$' | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
 
 echo "✅ Backup saved to: $BACKUP_DIR/n8n_backup_$TIMESTAMP.tar.gz"
-echo "👉 Make sure 'system/backup-core.sh' includes '$BACKUP_DIR'!"
+echo "👉 The server backup (./local/setup-backup.sh) includes $BACKUP_DIR."

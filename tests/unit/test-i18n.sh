@@ -105,12 +105,12 @@ test_i18n_en_has_all_expected_prefixes() {
     hc=$(unset TOOLBOX_LANG; export TOOLBOX_LANG=en; source "$REPO_ROOT/lib/i18n.sh"; echo "${MSG_HC_CHECKING:-}")
     cp=$(unset TOOLBOX_LANG; export TOOLBOX_LANG=en; source "$REPO_ROOT/lib/i18n.sh"; echo "${MSG_CP_UNKNOWN_OPTION:-}")
     dbs=$(unset TOOLBOX_LANG; export TOOLBOX_LANG=en; source "$REPO_ROOT/lib/i18n.sh"; echo "${MSG_DBS_HEADER:-}")
-    bc=$(unset TOOLBOX_LANG; export TOOLBOX_LANG=en; source "$REPO_ROOT/lib/i18n.sh"; echo "${MSG_BC_START:-}")
+    bc=$(unset TOOLBOX_LANG; export TOOLBOX_LANG=en; source "$REPO_ROOT/lib/i18n.sh"; echo "${MSG_BKP_HEADER:-}")
     prov=$(unset TOOLBOX_LANG; export TOOLBOX_LANG=en; source "$REPO_ROOT/lib/i18n.sh"; echo "${MSG_PROV_DETECTED:-}")
     assert_not_eq "" "$hc"   "MSG_HC_ exists"
     assert_not_eq "" "$cp"   "MSG_CP_ exists"
     assert_not_eq "" "$dbs"  "MSG_DBS_ exists"
-    assert_not_eq "" "$bc"   "MSG_BC_ exists"
+    assert_not_eq "" "$bc"   "MSG_BKP_ exists"
     assert_not_eq "" "$prov" "MSG_PROV_ exists"
 }
 

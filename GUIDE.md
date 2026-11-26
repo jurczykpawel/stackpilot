@@ -427,75 +427,46 @@ sp-redirect list [<domain>]
 
 ### How Backup Works
 
-All applications store data in `/opt/stacks/<app>/` using bind mounts.
-The `backup-core.sh` script uses rclone to sync this directory to the cloud.
+`./local/setup-backup.sh` installs a restic-based engine on the server (`/usr/local/sbin/stackpilot-backup`).
+Every night at 03:00 it takes one encrypted, deduplicated snapshot of:
 
 ```
-/opt/stacks/                          Cloud (Google Drive, Dropbox, etc.)
-|-- uptime-kuma/data/          --->   vps-backup/stacks/uptime-kuma/data/
-|-- ntfy/cache/                --->   vps-backup/stacks/ntfy/cache/
-|-- vaultwarden/data/          --->   vps-backup/stacks/vaultwarden/data/
-+-- ...
+/opt/stacks/                  app files, compose files, .env, bind-mounted data
+Docker volumes                named volumes of the apps (database volumes excluded, see below)
+/opt/backups/stackpilot/      dumps of running Postgres/MySQL/MongoDB containers, SQLite copies
+/opt/dockge, /etc/caddy, /var/www
 ```
+
+Running databases are dumped from their containers instead of copying live database files.
+Full details, providers and app notes: [docs/backup.md](docs/backup.md).
 
 ### Backup Configuration (one-time)
 
 ```bash
-# Run the wizard - configures rclone and cron
 ./local/setup-backup.sh vps
 
 # Wizard steps:
-# 1. Choose provider (Google Drive, Dropbox, OneDrive, S3...)
-# 2. Log in via browser (OAuth)
-# 3. Optionally enable encryption
-# 4. Done - cron will run backup daily at 3:00 AM
-```
-
-### Database Backup (automatic)
-
-For apps using PostgreSQL or MySQL, an automatic daily database dump can be configured:
-
-```bash
-# Manually on the server:
-# The setup-db-backup.sh script auto-detects running database containers
-# and sets up a cron job for daily dumps.
+# 1. Choose storage: Cloudflare R2 (default), Backblaze B2, S3, SFTP, local directory
+# 2. Enter bucket and keys (or SFTP target / path)
+# 3. Save the generated repository password in your password manager
+# 4. Optional heartbeat URL (healthchecks.io, Uptime Kuma push) for alerts
+# 5. Done - cron runs the backup daily at 03:00
 ```
 
 ### Manual Backup / Verification
 
 ```bash
-# Run backup now
-ssh vps '~/backup-core.sh'
-
-# Check logs
-ssh vps 'tail -30 /var/log/stackpilot-backup.log'
-
-# See what is in the cloud
-ssh vps 'rclone ls backup_remote:vps-backup/stacks/'
+ssh vps '/usr/local/sbin/stackpilot-backup run'         # back up now
+ssh vps '/usr/local/sbin/stackpilot-backup snapshots'   # list snapshots
+ssh vps 'tail -30 /var/log/stackpilot-backup.log'       # logs
+ssh vps 'cat /etc/cron.d/stackpilot-backup'             # schedule
 ```
 
 ### Restore
 
 ```bash
-# Restore all data from the cloud
-./local/restore.sh vps
-
-# Or manually - restore a specific app
-ssh vps 'rclone sync backup_remote:vps-backup/stacks/uptime-kuma /opt/stacks/uptime-kuma'
-ssh vps 'cd /opt/stacks/uptime-kuma && docker compose up -d'
-```
-
-### Backup Verification
-
-```bash
-# Check if cron is set
-ssh vps 'crontab -l | grep backup'
-
-# Check last backup
-ssh vps 'tail -10 /var/log/stackpilot-backup.log'
-
-# Compare local vs cloud
-ssh vps 'rclone check /opt/stacks backup_remote:vps-backup/stacks/'
+./local/restore.sh vps            # pick a snapshot, restore everything
+./local/restore.sh vps uptime-kuma  # restore one app (files, volumes, databases)
 ```
 
 ---

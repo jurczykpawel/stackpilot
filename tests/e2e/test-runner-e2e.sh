@@ -872,87 +872,36 @@ suite_backup_flow() {
 
     local test_num=$((E2E_PASS + E2E_FAIL + E2E_SKIP + 1))
     echo ""
-    echo -e "${E2E_BLUE}▸ [$test_num] backup-flow: db backup setup + verify${E2E_NC}"
+    echo -e "${E2E_BLUE}▸ [$test_num] backup-flow: restic backup, data loss, restore${E2E_NC}"
 
-    # We need a running DB app — deploy umami (bundled postgres) as test target
     echo "  Setting up test target: umami (bundled postgres)..."
-    local deploy_output deploy_exit
-    deploy_output=$("$E2E_REPO/local/deploy.sh" umami --ssh="$E2E_SSH" --domain-type=local --db-source=bundled --yes 2>&1) && deploy_exit=0 || deploy_exit=$?
-
-    if [ "$deploy_exit" -ne 0 ]; then
+    if ! "$E2E_REPO/local/deploy.sh" umami --ssh="$E2E_SSH" --domain-type=local --db-source=bundled --yes > /dev/null 2>&1; then
         echo -e "  ${E2E_YELLOW}SKIP: umami deploy failed — skipping backup test${E2E_NC}"
         E2E_RESULTS+=("SKIP|backup-flow|umami deploy failed")
         E2E_SKIP=$((E2E_SKIP + 1))
         return 0
     fi
 
-    # Wait for DB to be ready
-    sleep 5
+    local repo="/var/tmp/stackpilot-e2e-restic" sql result
+    sql() { ssh "$E2E_SSH" "cd /opt/stacks/umami && docker compose exec -T db sh -c 'psql -tA -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'" <<< "$1"; }
+    sql "CREATE TABLE e2e_marker (v text); INSERT INTO e2e_marker VALUES ('kept');" > /dev/null
 
-    # Run the backup script on the server (pass "n" to the interactive "add custom DB?" prompt)
-    # NOTE: run the installed copy on server to avoid stdin conflicts with heredoc piping
-    echo "  Running setup-db-backup.sh on server..."
-    local backup_output backup_exit
-    backup_output=$(ssh "$E2E_SSH" "echo 'n' | bash /opt/stackpilot/system/setup-db-backup.sh" 2>&1) && backup_exit=0 || backup_exit=$?
+    printf '%s\n' y 5 "$repo" "" "" y | "$E2E_REPO/local/setup-backup.sh" "$E2E_SSH" > /dev/null 2>&1 || true
+    sql "DROP TABLE e2e_marker;" > /dev/null
+    printf '%s\n' latest umami YES | "$E2E_REPO/local/restore.sh" "$E2E_SSH" > /dev/null 2>&1 || true
+    result=$(sql "SELECT v FROM e2e_marker;" 2>/dev/null)
 
-    if [ "$backup_exit" -ne 0 ]; then
-        echo -e "  ${E2E_RED}FAIL: backup setup failed (exit $backup_exit)${E2E_NC}"
-        echo "$backup_output" | tail -10 | sed 's/^/    /'
-        E2E_RESULTS+=("FAIL|backup-flow|setup-db-backup failed")
-        E2E_FAIL=$((E2E_FAIL + 1))
-        ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami" 2>/dev/null
-        return 1
-    fi
-
-    echo "  Backup configured. Triggering manual backup run..."
-
-    # Trigger the backup script directly (don't wait for cron)
-    local backup_script="/opt/stackpilot/scripts/db-backup.sh"
-    local backup_dir="/opt/backups/db"
-    local run_output
-
-    # Create a sentinel file BEFORE running backup — only files newer than this are valid
-    local sentinel="/tmp/sp_backup_sentinel_$$"
-    ssh "$E2E_SSH" "touch '$sentinel'" 2>/dev/null
-
-    # If backup script exists, run it; otherwise create a quick pg_dump manually
-    run_output=$(ssh "$E2E_SSH" "
-        if [ -f '$backup_script' ]; then
-            bash '$backup_script' 2>&1
-        else
-            # Fallback: manual pg_dump from umami container
-            sudo mkdir -p '$backup_dir'
-            container=\$(docker ps --format '{{.Names}}' | grep 'umami.*postgres\|postgres.*umami' | head -1)
-            if [ -n \"\$container\" ]; then
-                docker exec \"\$container\" pg_dump -U app appdb | gzip > '$backup_dir/manual-test-\$(date +%Y%m%d).sql.gz' 2>&1
-                echo 'manual dump OK'
-            else
-                echo 'no postgres container found'
-                exit 1
-            fi
-        fi
-    " 2>&1) || true
-
-    # Check that a backup file was created AFTER the sentinel — no false positive from old files
-    local backup_file
-    backup_file=$(ssh "$E2E_SSH" "find '$backup_dir' -name '*.sql.gz' -newer '$sentinel' 2>/dev/null | head -1" 2>/dev/null)
-    ssh "$E2E_SSH" "rm -f '$sentinel'" 2>/dev/null
-
-    if [ -n "$backup_file" ]; then
-        local file_size
-        file_size=$(ssh "$E2E_SSH" "du -h '$backup_file' 2>/dev/null | cut -f1" 2>/dev/null)
-        echo -e "  ${E2E_GREEN}PASS: backup file created — $backup_file ($file_size)${E2E_NC}"
-        E2E_RESULTS+=("PASS|backup-flow|$backup_file ($file_size)")
+    if [ "$result" = "kept" ]; then
+        echo -e "  ${E2E_GREEN}PASS: database restored from the restic snapshot${E2E_NC}"
+        E2E_RESULTS+=("PASS|backup-flow|restored marker row")
         E2E_PASS=$((E2E_PASS + 1))
     else
-        echo -e "  ${E2E_RED}FAIL: no backup file found in $backup_dir${E2E_NC}"
-        echo "  Run output: $run_output" | head -5 | sed 's/^/    /'
-        E2E_RESULTS+=("FAIL|backup-flow|no backup file created")
+        echo -e "  ${E2E_RED}FAIL: marker row missing after restore (got '$result')${E2E_NC}"
+        E2E_RESULTS+=("FAIL|backup-flow|marker row missing after restore")
         E2E_FAIL=$((E2E_FAIL + 1))
     fi
 
-    # Cleanup: remove umami and backup files
-    ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami '$backup_dir'; docker image prune -f" 2>/dev/null
+    ssh "$E2E_SSH" "cd /opt/stacks/umami 2>/dev/null && docker compose down -v 2>/dev/null; rm -rf /opt/stacks/umami '$repo' /opt/backups/stackpilot /etc/cron.d/stackpilot-backup /opt/stackpilot/config/backup.env" 2>/dev/null
 }
 
 suite_static_hosting() {

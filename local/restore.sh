@@ -1,55 +1,61 @@
 #!/bin/bash
 
-# StackPilot - Emergency Restore
-# Trigger a full system restore from the latest cloud backup.
+# StackPilot - Restore from backup
+# Lists restic snapshots and restores everything or one app (files, Docker volumes, databases).
+
+set -e
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Usage: $0 [ssh_alias]"
+    echo "Usage: $0 [ssh_alias] [app]"
     echo ""
-    echo "Restores data from the cloud (requires prior backup configuration)."
+    echo "Restores a snapshot made by setup-backup.sh. Without [app] it restores every app"
+    echo "in /opt/stacks plus /opt/dockge, /etc/caddy and /var/www. Overwrites current data."
     echo "Default SSH alias: vps"
     exit 0
 fi
 
-VPS_HOST="${1:-vps}" # First argument or default to 'vps'
-SSH_ALIAS="$VPS_HOST"
+SSH_ALIAS="${1:-vps}"
+APP="${2:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/server-exec.sh"
+source "$SCRIPT_DIR/../lib/backup-remote.sh"
 
-# i18n guard (server-exec.sh already loads it)
-_REST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -z "${TOOLBOX_LANG+x}" ]; then
-    source "$_REST_DIR/../lib/i18n.sh"
+echo ""
+msg "$MSG_REST_HEADER"
+msg "$MSG_REST_SERVER" "$(server_user)" "$(server_hostname)"
+echo ""
+
+SUDO=$(backup_sudo)
+backup_install_engine
+if ! server_exec "$SUDO $BACKUP_ENGINE snapshots" < /dev/null; then
+    msg "$MSG_REST_NO_CONFIG"
+    exit 1
+fi
+echo ""
+
+read -r -p "$(msg_n "$MSG_REST_SNAPSHOT")" SNAPSHOT || true
+SNAPSHOT=${SNAPSHOT:-latest}
+if [ -z "$APP" ]; then
+    read -r -p "$(msg_n "$MSG_REST_APP")" APP || true
+fi
+if [[ ! "$SNAPSHOT" =~ ^[A-Za-z0-9]+$ ]] || [[ ! "$APP" =~ ^([A-Za-z0-9][A-Za-z0-9._-]*)?$ ]]; then
+    msg "$MSG_REST_INVALID"
+    exit 1
 fi
 
-# Get remote server info for confirmation
-REMOTE_HOST=$(server_hostname)
-REMOTE_USER=$(server_user)
-
 echo ""
-msg "$MSG_REST_HEADER_TOP"
-msg "$MSG_REST_HEADER_TITLE"
-msg "$MSG_REST_HEADER_MID"
-msg "$MSG_REST_HEADER_SERVER" "$REMOTE_USER" "$REMOTE_HOST"
-msg "$MSG_REST_HEADER_BOT"
-echo ""
-msg "$MSG_REST_WARNING"
-msg "$MSG_REST_WARNING2"
-echo ""
-read -p "$(msg_n "$MSG_REST_CONFIRM")" -n 1 -r
-echo ""
-if [[ ! $REPLY =~ ^[TtYy]$ ]]; then
+if [ -n "$APP" ]; then msg "$MSG_REST_WARN_APP" "$APP"; else msg "$MSG_REST_WARN_ALL"; fi
+msg "$MSG_REST_WARN_DETAIL"
+read -r -p "$(msg_n "$MSG_REST_CONFIRM")" CONFIRM || true
+if [ "$CONFIRM" != "YES" ] && [ "$CONFIRM" != "TAK" ]; then
     msg "$MSG_REST_CANCELLED"
     exit 1
 fi
 
-read -p "$(msg_n "$MSG_REST_PRESS_ENTER")"
-
-# 1. Deploy the restore core script (ensure it's up to date)
-REPO_ROOT="$SCRIPT_DIR/.."
-server_pipe_to "$REPO_ROOT/system/restore-core.sh" ~/restore-core.sh
-
-# 2. Execute it interactively
-# -t is crucial here to allow user input (typing 'YES') inside the SSH session
-server_exec_tty "./restore-core.sh"
+if server_exec "$SUDO $BACKUP_ENGINE restore $SNAPSHOT ${APP:+$APP }--yes" < /dev/null; then
+    msg "$MSG_REST_DONE"
+else
+    msg "$MSG_REST_FAILED"
+    exit 1
+fi
