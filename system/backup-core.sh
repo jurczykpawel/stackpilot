@@ -182,7 +182,8 @@ snapshot_sqlite() {
         while IFS= read -r -d '' FILE; do
             is_sqlite "$FILE" || continue
             mkdir -p "$BACKUP_STAGE/sqlite/$STACK"
-            N=$(( $(wc -l < "$BACKUP_STAGE/sqlite/$STACK/index" 2>/dev/null || echo 0) + 1 ))
+            N=1
+            [ -f "$BACKUP_STAGE/sqlite/$STACK/index" ] && N=$(( $(wc -l < "$BACKUP_STAGE/sqlite/$STACK/index") + 1 ))
             OUT="$BACKUP_STAGE/sqlite/$STACK/$N.sqlite"
             if sqlite3 "$FILE" ".timeout 20000" ".backup '$OUT'"; then
                 printf '%s\t%s\n' "$N" "$FILE" >> "$BACKUP_STAGE/sqlite/$STACK/index"

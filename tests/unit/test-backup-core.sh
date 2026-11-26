@@ -158,6 +158,7 @@ test_run_takes_consistent_sqlite_snapshots() {
     index=$(cat "$T/stage/sqlite/vaultwarden/index")
     assert_eq "1" "$(wc -l < "$T/stage/sqlite/vaultwarden/index" | tr -d ' ')" "only real SQLite files"
     assert_contains "$index" "$STACKS/vaultwarden/data/db.sqlite3" "original path recorded"
+    assert_not_contains "$(cat "$T/out")" "No such file" "no shell errors in the log"
     assert_eq "secret-row" "$(sqlite3 "$T/stage/sqlite/vaultwarden/1.sqlite" 'SELECT v FROM t')" "snapshot readable"
 }
 
