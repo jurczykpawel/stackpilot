@@ -11,7 +11,7 @@ Performance stack -- what you get at Kinsta ($35/mo) or WP Engine ($25/mo):
 ```
 Caddy (host) -> Nginx (gzip, FastCGI cache, rate limiting, security)
                  +-- PHP-FPM alpine (OPcache + JIT, redis ext, WP-CLI)
-                 +-- Redis (object cache, bundled)
+                 +-- Redis (object cache, one for all sites)
                       +-- MySQL (external) or SQLite
 ```
 
@@ -121,12 +121,23 @@ Renewal prices (not first-year promotional). Plans comparable to 1GB RAM.
 WP_DB_MODE=sqlite ./local/deploy.sh wordpress --ssh=ALIAS --domain-type=caddy --domain=auto
 ```
 
-### Redis (external vs bundled)
+### Redis (external vs shared)
 
-By default, auto-detection: if port 6379 is listening on the server, WordPress connects to the existing Redis (no new container). Otherwise it bundles `redis:alpine`.
+By default, auto-detection: if port 6379 is listening on the server, WordPress connects to the existing Redis (no new container). Otherwise it installs one shared `redis:alpine` for all sites in `/opt/stacks/redis-shared/`.
+
+The shared Redis is published only on the Docker bridge address (containers reach it as `host-gateway:6379`) and requires a password, generated once and stored in `/opt/stacks/redis-shared/.env` (mode 600). Sites get it automatically (`.redis-pass` in each stack). Anything else you connected to it by hand needs the same address and password.
+
+**Existing installations:** run the update once. It keeps cached data and site content, adds the password to the shared Redis and to every site using it (plus stacks configured with `redis://host-gateway:6379`, such as Postiz), and reloads them. Sites may report a Redis connection error for a few seconds while this happens. The previous Compose file is kept as `docker-compose.yaml.bak`.
 
 ```bash
-# Force bundled Redis (even when external exists)
+./local/deploy.sh wordpress --ssh=ALIAS --update
+
+# Working directly on the server? Refresh the toolbox first:
+git -C /opt/stackpilot pull && /opt/stackpilot/local/deploy.sh wordpress --update
+```
+
+```bash
+# Force the shared Redis (even when another one exists)
 WP_REDIS=bundled ./local/deploy.sh wordpress --ssh=ALIAS
 
 # Force external Redis (host)
@@ -153,7 +164,7 @@ What is shared vs separate:
 
 | Element | Shared? |
 |---|---|
-| Redis | yes -- one `redis-shared` on `127.0.0.1:6379` (installed automatically) |
+| Redis | yes -- one `redis-shared`, password protected, Docker bridge only (installed automatically) |
 | Nginx | no -- separate per instance |
 | PHP-FPM | no -- separate per instance |
 | WP files | no -- separate volume per instance |
@@ -252,7 +263,7 @@ Furthermore -- **on pages without cache (MISS), Nginx + PHP-FPM is faster** than
 | TTFB (cache HIT) | ~200ms | ~200ms |
 | TTFB (cache MISS) | **faster** (PHP-FPM) | slower |
 | Auto-purge | Nginx Helper (plugin) | LSCache (plugin) |
-| Redis Object Cache | yes (bundled) | yes (if hosting provides it) |
+| Redis Object Cache | yes (included) | yes (if hosting provides it) |
 | Gzip | yes (-82% transfer) | yes |
 | WooCommerce rules | auto (skip_cache) | manual plugin config |
 | Breakdance/Elementor fix | auto (session.cache_limiter) | manual config |
@@ -309,12 +320,11 @@ ssh ALIAS 'docker exec $(docker compose -f /opt/stacks/wordpress/docker-compose.
 Data in `/opt/stacks/wordpress/`:
 - `wp-content/` - plugins, themes, uploads, SQLite database
 - `config/` - PHP/Nginx/FPM configuration
-- `redis-data/` - Redis cache
 - `docker-compose.yaml`
 
 ## Mikrus 1.0 (384MB RAM, 5GB disk)
 
-WordPress runs on Mikrus 1.0 with the PRO upgrade (60 PLN one-time — adds Docker and more resources). Use SQLite + bundled Redis.
+WordPress runs on Mikrus 1.0 with the PRO upgrade (60 PLN one-time — adds Docker and more resources). Use SQLite + the shared Redis.
 
 **Note:** Install Docker via the built-in `start` script on the server (not `curl get.docker.com`) — it installs the compatible version.
 
@@ -368,4 +378,4 @@ The script automatically detects RAM and adjusts PHP-FPM:
 | 1GB | 8 | 256M | 48M |
 | 2GB+ | 15 | 256M | 64M |
 
-Redis: 64MB maxmemory (allkeys-lru) + 96MB Docker limit for all profiles.
+Shared Redis: 96MB maxmemory (allkeys-lru) + 128MB Docker limit for all profiles.

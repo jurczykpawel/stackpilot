@@ -127,7 +127,7 @@ Applications are located in `apps/<name>/install.sh`:
 
 *PostgreSQL with an asterisk requires `gen_random_uuid()` (PG 13+). Applies to: n8n, umami, listmonk, typebot, postiz, affine. Use `bundled` or a dedicated database (PG 13+).
 
-**WordPress** is a special application with its own Dockerfile (PHP redis ext + WP-CLI), bundled Redis, auto-tuning FPM based on RAM, and a post-install script `wp-init.sh`. Details: `apps/wordpress/README.md`.
+**WordPress** is a special application with its own Dockerfile (PHP redis ext + WP-CLI), a shared Redis, auto-tuning FPM based on RAM, and a post-install script `wp-init.sh`. Details: `apps/wordpress/README.md`.
 
 ---
 

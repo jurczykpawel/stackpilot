@@ -1,0 +1,235 @@
+#!/bin/bash
+# WordPress shared cache: published on the Docker bridge address, password for every client.
+set -e
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$TESTS_DIR/../.." && pwd)"
+source "$TESTS_DIR/test-runner.sh"
+ORIGINAL_PATH="$PATH"
+REAL_SED=$(command -v sed)
+
+setup() {
+    TEST_TMPDIR=$(mktemp -d)
+    mkdir -p "$TEST_TMPDIR/bin" "$TEST_TMPDIR/stacks" "$TEST_TMPDIR/toolbox/system" "$TEST_TMPDIR/toolbox/lib"
+    echo 'echo "stack update: $APP_NAME"' > "$TEST_TMPDIR/toolbox/system/update-stack.sh"
+    echo 'detect_redis() { REDIS_HOST="${DETECTED_REDIS:-$2}"; }' > "$TEST_TMPDIR/toolbox/lib/redis-detect.sh"
+    echo 'wait_for_healthy() { :; }' > "$TEST_TMPDIR/toolbox/lib/health-check.sh"
+    cat > "$TEST_TMPDIR/bin/docker" <<'MOCK'
+#!/bin/bash
+printf '%s|%s\n' "${PWD##*/}" "$*" >> "$DOCKER_CALLS"
+case "$*" in
+    *'redis-shared/docker-compose.yaml up -d'*) [ -z "${FAIL_REDIS_START:-}" ] || exit 1 ;;
+    'network inspect bridge'*) echo "${BRIDGE_GATEWAY-172.17.0.1}" ;;
+    'compose ps --status running -q'*) printf '%s' "${RUNNING-cid}" ;;
+    'compose ps -q wordpress') echo cid ;;
+    'compose run '*)
+        # Run the container script against the stack's fake web root
+        script="${@: -1}"
+        sh -c "${script//\/var\/www\/html/$PWD/html}" ;;
+    'exec -i cid tee '*) cat > "$PERF_CAPTURE" ;;
+    'exec cid test -f /usr/local/bin/wp') exit 1 ;;
+esac
+exit 0
+MOCK
+    cat > "$TEST_TMPDIR/bin/sed" <<MOCK
+#!/bin/bash
+[ "\$1" = -i ] && exit 0
+exec "$REAL_SED" "\$@"
+MOCK
+    printf '#!/bin/bash\nexec "$@"\n' > "$TEST_TMPDIR/bin/sudo"
+    printf '#!/bin/bash\necho "Mem: 2048 100 1900"\n' > "$TEST_TMPDIR/bin/free"
+    printf '#!/bin/bash\necho "$*" >> "$CHOWN_CALLS"\n' > "$TEST_TMPDIR/bin/chown"
+    printf '#!/bin/bash\n[ "$1" = - ] && cat >/dev/null\nexit 0\n' > "$TEST_TMPDIR/bin/crontab"
+    printf '#!/bin/bash\necho 0\n' > "$TEST_TMPDIR/bin/mysql"
+    local name
+    for name in curl sleep ip; do printf '#!/bin/bash\nexit 0\n' > "$TEST_TMPDIR/bin/$name"; done
+    chmod +x "$TEST_TMPDIR/bin/"*
+    export PATH="$TEST_TMPDIR/bin:$ORIGINAL_PATH"
+    export STACKS_DIR="$TEST_TMPDIR/stacks" STACKPILOT_DIR="$TEST_TMPDIR/toolbox"
+    export DOCKER_CALLS="$TEST_TMPDIR/docker.calls" CHOWN_CALLS="$TEST_TMPDIR/chown.calls"
+    export PERF_CAPTURE="$TEST_TMPDIR/perf.php"
+    export DOMAIN=blog.example.com DB_HOST=db DB_USER=wp DB_PASS=wp-db-pass YES_MODE=true
+    SHARED="$STACKS_DIR/redis-shared"
+}
+teardown() {
+    PATH="$ORIGINAL_PATH"
+    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE DOMAIN DB_HOST DB_USER DB_PASS YES_MODE BRIDGE_GATEWAY RUNNING DETECTED_REDIS
+    rm -rf "$TEST_TMPDIR"
+}
+
+install_wordpress() { bash "$REPO_ROOT/apps/wordpress/install.sh" > "$TEST_TMPDIR/output" 2>&1; }
+update_wordpress() { bash "$REPO_ROOT/apps/wordpress/update.sh" > "$TEST_TMPDIR/output" 2>&1; }
+file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
+shared_password() { "$REAL_SED" -n 's/^REDIS_PASSWORD=//p' "$SHARED/.env" 2>/dev/null; }
+calls() { cat "$DOCKER_CALLS" 2>/dev/null || true; }
+
+wordpress_client() {
+    local dir="$STACKS_DIR/$1"
+    mkdir -p "$dir/html"
+    echo 'services: {wordpress: {build: .}}' > "$dir/docker-compose.yaml"
+    echo "$2" > "$dir/.redis-host"
+    cat > "$dir/html/wp-config-performance.php" <<'PHP'
+<?php
+defined('WP_REDIS_HOST')   || define('WP_REDIS_HOST', 'host-gateway');
+defined('WP_REDIS_PORT')   || define('WP_REDIS_PORT', 6379);
+defined('WP_CACHE')        || define('WP_CACHE', true);
+PHP
+}
+existing_installation() {
+    mkdir -p "$SHARED" "$STACKS_DIR/postiz"
+    printf 'services:\n  redis:\n    image: redis:alpine\n    ports:\n      - "6379:6379"\n' > "$SHARED/docker-compose.yaml"
+    wordpress_client wordpress-blog host-gateway
+    wordpress_client wordpress-old redis
+    printf '      - REDIS_URL=redis://host-gateway:6379\n' > "$STACKS_DIR/postiz/docker-compose.yaml"
+}
+
+test_data_service_ports_name_a_host_address() {
+    local found
+    found=$(grep -HnE '^[[:space:]]*-[[:space:]]*"?(\$\{?[A-Za-z_]+\}?|[0-9]+):(6379|5432|3306|27017|11211|5672|9200)"?[[:space:]]*$' \
+        "$REPO_ROOT"/apps/*/*.sh || true)
+    assert_eq '' "$found" 'data service ports carry a host address'
+}
+test_fresh_install_publishes_on_bridge_address_with_password() {
+    install_wordpress
+    local compose password
+    compose=$(cat "$SHARED/docker-compose.yaml")
+    password=$(shared_password)
+    assert_contains "$compose" '"172.17.0.1:6379:6379"'
+    assert_contains "$compose" '--requirepass ${REDIS_PASSWORD}'
+    assert_contains "$compose" 'REDISCLI_AUTH=${REDIS_PASSWORD}'
+    assert_true test "${#password}" -ge 32
+    assert_not_contains "$compose" "${password:-missing}" 'compose file holds no secret'
+    assert_eq 600 "$(file_mode "$SHARED/.env")"
+    assert_contains "$(calls)" "compose -f $SHARED/docker-compose.yaml up -d --wait"
+}
+test_fresh_install_hands_password_to_wordpress() {
+    install_wordpress
+    local stack="$STACKS_DIR/wordpress-blog" password
+    password=$(shared_password)
+    assert_eq "${password:-missing}" "$(cat "$stack/.redis-pass" 2>/dev/null)"
+    assert_eq 600 "$(file_mode "$stack/.redis-pass")"
+    assert_contains "$(cat "$CHOWN_CALLS")" "$(id -u):$(id -g) $stack/.redis-pass" 'wp-init.sh can read it'
+    assert_contains "$(cat "$PERF_CAPTURE")" "define('WP_REDIS_PASSWORD', '${password:-missing}')"
+    assert_not_contains "$(cat "$TEST_TMPDIR/output")" "${password:-missing}"
+    assert_contains "$(calls)" 'wordpress-blog|compose kill -s USR2 wordpress' 'PHP-FPM reloads the config'
+}
+test_password_survives_reinstall_and_next_site() {
+    install_wordpress
+    local first
+    first=$(shared_password)
+    install_wordpress
+    DOMAIN=shop.example.com install_wordpress
+    assert_eq "${first:-missing}" "$(shared_password)"
+    assert_eq "${first:-missing}" "$(cat "$STACKS_DIR/wordpress-shop/.redis-pass" 2>/dev/null)"
+}
+test_detected_shared_cache_is_used_with_its_password() {
+    install_wordpress
+    export DETECTED_REDIS=host-gateway
+    DOMAIN=shop.example.com install_wordpress
+    local password
+    password=$(shared_password)
+    assert_eq "${password:-missing}" "$(cat "$STACKS_DIR/wordpress-shop/.redis-pass" 2>/dev/null)"
+}
+test_own_external_redis_is_left_alone() {
+    export DETECTED_REDIS=host-gateway
+    REDIS_PASS=own-secret install_wordpress
+    assert_false test -e "$SHARED"
+    assert_eq own-secret "$(cat "$STACKS_DIR/wordpress-blog/.redis-pass")"
+}
+test_update_migrates_existing_installation() {
+    existing_installation
+    update_wordpress
+    local password perf
+    password=$(shared_password)
+    assert_contains "$(cat "$SHARED/docker-compose.yaml")" '"172.17.0.1:6379:6379"'
+    assert_not_contains "$(cat "$SHARED/docker-compose.yaml")" '- "6379:6379"'
+    assert_true test -f "$SHARED/docker-compose.yaml.bak"
+    perf=$(cat "$STACKS_DIR/wordpress-blog/html/wp-config-performance.php")
+    assert_contains "$perf" "define('WP_REDIS_PASSWORD', '${password:-missing}')"
+    assert_contains "$perf" "define('WP_CACHE', true)"
+    assert_eq "${password:-missing}" "$(cat "$STACKS_DIR/wordpress-blog/.redis-pass" 2>/dev/null)"
+    assert_contains "$(calls)" 'wordpress-blog|compose kill -s USR2 wordpress'
+    assert_contains "$(cat "$STACKS_DIR/postiz/docker-compose.yaml")" "REDIS_URL=redis://:${password:-missing}@host-gateway:6379"
+    assert_contains "$(calls)" 'postiz|compose up -d'
+    assert_false test -e "$STACKS_DIR/wordpress-old/.redis-pass"
+    assert_not_contains "$(calls)" 'wordpress-old|'
+    assert_not_contains "$(cat "$TEST_TMPDIR/output")" "${password:-missing}"
+}
+test_sites_get_settings_before_redis_restarts_and_reload_right_after() {
+    existing_installation
+    update_wordpress
+    local write start reload
+    write=$(grep -nF 'wordpress-blog|compose run ' "$DOCKER_CALLS" | head -1 | cut -d: -f1)
+    start=$(grep -n 'redis-shared/docker-compose.yaml up -d$' "$DOCKER_CALLS" | head -1 | cut -d: -f1)
+    reload=$(grep -nF 'wordpress-blog|compose kill -s USR2' "$DOCKER_CALLS" | head -1 | cut -d: -f1)
+    assert_true test "${write:-0}" -gt 0
+    assert_true test "${write:-0}" -lt "${start:-0}"
+    assert_true test "${start:-0}" -lt "${reload:-0}"
+}
+test_failed_redis_start_is_retried_for_every_site() {
+    existing_installation
+    local rc=0
+    FAIL_REDIS_START=1 update_wordpress || rc=$?
+    assert_not_eq 0 "$rc"
+    assert_false test -e "$STACKS_DIR/wordpress-blog/.redis-pass"
+    update_wordpress
+    assert_contains "$(calls)" 'wordpress-blog|compose kill -s USR2 wordpress'
+    assert_eq 1 "$(grep -c WP_REDIS_PASSWORD\'\, "$STACKS_DIR/wordpress-blog/html/wp-config-performance.php")"
+}
+test_second_update_changes_nothing_for_clients() {
+    existing_installation
+    mkdir -p "$STACKS_DIR/wordpress"
+    update_wordpress
+    : > "$DOCKER_CALLS"
+    update_wordpress
+    assert_eq 1 "$(grep -c WP_REDIS_PASSWORD\'\, "$STACKS_DIR/wordpress-blog/html/wp-config-performance.php")"
+    assert_not_contains "$(calls)" 'USR2'
+    assert_not_contains "$(calls)" 'postiz|'
+    assert_contains "$(cat "$TEST_TMPDIR/output")" 'stack update: wordpress'
+}
+test_update_without_default_stack_succeeds() {
+    existing_installation
+    local rc=0
+    update_wordpress || rc=$?
+    assert_eq 0 "$rc"
+    assert_not_contains "$(cat "$TEST_TMPDIR/output")" 'stack update:'
+}
+test_update_without_shared_cache_creates_none() {
+    mkdir -p "$STACKS_DIR/wordpress"
+    update_wordpress
+    assert_false test -e "$SHARED"
+    assert_contains "$(cat "$TEST_TMPDIR/output")" 'stack update: wordpress'
+}
+test_stopped_clients_stay_stopped() {
+    existing_installation
+    RUNNING='' update_wordpress
+    assert_contains "$(cat "$STACKS_DIR/wordpress-blog/html/wp-config-performance.php")" 'WP_REDIS_PASSWORD'
+    assert_not_contains "$(calls)" 'USR2'
+    assert_not_contains "$(calls)" 'postiz|compose up -d'
+}
+test_unknown_bridge_address_changes_nothing() {
+    existing_installation
+    local before rc=0
+    before=$(cat "$SHARED/docker-compose.yaml")
+    BRIDGE_GATEWAY='' update_wordpress || rc=$?
+    assert_not_eq 0 "$rc"
+    assert_contains "$(cat "$TEST_TMPDIR/output")" 'bridge address'
+    assert_eq "$before" "$(cat "$SHARED/docker-compose.yaml")"
+    assert_not_contains "$(calls)" 'up -d'
+}
+test_postiz_install_uses_shared_cache_password() {
+    mkdir -p "$SHARED"
+    echo 'REDIS_PASSWORD=abc123' > "$SHARED/.env"
+    export DETECTED_REDIS=host-gateway
+    bash "$REPO_ROOT/apps/postiz/install.sh" > "$TEST_TMPDIR/output" 2>&1 || true
+    assert_contains "$(cat "$STACKS_DIR/postiz/docker-compose.yaml" 2>/dev/null)" 'REDIS_URL=redis://:abc123@host-gateway:6379'
+}
+test_remote_update_ships_cache_helper() {
+    printf '#!/bin/bash\necho "$*" >> "%s"\n[ "$1" = -G ] && echo "hostname 192.0.2.1"\nexit 0\n' "$TEST_TMPDIR/ssh.calls" > "$TEST_TMPDIR/bin/ssh"
+    printf '#!/bin/bash\necho "$*" >> "%s"\n' "$TEST_TMPDIR/scp.calls" > "$TEST_TMPDIR/bin/scp"
+    chmod +x "$TEST_TMPDIR/bin/ssh" "$TEST_TMPDIR/bin/scp"
+    HOME="$TEST_TMPDIR" bash "$REPO_ROOT/local/deploy.sh" wordpress --ssh=test-host --update --yes > "$TEST_TMPDIR/output" 2>&1 || true
+    assert_contains "$(cat "$TEST_TMPDIR/scp.calls")" 'apps/wordpress/redis-shared.sh test-host:/tmp/sp-wp-redis-'
+    assert_contains "$(cat "$TEST_TMPDIR/ssh.calls")" "WP_REDIS_SHARED_LIB='/tmp/sp-wp-redis-"
+}
+
+run_tests "$0"
