@@ -295,7 +295,8 @@ if [ "$WP_DB_MODE" = "sqlite" ]; then
             echo "define('DB_COLLATE', '');"
             echo ""
             for KEY in AUTH_KEY SECURE_AUTH_KEY LOGGED_IN_KEY NONCE_KEY AUTH_SALT SECURE_AUTH_SALT LOGGED_IN_SALT NONCE_SALT; do
-                SALT=$(openssl rand -base64 48 | tr -d '\n')
+                SALT=$(sudo sed -n "s/^define('$KEY', '\(.*\)');$/\1/p" "$STACK_DIR/wp-config.php" 2>/dev/null)
+                [ -n "$SALT" ] || SALT=$(openssl rand -base64 48 | tr -d '\n')
                 echo "define('$KEY', '$SALT');"
             done
             echo ""

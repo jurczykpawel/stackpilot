@@ -433,7 +433,7 @@ Apps that need PostgreSQL or MySQL can use a bundled database container (auto-pr
 Apps run in isolated Docker containers. With `cloudflare` or `caddy` domains, public traffic goes through Caddy over HTTPS, and application ports are bound to `127.0.0.1` by default. Exceptions: Cytrus domains on Mikrus (the app listens on all interfaces because Cytrus connects to the port directly), the Supabase PostgreSQL pooler (ports 5432 and 6543), and Sellf, WordPress and Coolify, which manage their own listeners. Encrypted off-site backups are supported out of the box.
 
 **How do I update an app?**
-Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved. Changes that need action on existing installations are listed in [CHANGELOG.md](CHANGELOG.md).
+Run `deploy.sh <app> --update` (from your computer: `./local/deploy.sh <app> --ssh=ALIAS --update`). It pulls the latest image and restarts the app with its existing configuration. Running `deploy.sh <app>` again re-runs the installer: it writes the configuration anew but keeps the passwords and keys of the existing installation, and data in Docker volumes is preserved. Changes that need action on existing installations are listed in [CHANGELOG.md](CHANGELOG.md).
 
 **Can I deploy custom Docker apps?**
 Yes. Add your own `apps/<name>/install.sh` installer (see GUIDE.md) -- you are not limited to the built-in apps.

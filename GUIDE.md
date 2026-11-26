@@ -720,7 +720,7 @@ deploy:
 - Ports 80 and 443 are used by Caddy (reverse proxy)
 - Use ports > 1024 for applications
 - Application ports listen on `127.0.0.1`; only `--domain-type=cytrus` publishes them on all interfaces (exceptions: README, "Is this secure?")
-- `--update` keeps the existing compose file. To change the binding of an older installation, prefix its `ports:` entry with `127.0.0.1:` and run `docker compose up -d` (a redeploy can generate new secrets for some apps)
+- `--update` keeps the existing compose file. To change the binding of an older installation, prefix its `ports:` entry with `127.0.0.1:` and run `docker compose up -d` (a redeploy also works and keeps the existing passwords and keys)
 - Avoid conflicts - check `docker ps` before installing
 
 ---

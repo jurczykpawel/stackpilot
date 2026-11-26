@@ -1074,6 +1074,7 @@ fi
 
 DEPLOY_SUCCESS=false
 if is_on_server; then
+    EXTRA_ENV="$EXTRA_ENV STACKPILOT_LIB='$REPO_ROOT/lib'"
     # On server: run script directly (no scp/cleanup).
     # eval is required so the single quotes baked into *_ENV values
     # (e.g. DOMAIN='foo.bar') are processed by the shell rather than
@@ -1100,6 +1101,13 @@ else
         EXTRA_ENV="$EXTRA_ENV SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
         CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_RELEASE_LIB';"
     fi
+
+    # Helpers installers source from STACKPILOT_LIB (the toolbox on the server may be older)
+    REMOTE_LIB_DIR="/tmp/sp-lib-$$"
+    upload_install_lib() { server_exec "mkdir -p '$REMOTE_LIB_DIR'" && scp -q "$REPO_ROOT/lib/stack-config.sh" "$SSH_ALIAS:$REMOTE_LIB_DIR/"; }
+    upload_install_lib
+    EXTRA_ENV="$EXTRA_ENV STACKPILOT_LIB='$REMOTE_LIB_DIR'"
+    CLEANUP_CMD="$CLEANUP_CMD rm -rf '$REMOTE_LIB_DIR';"
 
     # WordPress: shared Redis helper sourced by install.sh
     REMOTE_REDIS_LIB=""
@@ -1130,6 +1138,7 @@ else
             msg "$MSG_DOCKER_STORAGE_RETRY"
             ssh "$SSH_ALIAS" "sudo systemctl restart containerd 2>/dev/null; sleep 5; sudo systemctl restart docker 2>/dev/null; sleep 3" 2>/dev/null
             scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" 2>/dev/null
+            upload_install_lib 2>/dev/null
             if [ -n "$REMOTE_REDIS_LIB" ]; then
                 scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB" 2>/dev/null
             fi

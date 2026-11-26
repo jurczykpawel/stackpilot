@@ -15,7 +15,8 @@
 set -e
 
 APP_NAME="minio"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-9001}  # Console (Web UI): the port the domain points at
 CONSOLE_PORT=$PORT
 API_PORT=${API_PORT:-9000}
@@ -31,14 +32,15 @@ echo "--- 📦 MinIO Setup (S3-Compatible Storage) ---"
 echo "MinIO is a self-hosted storage compatible with Amazon S3."
 echo ""
 
-# Generate random credentials if not provided
-if [ -z "$MINIO_ROOT_USER" ]; then
-    MINIO_ROOT_USER="admin"
-fi
-
+# Credentials: given, kept from an earlier installation, or generated
+MINIO_ROOT_USER=${MINIO_ROOT_USER:-$(stack_value "$STACK_DIR/.env" MINIO_ROOT_USER || echo admin)}
 if [ -z "$MINIO_ROOT_PASSWORD" ]; then
-    MINIO_ROOT_PASSWORD=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
-    echo "🔐 Root password generated: $MINIO_ROOT_PASSWORD"
+    if MINIO_ROOT_PASSWORD=$(stack_value "$STACK_DIR/.env" MINIO_ROOT_PASSWORD); then
+        echo "🔐 Keeping the root password of the existing installation"
+    else
+        MINIO_ROOT_PASSWORD=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
+        echo "🔐 Root password generated: $MINIO_ROOT_PASSWORD"
+    fi
 fi
 
 # Optional: default bucket

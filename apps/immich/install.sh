@@ -16,7 +16,8 @@
 set -e
 
 APP_NAME="immich"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-2283}
 
 if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
@@ -25,7 +26,7 @@ else
     BIND_ADDR="127.0.0.1:"
 fi
 
-DB_PASSWORD=${DB_PASSWORD:-$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 32)}
+DB_PASSWORD=${DB_PASSWORD:-$(stack_value "$STACK_DIR/.env" DB_PASSWORD || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 32)}
 DB_USERNAME="postgres"
 DB_DATABASE_NAME="immich"
 

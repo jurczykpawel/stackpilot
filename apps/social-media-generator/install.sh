@@ -19,7 +19,8 @@
 set -e
 
 APP_NAME="social-media-generator"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-8000}
 REPO_URL="https://github.com/jurczykpawel/social-media-generator.git"
 
@@ -69,9 +70,9 @@ else
     sudo git clone --depth 1 "$REPO_URL" "$STACK_DIR/repo"
 fi
 
-# Generate secrets
-SECRET_KEY=$(openssl rand -hex 32)
-PG_PASS=$(openssl rand -hex 16)
+# Secrets: kept from an earlier installation, or generated
+SECRET_KEY=$(stack_value "$STACK_DIR/.env" SECRET_KEY || openssl rand -hex 32)
+PG_PASS=$(stack_value "$STACK_DIR/.env" POSTGRES_PASSWORD || openssl rand -hex 16)
 
 # Generate .env
 BASE_URL=""

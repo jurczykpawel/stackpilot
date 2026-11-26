@@ -21,7 +21,7 @@
 set -e
 
 APP_NAME="supabase"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
 PORT=${PORT:-8000}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
@@ -110,32 +110,37 @@ gen_jwt() {
     printf '%s' "${signed}.${sig}"
 }
 
-# Preserve credentials from existing install to avoid password mismatch with existing DB volumes.
-# The Supabase postgres image blocks ALTER USER supabase_admin via SQL (reserved role),
-# so if volumes exist from a previous run, they must use the same POSTGRES_PASSWORD.
-if [ -f "$STACK_DIR/.env" ]; then
-    POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(sudo grep '^POSTGRES_PASSWORD=' "$STACK_DIR/.env" 2>/dev/null | cut -d= -f2)}"
-    JWT_SECRET="${JWT_SECRET:-$(sudo grep '^JWT_SECRET=' "$STACK_DIR/.env" 2>/dev/null | cut -d= -f2)}"
-    DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-$(sudo grep '^DASHBOARD_PASSWORD=' "$STACK_DIR/.env" 2>/dev/null | cut -d= -f2)}"
+# A re-install keeps every secret of the existing installation: the database volume
+# keeps its passwords and encrypted data, clients keep their keys.
+# The Supabase postgres image blocks ALTER USER supabase_admin via SQL (reserved role).
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
+ENV_FILE="$STACK_DIR/.env"
+if sudo test -f "$ENV_FILE"; then
     echo "   ℹ️  Existing credentials preserved (reinstall)"
 fi
+keep() { stack_value "$ENV_FILE" "$1" || openssl rand "${@:2}"; }
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(keep POSTGRES_PASSWORD -hex 16)}"
+JWT_SECRET="${JWT_SECRET:-$(keep JWT_SECRET -base64 30)}"
+SECRET_KEY_BASE=$(keep SECRET_KEY_BASE -base64 48)
+VAULT_ENC_KEY=$(keep VAULT_ENC_KEY -hex 16)
+PG_META_CRYPTO_KEY=$(keep PG_META_CRYPTO_KEY -base64 24)
+LOGFLARE_PUBLIC_TOKEN=$(keep LOGFLARE_PUBLIC_ACCESS_TOKEN -base64 24)
+LOGFLARE_PRIVATE_TOKEN=$(keep LOGFLARE_PRIVATE_ACCESS_TOKEN -base64 24)
+S3_ACCESS_KEY=$(keep S3_PROTOCOL_ACCESS_KEY_ID -hex 16)
+S3_SECRET_KEY=$(keep S3_PROTOCOL_ACCESS_KEY_SECRET -hex 32)
+MINIO_ROOT_PASSWORD=$(keep MINIO_ROOT_PASSWORD -hex 16)
+POOLER_TENANT_ID=$(keep POOLER_TENANT_ID -hex 8)
+DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-$(keep DASHBOARD_PASSWORD -hex 16)}"
 
-POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(openssl rand -hex 16)}"
-JWT_SECRET="${JWT_SECRET:-$(openssl rand -base64 30)}"
-SECRET_KEY_BASE=$(openssl rand -base64 48)
-VAULT_ENC_KEY=$(openssl rand -hex 16)
-PG_META_CRYPTO_KEY=$(openssl rand -base64 24)
-LOGFLARE_PUBLIC_TOKEN=$(openssl rand -base64 24)
-LOGFLARE_PRIVATE_TOKEN=$(openssl rand -base64 24)
-S3_ACCESS_KEY=$(openssl rand -hex 16)
-S3_SECRET_KEY=$(openssl rand -hex 32)
-MINIO_ROOT_PASSWORD=$(openssl rand -hex 16)
-POOLER_TENANT_ID=$(openssl rand -hex 8)
-DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-$(openssl rand -hex 16)}"
-
+# API keys stay as long as they were signed with the same JWT secret
 echo "   Generating JWT keys..."
-ANON_KEY=$(gen_jwt "$JWT_SECRET" "anon")
-SERVICE_ROLE_KEY=$(gen_jwt "$JWT_SECRET" "service_role")
+if [ "$(stack_value "$ENV_FILE" JWT_SECRET)" = "$JWT_SECRET" ] \
+    && ANON_KEY=$(stack_value "$ENV_FILE" ANON_KEY) && SERVICE_ROLE_KEY=$(stack_value "$ENV_FILE" SERVICE_ROLE_KEY); then
+    :
+else
+    ANON_KEY=$(gen_jwt "$JWT_SECRET" "anon")
+    SERVICE_ROLE_KEY=$(gen_jwt "$JWT_SECRET" "service_role")
+fi
 
 echo "✅ Secrets generated"
 

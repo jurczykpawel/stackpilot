@@ -18,7 +18,8 @@
 set -e
 
 APP_NAME="umami"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-3000}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
@@ -57,7 +58,7 @@ else
 fi
 
 # Generate random hash salt
-HASH_SALT=$(openssl rand -hex 32)
+HASH_SALT=$(stack_value "$STACK_DIR/docker-compose.yaml" APP_SECRET || openssl rand -hex 32)
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"

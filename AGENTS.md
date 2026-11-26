@@ -25,7 +25,7 @@ You help users manage their VPS servers. You can:
 ```
 local/           -> User scripts (deploy, backup, setup)
 apps/<app>/      -> App installers (install.sh + README.md)
-lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils)
+lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils, stack-config)
 lib/providers/   -> Provider plugins (mikrus/, generic hooks via detect.sh)
 locale/          -> i18n language files (en.sh, pl.sh)
 system/          -> System scripts (docker, caddy, backup-core)
@@ -424,6 +424,7 @@ sudo docker compose up -d
 - `|| { echo "Error: ..."; exit 1; }` for error handling
 - `|| true` for optional commands
 - Never log secrets
+- Generated secrets must survive a re-install: `source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"`, then `SECRET=$(stack_value "$STACK_DIR/.env" SECRET || openssl rand -hex 32)` (`tests/unit/test-reinstall-keeps-secrets.sh` runs installers twice)
 - Secrets in env vars, configuration in `~/.config/stackpilot/`
 
 ## More Information

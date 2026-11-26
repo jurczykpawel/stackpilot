@@ -10,7 +10,8 @@
 set -e
 
 APP_NAME="convertx"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-3000}
 
 echo "--- 🔄 ConvertX Setup ---"
@@ -24,7 +25,7 @@ else
 fi
 
 # JWT secret - without this, sessions are lost after container restart
-JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | od -An -tx1 | tr -d ' \n')
+JWT_SECRET=$(stack_value "$STACK_DIR/docker-compose.yaml" JWT_SECRET || openssl rand -hex 32)
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
