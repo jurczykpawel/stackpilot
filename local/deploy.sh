@@ -968,6 +968,7 @@ EXTRA_ENV=""
 [ -n "$DOMAIN_TYPE" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_TYPE='$DOMAIN_TYPE'"
 [ -n "$WP_DB_MODE" ] && EXTRA_ENV="$EXTRA_ENV WP_DB_MODE='$WP_DB_MODE'"
 [ -n "$WP_REDIS" ] && EXTRA_ENV="$EXTRA_ENV WP_REDIS='$WP_REDIS'"
+[ -n "$POSTIZ_REDIS" ] && EXTRA_ENV="$EXTRA_ENV POSTIZ_REDIS='$POSTIZ_REDIS'"
 if [ -n "$REDIS_PASS" ] && [[ "$APP_NAME" =~ ^(wordpress|postiz)$ ]]; then
     EXTRA_ENV="$EXTRA_ENV REDIS_PASS=$(printf '%q' "$REDIS_PASS")"
 fi

@@ -53,7 +53,7 @@ MOCK
 }
 teardown() {
     PATH="$ORIGINAL_PATH"
-    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE WP_REDIS REDIS_PASS DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
+    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE WP_REDIS REDIS_PASS POSTIZ_REDIS DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
     rm -rf "$TEST_TMPDIR"
 }
 
@@ -307,12 +307,27 @@ test_unknown_bridge_address_changes_nothing() {
     assert_eq "$before" "$(cat "$SHARED/docker-compose.yaml")"
     assert_not_contains "$(calls)" 'up -d'
 }
-test_postiz_install_uses_shared_cache_password() {
+# Real Redis detection on a host where something listens on 6379
+install_postiz() {
+    echo "source '$REPO_ROOT/lib/redis-detect.sh'" > "$STACKPILOT_DIR/lib/redis-detect.sh"
+    printf '#!/bin/bash\necho "LISTEN 0 511 172.17.0.1:6379 0.0.0.0:*"\n' > "$TEST_TMPDIR/bin/ss"
+    chmod +x "$TEST_TMPDIR/bin/ss"
     mkdir -p "$SHARED"
     echo 'REDIS_PASSWORD=abc123' > "$SHARED/.env"
-    export DETECTED_REDIS=host-gateway
     bash "$REPO_ROOT/apps/postiz/install.sh" > "$TEST_TMPDIR/output" 2>&1 || true
-    assert_contains "$(cat "$STACKS_DIR/postiz/docker-compose.yaml" 2>/dev/null)" 'REDIS_URL=redis://:abc123@host-gateway:6379'
+    POSTIZ_COMPOSE=$(cat "$STACKS_DIR/postiz/docker-compose.yaml" 2>/dev/null)
+}
+test_postiz_brings_its_own_redis_by_default() {
+    install_postiz
+    assert_contains "$POSTIZ_COMPOSE" 'REDIS_URL=redis://postiz-redis:6379'
+    assert_contains "$POSTIZ_COMPOSE" 'image: redis:7.2-alpine'
+    assert_contains "$POSTIZ_COMPOSE" '--maxmemory-policy noeviction'
+    assert_not_contains "$POSTIZ_COMPOSE" 'abc123'
+}
+test_postiz_install_uses_shared_cache_password() {
+    POSTIZ_REDIS=external install_postiz
+    assert_contains "$POSTIZ_COMPOSE" 'REDIS_URL=redis://:abc123@host-gateway:6379'
+    assert_not_contains "$POSTIZ_COMPOSE" 'image: redis:7.2-alpine'
 }
 test_remote_install_passes_redis_choice_to_the_server() {
     printf '#!/bin/bash\necho "$*" >> "%s"\n[ "$1" = -G ] && echo "hostname 192.0.2.1"\nexit 0\n' "$TEST_TMPDIR/ssh.calls" > "$TEST_TMPDIR/bin/ssh"
@@ -324,6 +339,14 @@ test_remote_install_passes_redis_choice_to_the_server() {
     command=$(grep "bash '/tmp/sp-deploy-" "$TEST_TMPDIR/ssh.calls")
     assert_contains "$command" "WP_REDIS='external'"
     assert_contains "$command" 'REDIS_PASS=own\ secret'
+}
+test_remote_install_passes_postiz_redis_choice_to_the_server() {
+    printf '#!/bin/bash\necho "$*" >> "%s"\n[ "$1" = -G ] && echo "hostname 192.0.2.1"\nexit 0\n' "$TEST_TMPDIR/ssh.calls" > "$TEST_TMPDIR/bin/ssh"
+    printf '#!/bin/bash\nexit 0\n' > "$TEST_TMPDIR/bin/scp"
+    chmod +x "$TEST_TMPDIR/bin/ssh" "$TEST_TMPDIR/bin/scp"
+    HOME="$TEST_TMPDIR" POSTIZ_REDIS=external \
+        bash "$REPO_ROOT/local/deploy.sh" postiz --ssh=test-host --db-source=bundled --domain-type=local --yes > "$TEST_TMPDIR/output" 2>&1 || true
+    assert_contains "$(grep "bash '/tmp/sp-deploy-" "$TEST_TMPDIR/ssh.calls")" "POSTIZ_REDIS='external'"
 }
 test_remote_update_ships_cache_helper() {
     printf '#!/bin/bash\necho "$*" >> "%s"\n[ "$1" = -G ] && echo "hostname 192.0.2.1"\nexit 0\n' "$TEST_TMPDIR/ssh.calls" > "$TEST_TMPDIR/bin/ssh"

@@ -136,11 +136,12 @@ else
 fi
 
 # =============================================================================
-# REDIS — BUNDLED vs EXTERNAL (auto-detekcja)
+# REDIS — domyślnie własny (kolejki nie mogą być usuwane z pamięci);
+# POSTIZ_REDIS=external|auto wybiera Redisa z hosta
 # =============================================================================
 source "${STACKPILOT_DIR:-/opt/stackpilot}"/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
-    detect_redis "${POSTIZ_REDIS:-auto}" "postiz-redis"
+    detect_redis "${POSTIZ_REDIS:-bundled}" "postiz-redis"
 else
     REDIS_HOST="postiz-redis"
     echo "✅ Redis: bundled (lib/redis-detect.sh niedostępne)"
@@ -272,7 +273,7 @@ if [ "$USE_BUNDLED_REDIS" = true ]; then
   postiz-redis:
     image: redis:7.2-alpine
     restart: always
-    command: redis-server --save 60 1 --loglevel warning
+    command: redis-server --save 60 1 --loglevel warning --maxmemory-policy noeviction
     volumes:
       - ./redis-data:/data
     networks:
