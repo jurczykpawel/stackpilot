@@ -150,6 +150,8 @@ REDIS_PASS=secretPassword WP_REDIS=external ./local/deploy.sh wordpress --ssh=AL
 ./local/deploy.sh wordpress --ssh=ALIAS
 ```
 
+`WP_REDIS=external` means your own Redis: when one is listening on the server, the site keeps your `REDIS_PASS` (or none) and shared cache updates leave it alone. When nothing is listening, the site uses the shared Redis.
+
 ## Multiple WordPress Sites on One Server
 
 Each deploy with a separate domain creates an independent instance:

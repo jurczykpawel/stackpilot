@@ -119,14 +119,18 @@ fi
 # Shared Redis: if bundled was selected (no Redis on host),
 # use one shared Redis container instead of bundling one per stack.
 # Saves ~96MB RAM per additional WordPress instance.
-# An already existing shared Redis is what "host-gateway" reaches.
+# An already existing shared Redis is what "host-gateway" reaches, unless the
+# user asked for their own with WP_REDIS=external.
 REDIS_SHARED_LIB="${WP_REDIS_SHARED_LIB:-$(dirname "${BASH_SOURCE[0]}")/redis-shared.sh}"
 source "$REDIS_SHARED_LIB" || { echo "❌ Missing $REDIS_SHARED_LIB"; exit 1; }
 
 # Redis password (user provides via REDIS_PASS env var for an external Redis)
 REDIS_PASS="${REDIS_PASS:-}"
 
-if [ "$REDIS_HOST" = "redis" ] || [ -f "$REDIS_SHARED_DIR/docker-compose.yaml" ]; then
+OWN_REDIS=false
+if [ "${WP_REDIS:-}" = "external" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
+    OWN_REDIS=true
+elif [ "$REDIS_HOST" = "redis" ] || [ -f "$REDIS_SHARED_DIR/docker-compose.yaml" ]; then
     redis_shared_apply
     REDIS_HOST="host-gateway"
     REDIS_PASS=$(redis_shared_password)
@@ -223,6 +227,14 @@ if [ -n "$REDIS_PASS" ]; then
     # Owned by the invoking user: wp-init.sh (and its cron retry) reads it
     sudo chown "$(id -u):$(id -g)" "$STACK_DIR/.redis-pass"
     sudo chmod 600 "$STACK_DIR/.redis-pass"
+else
+    sudo rm -f "$STACK_DIR/.redis-pass"
+fi
+# Keeps later shared cache updates away from a site with its own Redis
+if [ "$OWN_REDIS" = true ]; then
+    sudo touch "$STACK_DIR/.redis-external"
+else
+    sudo rm -f "$STACK_DIR/.redis-external"
 fi
 
 # =============================================================================

@@ -53,7 +53,7 @@ MOCK
 }
 teardown() {
     PATH="$ORIGINAL_PATH"
-    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
+    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE WP_REDIS REDIS_PASS DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
     rm -rf "$TEST_TMPDIR"
 }
 
@@ -135,6 +135,44 @@ test_own_external_redis_is_left_alone() {
     REDIS_PASS=own-secret install_wordpress
     assert_false test -e "$SHARED"
     assert_eq own-secret "$(cat "$STACKS_DIR/wordpress-blog/.redis-pass")"
+}
+test_explicit_external_redis_wins_over_the_shared_one() {
+    existing_installation
+    export DETECTED_REDIS=host-gateway
+    WP_REDIS=external REDIS_PASS=own-secret DOMAIN=shop.example.com install_wordpress
+    assert_eq own-secret "$(cat "$STACKS_DIR/wordpress-shop/.redis-pass")"
+    assert_contains "$(cat "$PERF_CAPTURE")" "define('WP_REDIS_PASSWORD', 'own-secret')"
+    assert_not_contains "$(calls)" 'redis-shared'
+}
+test_explicit_external_redis_survives_a_later_update() {
+    existing_installation
+    export DETECTED_REDIS=host-gateway
+    WP_REDIS=external REDIS_PASS=own-secret DOMAIN=shop.example.com install_wordpress
+    : > "$DOCKER_CALLS"
+    update_wordpress
+    assert_eq own-secret "$(cat "$STACKS_DIR/wordpress-shop/.redis-pass")"
+    assert_not_contains "$(calls)" 'wordpress-shop|'
+}
+test_reinstall_without_external_returns_to_the_shared_cache() {
+    existing_installation
+    export DETECTED_REDIS=host-gateway
+    WP_REDIS=external REDIS_PASS=own-secret DOMAIN=shop.example.com install_wordpress
+    DOMAIN=shop.example.com install_wordpress
+    assert_eq "$(shared_password)" "$(cat "$STACKS_DIR/wordpress-shop/.redis-pass")"
+    assert_false test -e "$STACKS_DIR/wordpress-shop/.redis-external"
+}
+test_passwordless_external_redis_drops_the_shared_password() {
+    install_wordpress
+    export DETECTED_REDIS=host-gateway
+    WP_REDIS=external install_wordpress
+    assert_false test -e "$STACKS_DIR/wordpress-blog/.redis-pass"
+    assert_not_contains "$(cat "$PERF_CAPTURE")" 'WP_REDIS_PASSWORD'
+}
+test_external_without_a_redis_on_the_host_uses_the_shared_one() {
+    existing_installation
+    WP_REDIS=external DOMAIN=shop.example.com install_wordpress
+    assert_eq "$(shared_password)" "$(cat "$STACKS_DIR/wordpress-shop/.redis-pass")"
+    assert_false test -e "$STACKS_DIR/wordpress-shop/.redis-external"
 }
 test_update_migrates_existing_installation() {
     existing_installation
@@ -264,6 +302,17 @@ test_postiz_install_uses_shared_cache_password() {
     export DETECTED_REDIS=host-gateway
     bash "$REPO_ROOT/apps/postiz/install.sh" > "$TEST_TMPDIR/output" 2>&1 || true
     assert_contains "$(cat "$STACKS_DIR/postiz/docker-compose.yaml" 2>/dev/null)" 'REDIS_URL=redis://:abc123@host-gateway:6379'
+}
+test_remote_install_passes_redis_choice_to_the_server() {
+    printf '#!/bin/bash\necho "$*" >> "%s"\n[ "$1" = -G ] && echo "hostname 192.0.2.1"\nexit 0\n' "$TEST_TMPDIR/ssh.calls" > "$TEST_TMPDIR/bin/ssh"
+    printf '#!/bin/bash\nexit 0\n' > "$TEST_TMPDIR/bin/scp"
+    chmod +x "$TEST_TMPDIR/bin/ssh" "$TEST_TMPDIR/bin/scp"
+    HOME="$TEST_TMPDIR" WP_DB_MODE=sqlite WP_REDIS=external REDIS_PASS='own secret' \
+        bash "$REPO_ROOT/local/deploy.sh" wordpress --ssh=test-host --domain-type=local --yes > "$TEST_TMPDIR/output" 2>&1 || true
+    local command
+    command=$(grep "bash '/tmp/sp-deploy-" "$TEST_TMPDIR/ssh.calls")
+    assert_contains "$command" "WP_REDIS='external'"
+    assert_contains "$command" 'REDIS_PASS=own\ secret'
 }
 test_remote_update_ships_cache_helper() {
     printf '#!/bin/bash\necho "$*" >> "%s"\n[ "$1" = -G ] && echo "hostname 192.0.2.1"\nexit 0\n' "$TEST_TMPDIR/ssh.calls" > "$TEST_TMPDIR/bin/ssh"

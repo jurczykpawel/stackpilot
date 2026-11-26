@@ -136,6 +136,7 @@ redis_shared_apply() {
     for dir in "$STACKS_DIR"/*/; do
         dir="${dir%/}"
         [ -f "$dir/docker-compose.yaml" ] || continue
+        [ ! -f "$dir/.redis-external" ] || continue
         if [ "$(cat "$dir/.redis-host" 2>/dev/null)" = "host-gateway" ]; then
             [ "$(sudo cat "$dir/.redis-pass" 2>/dev/null)" = "$password" ] || sites+=("$dir")
         elif sudo grep -qE "$_REDIS_SHARED_URL" "$dir/docker-compose.yaml"; then
