@@ -260,7 +260,7 @@ To update StackPilot later, re-run the bootstrap one-liner.
 ### 4. Set up backups
 
 ```bash
-./local/setup-backup.sh     # Encrypted backup to Google Drive / Dropbox / S3
+./local/setup-backup.sh     # Encrypted restic backup: files, Docker volumes, databases (R2, B2, S3, SFTP)
 ```
 
 ---
@@ -419,7 +419,7 @@ ssh vps 'docker stats --no-stream'
 ## FAQ
 
 **What VPS providers are supported?**
-Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH. If you use [Mikrus](https://mikr.us) (a popular Polish VPS), StackPilot auto-detects it and unlocks extra features: free `.byst.re` subdomains, shared databases via API, and 200MB free backup.
+Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, Vultr, Linode, OVH, and others. StackPilot only needs Docker and SSH. If you use [Mikrus](https://mikr.us) (a popular Polish VPS), StackPilot auto-detects it and unlocks extra features: free `.byst.re` subdomains and shared databases via API.
 
 **Can I achieve Lighthouse 100/100/100/100 on a budget VPS?**
 Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN can achieve perfect Lighthouse scores (Performance, Accessibility, Best Practices, SEO — all 100). The key is proper development: defer non-critical resources (fonts, analytics) after `window.load`, avoid CPU-intensive CSS like SVG `feTurbulence`, inline small assets as base64 to eliminate LCP from external network requests, and use `font-display: optional` to prevent font-swap LCP spikes.
@@ -452,7 +452,7 @@ Coolify is a full PaaS platform (like a self-hosted Heroku) with a web dashboard
 - [x] CLI deploy with interactive prompts
 - [x] Caddy auto-HTTPS and Cloudflare DNS integration
 - [x] Bundled database provisioning (PostgreSQL, MySQL, SQLite)
-- [x] Encrypted backups to Google Drive / Dropbox / S3
+- [x] Encrypted restic backups of files, Docker volumes and databases (Cloudflare R2, Backblaze B2, S3, SFTP)
 - [x] WordPress multi-instance support with shared Redis
 - [x] Windows support (PowerShell SSH setup)
 
@@ -520,7 +520,6 @@ StackPilot works with any VPS provider out of the box. For [Mikrus](https://mikr
 | Bundled/custom databases | Yes | Yes |
 | Free `.byst.re` subdomains | - | Yes (auto-detected) |
 | Shared database via API | - | Yes (auto-detected) |
-| Free 200MB backup | - | Yes (auto-detected) |
 | Upgrade suggestions | Generic | Mikrus-specific pricing |
 
 Mikrus features are auto-detected (no configuration needed). On non-Mikrus servers, the provider system is invisible.
@@ -589,7 +588,7 @@ StackPilot includes a comprehensive test suite:
 | `domain-caddy` | ntfy | Public domain + IPv6 |
 | `provider-mikrus` | provider detection, shared DB | Mikrus VPS (`/klucz_api`) |
 | `cytrus-domain` | ntfy via auto-subdomain | Mikrus VPS |
-| `backup-flow` | umami + postgres backup | SSH access |
+| `backup-flow` | umami: restic backup, data loss, restore | SSH access |
 | `static-hosting` | Caddy file_server + CF DNS | Cloudflare API token |
 | `php-hosting` | Caddy + PHP-FPM | Cloudflare API token |
 | `health-check` | static analysis + runtime | SSH access |
@@ -630,7 +629,7 @@ Configuration is stored in `~/.config/stackpilot/`.
 | **Caddy** | Reverse proxy with automatic HTTPS (Let's Encrypt) |
 | **SSH / rsync** | Remote server management and file sync |
 | **Cloudflare API** | Automatic DNS configuration |
-| **rclone** | Encrypted cloud backups (Google Drive, Dropbox, S3) |
+| **restic** | Encrypted, deduplicated backups (Cloudflare R2, Backblaze B2, S3, SFTP) |
 
 ---
 
