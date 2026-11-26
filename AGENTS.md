@@ -135,7 +135,7 @@ Three domain types are supported:
 
 ### 2. Caddy (direct domain, auto-HTTPS)
 
-- Caddy runs on the server as a reverse proxy
+- Caddy runs on the server as a reverse proxy (installed automatically when missing, via `ensure_caddy` in `lib/server-exec.sh`; a failure fails the deploy)
 - Automatic Let's Encrypt SSL certificates
 - Domain DNS must point directly to your server IP
 

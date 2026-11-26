@@ -301,10 +301,11 @@ Three options, depending on your needs:
 
 ### Caddy (recommended)
 
-Caddy is installed during [Quick Start](#quick-start) and automatically provisions Let's Encrypt certificates for every domain you expose.
+Caddy automatically provisions Let's Encrypt certificates for every domain you expose. Deploying with `--domain-type=caddy` installs it when the server does not have it yet; if Caddy cannot be installed or cannot serve the domain, the deploy exits with an error. An existing Caddyfile is kept: StackPilot only adds `import /etc/caddy/conf.d/*.caddy` to it.
 
 ```bash
-ssh vps 'sp-expose n8n.example.com 5678'
+./local/deploy.sh n8n --domain-type=caddy --domain=n8n.example.com
+ssh vps 'sp-expose n8n.example.com 5678'      # Or expose a running service yourself
 ```
 
 ### Cloudflare
@@ -560,6 +561,9 @@ StackPilot includes a comprehensive test suite:
 
 # One-line installer on clean Debian 12 and Ubuntu 22.04/24.04 (local Docker, privileged containers)
 ./tests/e2e/oneliner-docker.sh
+
+# --domain-type=caddy on clean Debian 12 (local Docker, privileged containers)
+./tests/e2e/caddy-domain-docker.sh
 
 # Run everything
 ./tests/run.sh all --ssh=your-vps

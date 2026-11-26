@@ -697,6 +697,8 @@ The `system/power-tools.sh` script installs:
 
 - Point DNS directly to server IP
 - Caddy handles Let's Encrypt certificates automatically
+- Installed on first use (`--domain-type=caddy`); the deploy fails if the domain cannot be configured
+- An existing Caddyfile is kept, StackPilot adds `import /etc/caddy/conf.d/*.caddy` to it
 - Simpler setup, no third-party dependency
 
 ### Databases

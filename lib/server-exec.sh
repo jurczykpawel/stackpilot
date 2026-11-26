@@ -153,6 +153,34 @@ ensure_toolbox() {
     fi
 }
 
+# Ensure Caddy + sp-expose are on the server, installing them if missing
+# Usage: ensure_caddy [ssh_alias]
+ensure_caddy() {
+    local ALIAS="${1:-${SSH_ALIAS:-vps}}"
+    local CHECK="command -v caddy >/dev/null 2>&1 && command -v sp-expose >/dev/null 2>&1"
+
+    if server_exec "$CHECK" 2>/dev/null; then
+        return 0
+    fi
+
+    msg "$MSG_SE_CADDY_INSTALLING"
+    # The installer reads its translations from the toolbox on the server
+    ensure_toolbox "$ALIAS" || true
+
+    local REPO_ROOT_SE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    local OUTPUT
+    if OUTPUT=$(server_exec "bash -s" < "$REPO_ROOT_SE/system/caddy-install.sh" 2>&1) \
+        && server_exec "$CHECK" 2>/dev/null; then
+        msg "$MSG_SE_CADDY_INSTALLED"
+        return 0
+    fi
+
+    printf '%s\n' "$OUTPUT" | tail -n 20 >&2
+    msg "$MSG_SE_CADDY_FAILED" >&2
+    msg "$MSG_SE_CADDY_HINT" "$ALIAS" >&2
+    return 1
+}
+
 export _ON_SERVER
 export -f is_on_server server_exec server_exec_tty server_exec_timeout
-export -f server_copy server_pipe_to server_hostname server_user ensure_toolbox
+export -f server_copy server_pipe_to server_hostname server_user ensure_toolbox ensure_caddy
