@@ -1064,17 +1064,20 @@ if [ -n "$BUILD_FILE" ]; then
         exit 1
     fi
 
-    msg "$MSG_EXEC_UPLOADING"
     REMOTE_BUILD_FILE="/tmp/sellf-build-$$.tar.gz"
-    server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE"
-    msg "$MSG_EXEC_UPLOADED"
-
     EXTRA_ENV="$EXTRA_ENV BUILD_FILE='$REMOTE_BUILD_FILE'"
 fi
+
+upload_build_file() {
+    msg "$MSG_EXEC_UPLOADING"
+    server_copy "$BUILD_FILE" "$REMOTE_BUILD_FILE" || return 1
+    msg "$MSG_EXEC_UPLOADED"
+}
 
 DEPLOY_SUCCESS=false
 if is_on_server; then
     EXTRA_ENV="$EXTRA_ENV STACKPILOT_LIB='$REPO_ROOT/lib'"
+    [ -z "$REMOTE_BUILD_FILE" ] || upload_build_file
     # On server: run script directly (no scp/cleanup).
     # eval is required so the single quotes baked into *_ENV values
     # (e.g. DOMAIN='foo.bar') are processed by the shell rather than
@@ -1085,27 +1088,20 @@ if is_on_server; then
     [ -n "$REMOTE_BUILD_FILE" ] && rm -f "$REMOTE_BUILD_FILE"
 else
     REMOTE_SCRIPT="/tmp/sp-deploy-$$.sh"
-    scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT"
-
-    # Cleanup remote build file after install
     CLEANUP_CMD=""
-    if [ -n "$REMOTE_BUILD_FILE" ]; then
-        CLEANUP_CMD="rm -f '$REMOTE_BUILD_FILE';"
-    fi
+    [ -z "$REMOTE_BUILD_FILE" ] || CLEANUP_CMD="rm -f '$REMOTE_BUILD_FILE';"
 
     # Sellf: release verification helpers sourced by install.sh (on the server
     # itself install.sh finds them next to it in the stackpilot checkout)
+    REMOTE_RELEASE_LIB=""
     if [ "$APP_NAME" = "sellf" ]; then
         REMOTE_RELEASE_LIB="/tmp/sp-sellf-release-$$.sh"
-        scp -q "$REPO_ROOT/apps/sellf/release-verify.sh" "$SSH_ALIAS:$REMOTE_RELEASE_LIB"
         EXTRA_ENV="$EXTRA_ENV SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
         CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_RELEASE_LIB';"
     fi
 
     # Helpers installers source from STACKPILOT_LIB (the toolbox on the server may be older)
     REMOTE_LIB_DIR="/tmp/sp-lib-$$"
-    upload_install_lib() { server_exec "mkdir -p '$REMOTE_LIB_DIR'" && scp -q "$REPO_ROOT/lib/stack-config.sh" "$SSH_ALIAS:$REMOTE_LIB_DIR/"; }
-    upload_install_lib
     EXTRA_ENV="$EXTRA_ENV STACKPILOT_LIB='$REMOTE_LIB_DIR'"
     CLEANUP_CMD="$CLEANUP_CMD rm -rf '$REMOTE_LIB_DIR';"
 
@@ -1113,12 +1109,23 @@ else
     REMOTE_REDIS_LIB=""
     if [ "$APP_NAME" = "wordpress" ]; then
         REMOTE_REDIS_LIB="/tmp/sp-wp-redis-$$.sh"
-        scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB"
         EXTRA_ENV="$EXTRA_ENV WP_REDIS_SHARED_LIB='$REMOTE_REDIS_LIB'"
         CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_REDIS_LIB';"
     fi
 
-    if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
+    # Every file the installer reads; a run removes them, so each attempt uploads them again
+    upload_install_files() {
+        scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" || return 1
+        server_exec "mkdir -p '$REMOTE_LIB_DIR'" && scp -q "$REPO_ROOT/lib/stack-config.sh" "$SSH_ALIAS:$REMOTE_LIB_DIR/" || return 1
+        [ -z "$REMOTE_RELEASE_LIB" ] || scp -q "$REPO_ROOT/apps/sellf/release-verify.sh" "$SSH_ALIAS:$REMOTE_RELEASE_LIB" || return 1
+        [ -z "$REMOTE_REDIS_LIB" ] || scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB" || return 1
+        [ -z "$REMOTE_BUILD_FILE" ] || upload_build_file
+    }
+    run_remote_install() {
+        upload_install_files && ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"
+    }
+
+    if run_remote_install; then
         DEPLOY_SUCCESS=true
     fi
 fi
@@ -1137,12 +1144,7 @@ else
             echo ""
             msg "$MSG_DOCKER_STORAGE_RETRY"
             ssh "$SSH_ALIAS" "sudo systemctl restart containerd 2>/dev/null; sleep 5; sudo systemctl restart docker 2>/dev/null; sleep 3" 2>/dev/null
-            scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" 2>/dev/null
-            upload_install_lib 2>/dev/null
-            if [ -n "$REMOTE_REDIS_LIB" ]; then
-                scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB" 2>/dev/null
-            fi
-            if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
+            if run_remote_install; then
                 DEPLOY_SUCCESS=true
             fi
         fi

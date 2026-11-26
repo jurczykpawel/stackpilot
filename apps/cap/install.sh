@@ -85,8 +85,8 @@ if [ -n "$S3_ENDPOINT" ] && [ -n "$S3_ACCESS_KEY" ]; then
 elif [ "$USE_LOCAL_MINIO" == "true" ]; then
     # Local MinIO
     echo "✅ Using local MinIO (container)"
-    S3_ACCESS_KEY="capS3root"
-    S3_SECRET_KEY="capS3root"
+    S3_ACCESS_KEY=$(stack_value "$STACK_DIR/docker-compose.yaml" MINIO_ROOT_USER || echo "cap-$(openssl rand -hex 6)")
+    S3_SECRET_KEY=$(stack_value "$STACK_DIR/docker-compose.yaml" MINIO_ROOT_PASSWORD || openssl rand -hex 24)
     S3_BUCKET="cap-videos"
     S3_REGION="us-east-1"
     S3_ENDPOINT="http://cap-minio:9000"
@@ -272,4 +272,8 @@ echo ""
 echo "📝 Save these credentials in a secure location:"
 echo "   NEXTAUTH_SECRET: $NEXTAUTH_SECRET"
 echo "   DATABASE_ENCRYPTION_KEY: $DATABASE_ENCRYPTION_KEY"
+if [ "$USE_LOCAL_MINIO" == "true" ]; then
+    echo "   MinIO access key: $S3_ACCESS_KEY"
+    echo "   MinIO secret key: $S3_SECRET_KEY"
+fi
 echo "============================================"

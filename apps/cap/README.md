@@ -65,6 +65,8 @@ S3_BUCKET=cap-videos \
 | 3902 | MinIO S3 API (localhost only — `127.0.0.1:3902`) |
 | 3903 | MinIO Console (localhost only) |
 
+The bundled MinIO gets its own access key and secret on the first install (`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` in `/opt/stacks/cap/docker-compose.yaml`); running the installer again keeps them. Installations made before 2026-11-26 still use the old shared `capS3root` pair. To change it, put the same new values in `MINIO_ROOT_USER` + `CAP_AWS_ACCESS_KEY` and in `MINIO_ROOT_PASSWORD` + `CAP_AWS_SECRET_KEY` (password: 8+ characters), then run `docker compose up -d` in `/opt/stacks/cap`; stored videos stay readable.
+
 > **Note:** Port 3902 is bound to `127.0.0.1` (localhost only) — it is not directly reachable from the internet. The Cap desktop client connects to MinIO via the domain (Caddy reverse proxy), not directly on port 3902. Configure Caddy to proxy the MinIO S3 API endpoint, or use an external S3 provider instead.
 
 ## Recommended Storage

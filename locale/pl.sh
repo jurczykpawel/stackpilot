@@ -251,6 +251,8 @@ MSG_SE_CADDY_INSTALLING="Brak Caddy / sp-expose — instaluję..."
 MSG_SE_CADDY_INSTALLED="Caddy zainstalowany"
 MSG_SE_CADDY_FAILED="${RED}Instalacja Caddy nie powiodła się${NC}"
 MSG_SE_CADDY_HINT="   Pełny wynik: ./local/deploy.sh system/caddy-install.sh --ssh=%s"
+MSG_SE_CADDY_PORT_TAKEN="${RED}Port %s zajmuje %s — Caddy potrzebuje portów 80 i 443, żeby obsłużyć domenę${NC}"
+MSG_SE_CADDY_PORT_HINT="   Zatrzymaj ten program na serwerze albo przenieś go na inny port i uruchom ponownie (albo użyj --domain-type=local)."
 
 # =============================================================================
 # REDIS-DETECT (lib/redis-detect.sh)

@@ -14,9 +14,9 @@ if ! type is_on_server &>/dev/null; then
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/server-exec.sh"
 fi
 
-# Shell code for the server: prints its listening TCP ports, one per line. Installs
-# iproute2 when ss is missing; without ss it fails instead of reporting every port free.
-_SP_LISTENING_PORTS='if ! command -v ss >/dev/null 2>&1; then
+# Shell code for the server: installs ss (iproute2) when it is missing and exits 127
+# when that fails, so a missing ss never reads as "no port in use".
+_SP_ENSURE_SS='if ! command -v ss >/dev/null 2>&1; then
     S=""; [ "$(id -u)" = 0 ] || S=sudo
     if command -v apt-get >/dev/null 2>&1; then $S apt-get update -qq && $S apt-get install -y -qq iproute2
     elif command -v dnf >/dev/null 2>&1; then $S dnf install -y -q iproute
@@ -24,7 +24,20 @@ _SP_LISTENING_PORTS='if ! command -v ss >/dev/null 2>&1; then
     elif command -v apk >/dev/null 2>&1; then $S apk add --quiet iproute2
     fi >/dev/null 2>&1
 fi
-command -v ss >/dev/null 2>&1 || exit 127
+command -v ss >/dev/null 2>&1 || exit 127'
+
+# Shell code for the server: prints "PORT PROGRAM" for each listener on port 80 or 443
+# that is not Caddy (Caddy serves the sites on both).
+_SP_WEB_PORT_HOLDERS="$_SP_ENSURE_SS"'
+S=""; [ "$(id -u)" = 0 ] || S=sudo
+$S ss -Hltnp | while read -r _ _ _ local _ users; do
+    case "${local##*:}" in 80|443) ;; *) continue ;; esac
+    program="${users#*\"}"; program="${program%%\"*}"
+    [ "$program" = caddy ] || echo "${local##*:} ${program:-unknown}"
+done | sort -u'
+
+# Shell code for the server: prints its listening TCP ports, one per line.
+_SP_LISTENING_PORTS="$_SP_ENSURE_SS"'
 ss -tln | awk "{print \$4}" | grep -oE "[0-9]+$" | sort -un'
 
 # Listening TCP ports on the server (SSH_ALIAS, or this machine when on the server)
@@ -71,6 +84,6 @@ read_existing_app_port() {
 }
 
 # Export functions
-export _SP_LISTENING_PORTS
+export _SP_ENSURE_SS _SP_LISTENING_PORTS _SP_WEB_PORT_HOLDERS
 export -f listening_ports app_published_ports next_free_port find_free_port
 export -f read_existing_app_port
