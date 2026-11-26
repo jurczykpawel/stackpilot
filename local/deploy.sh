@@ -1247,14 +1247,12 @@ elif [ -n "$DOMAIN" ] && [ "$DOMAIN_FAILED" != true ]; then
     msg "$MSG_SUMMARY_AVAILABLE" "$DOMAIN"
 fi
 
-# Backup suggestion for database applications
-if [ "$NEEDS_DB" = true ]; then
+# Backup suggestion until setup-backup.sh has configured this server
+if ! server_exec "test -f /opt/stackpilot/config/backup.env" < /dev/null 2>/dev/null; then
     echo ""
     msg "$MSG_SUMMARY_BACKUP"
     msg "$MSG_SUMMARY_BACKUP_HINT"
-    echo ""
-    msg "$MSG_SUMMARY_BACKUP_CMD"
-    echo -e "      ${BLUE}ssh $SSH_ALIAS \"bash /opt/stackpilot/system/setup-db-backup.sh\"${NC}"
+    echo -e "      ${BLUE}./local/setup-backup.sh $SSH_ALIAS${NC}"
     echo ""
 fi
 

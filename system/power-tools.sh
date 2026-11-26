@@ -41,12 +41,6 @@ sudo mv /tmp/pup /usr/local/bin/pup
 sudo chmod +x /usr/local/bin/pup
 rm /tmp/pup.zip
 
-# 4. Rclone (Ensure it's there)
-if ! command -v rclone &> /dev/null; then
-    msg "$MSG_PT_RCLONE"
-    curl https://rclone.org/install.sh | sudo bash
-fi
-
 msg "$MSG_PT_DONE_HDR"
 msg "$MSG_PT_LOCATIONS"
 msg "$MSG_PT_YTDLP_LOC" "$(which yt-dlp)"
