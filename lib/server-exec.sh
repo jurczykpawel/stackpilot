@@ -125,19 +125,25 @@ ensure_toolbox() {
 
     msg "$MSG_SE_INSTALLING_TOOLBOX"
 
-    # Use rsync if we have local repo, otherwise git clone
-    local SCRIPT_DIR_SE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local REPO_ROOT_SE="$(cd "$SCRIPT_DIR_SE/.." && pwd)"
-
-    if [ -f "$REPO_ROOT_SE/local/deploy.sh" ] && command -v rsync &>/dev/null; then
-        rsync -az --delete \
+    # rsync this checkout; without it here or on the server, clone the repository there
+    local REPO_ROOT_SE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    local SYNCED=false
+    if [ -f "$REPO_ROOT_SE/local/deploy.sh" ] && command -v rsync &>/dev/null \
+        && rsync -az --delete \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude '.claude' \
             --exclude '*.md' \
-            "$REPO_ROOT_SE/" "$ALIAS:/opt/stackpilot/" 2>/dev/null
-    else
-        server_exec "command -v git >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git >/dev/null 2>&1) && rm -rf /opt/stackpilot && git clone --depth 1 https://github.com/jurczykpawel/stackpilot.git /opt/stackpilot 2>&1"
+            "$REPO_ROOT_SE/" "$ALIAS:/opt/stackpilot/" 2>/dev/null; then
+        SYNCED=true
+    fi
+    if [ "$SYNCED" != true ]; then
+        local BOOTSTRAP_ENV="" VAR OUTPUT
+        for VAR in STACKPILOT_REPO STACKPILOT_BRANCH; do
+            [ -z "${!VAR:-}" ] || BOOTSTRAP_ENV="$BOOTSTRAP_ENV $VAR=$(printf '%q' "${!VAR}")"
+        done
+        OUTPUT=$(server_exec "$BOOTSTRAP_ENV bash -s" < "$REPO_ROOT_SE/system/bootstrap.sh" 2>&1) \
+            || printf '%s\n' "$OUTPUT" | tail -n 10 >&2
     fi
 
     # Add to PATH
