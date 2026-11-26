@@ -3,6 +3,7 @@
 # Newsletter platform with contacts, archives and API/MCP.
 # IMAGE_SIZE_MB=1600
 # DB_BUNDLED=true
+# ONELINER=false
 set -e
 APP_NAME="mailcheap"
 STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"

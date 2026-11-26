@@ -38,7 +38,7 @@ docs/            -> Documentation (Cloudflare, CLI reference)
 
 `curl -fsSL https://stackpilot.techskills.academy/<app> | bash` is generated automatically from `apps/*/` via `installers/template.sh` + `installers/build.sh`.
 
-- Source of truth: any `apps/<app>/install.sh` becomes an endpoint.
+- Source of truth: any `apps/<app>/install.sh` becomes an endpoint, unless its header has the line `# ONELINER=false`. Use it for installers that need a step on your computer first (a local image build or `deploy.mjs`, e.g. mailstack, mailcheap); `tests/unit/test-installers-build.sh` requires it for every app with `deploy.mjs` or `build.sh`.
 - Build: `installers/build.sh <output_dir>` renders one extensionless file per app + a `_headers` manifest.
 - Publishing: daily cron in `jurczykpawel/static-sites` (`.github/workflows/sync-stackpilot-installers.yml`) clones this repo, runs the build into `stackpilot.techskills.academy/`, commits, and triggers the existing CF Pages deploy. For instant sync after adding/renaming an app:
   ```bash

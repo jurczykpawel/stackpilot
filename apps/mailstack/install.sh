@@ -9,6 +9,7 @@
 # Author: Paweł (Lazy Engineer)
 #
 # IMAGE_SIZE_MB=900
+# ONELINER=false
 
 set -e
 set +x
