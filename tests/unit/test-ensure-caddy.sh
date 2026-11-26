@@ -85,7 +85,17 @@ test_free_ports_install_caddy() {
 }
 
 test_missing_ss_is_not_free() {
+    # Hide the system ss (Linux runners have one): system tools except ss and package managers;
+    # apt-get fails, so the iproute2 install attempt fails without touching the machine.
+    local tool
     rm "$TEST_TMPDIR/bin/ss"
+    mkdir -p "$TEST_TMPDIR/sys"
+    for tool in /usr/bin/* /bin/*; do
+        case "${tool##*/}" in ss|apt-get|dnf|yum|apk) continue ;; esac
+        [ -e "$TEST_TMPDIR/sys/${tool##*/}" ] || ln -s "$tool" "$TEST_TMPDIR/sys/${tool##*/}"
+    done
+    stub apt-get 'exit 1'
+    export PATH="$TEST_TMPDIR/bin:$TEST_TMPDIR/sys"
     run_ensure_caddy
     assert_eq 1 "$STATUS" "ensure_caddy fails"
     assert_contains "$OUTPUT" "iproute2" "says what is missing"
