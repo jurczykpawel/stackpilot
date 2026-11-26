@@ -18,7 +18,8 @@ setup() {
 printf '%s|%s\n' "${PWD##*/}" "$*" >> "$DOCKER_CALLS"
 case "$*" in
     *'redis-shared/docker-compose.yaml up -d'*) [ -z "${FAIL_REDIS_START:-}" ] || exit 1 ;;
-    'network inspect bridge'*) echo "${BRIDGE_GATEWAY-172.17.0.1}" ;;
+    'run --rm --add-host h:host-gateway redis:alpine getent hosts h')
+        [ -z "${HOST_GATEWAY-172.17.0.1}" ] || printf '%s  h  h\n' fd00::1 "${HOST_GATEWAY-172.17.0.1}" ;;
     'compose ps --status running -q'*) printf '%s' "${RUNNING-cid}" ;;
     'compose ps -q wordpress') echo cid ;;
     'compose run '*)
@@ -52,7 +53,7 @@ MOCK
 }
 teardown() {
     PATH="$ORIGINAL_PATH"
-    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE DOMAIN DB_HOST DB_USER DB_PASS YES_MODE BRIDGE_GATEWAY RUNNING DETECTED_REDIS
+    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
     rm -rf "$TEST_TMPDIR"
 }
 
@@ -206,11 +207,35 @@ test_stopped_clients_stay_stopped() {
     assert_not_contains "$(calls)" 'USR2'
     assert_not_contains "$(calls)" 'postiz|compose up -d'
 }
+test_address_is_the_one_docker_gives_containers() {
+    HOST_GATEWAY=10.200.0.1 install_wordpress
+    assert_contains "$(cat "$SHARED/docker-compose.yaml")" '"10.200.0.1:6379:6379"'
+}
+test_update_follows_a_changed_address() {
+    existing_installation
+    update_wordpress
+    local password
+    password=$(shared_password)
+    : > "$DOCKER_CALLS"
+    HOST_GATEWAY=10.200.0.1 update_wordpress
+    assert_contains "$(cat "$SHARED/docker-compose.yaml")" '"10.200.0.1:6379:6379"'
+    assert_contains "$(cat "$SHARED/docker-compose.yaml.bak")" '"172.17.0.1:6379:6379"'
+    assert_eq "${password:-missing}" "$(shared_password)"
+    assert_contains "$(calls)" "compose -f $SHARED/docker-compose.yaml up -d --wait"
+    assert_not_contains "$(calls)" 'compose run ' 'clients keep their settings'
+}
+test_unchanged_address_keeps_the_definition() {
+    existing_installation
+    update_wordpress
+    echo '# local note' >> "$SHARED/docker-compose.yaml"
+    update_wordpress
+    assert_contains "$(cat "$SHARED/docker-compose.yaml")" '# local note'
+}
 test_unknown_bridge_address_changes_nothing() {
     existing_installation
     local before rc=0
     before=$(cat "$SHARED/docker-compose.yaml")
-    BRIDGE_GATEWAY='' update_wordpress || rc=$?
+    HOST_GATEWAY='' update_wordpress || rc=$?
     assert_not_eq 0 "$rc"
     assert_contains "$(cat "$TEST_TMPDIR/output")" 'bridge address'
     assert_eq "$before" "$(cat "$SHARED/docker-compose.yaml")"

@@ -3,8 +3,8 @@
 # StackPilot - shared Redis object cache for WordPress sites
 # Sourced by apps/wordpress/install.sh and update.sh.
 #
-# The cache is published only on the Docker bridge address (what containers
-# reach as "host-gateway") and requires a password kept in redis-shared/.env.
+# The cache is published only on the address containers reach as "host-gateway"
+# (the Docker bridge) and requires a password kept in redis-shared/.env.
 
 STACKS_DIR="${STACKS_DIR:-/opt/stacks}"
 REDIS_SHARED_DIR="$STACKS_DIR/redis-shared"
@@ -13,22 +13,20 @@ redis_shared_password() {
     sudo sed -n 's/^REDIS_PASSWORD=//p' "$REDIS_SHARED_DIR/.env" 2>/dev/null || true
 }
 
+# The address containers get for "host-gateway", daemon settings included.
 _redis_bridge_address() {
-    local address
-    address=$(sudo docker network inspect bridge --format '{{range .IPAM.Config}}{{println .Gateway}}{{end}}' 2>/dev/null \
-        | grep -E -m1 '^([0-9]+\.){3}[0-9]+$') || true
-    if [ -z "$address" ]; then
-        address=$(ip -4 -o addr show docker0 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
-    fi
-    [ -n "$address" ] && echo "$address"
+    sudo docker run --rm --add-host h:host-gateway redis:alpine getent hosts h \
+        | awk '{print $1}' | grep -E -m1 '^([0-9]+\.){3}[0-9]+$'
 }
 
-# Creates the definition, or rewrites an older one (data stays in ./data).
+# Creates the definition, or rewrites an outdated one (data stays in ./data).
 _redis_shared_define() {
     local compose="$REDIS_SHARED_DIR/docker-compose.yaml" address
 
-    if [ -z "$(redis_shared_password)" ] || ! sudo grep -q 'REDIS_PASSWORD' "$compose" 2>/dev/null; then
-        address=$(_redis_bridge_address) || { echo "❌ Cannot determine the Docker bridge address" >&2; return 1; }
+    address=$(_redis_bridge_address) || { echo "❌ Cannot determine the Docker bridge address" >&2; return 1; }
+
+    if [ -z "$(redis_shared_password)" ] || ! sudo grep -q 'REDIS_PASSWORD' "$compose" 2>/dev/null \
+        || ! sudo grep -qF "\"$address:6379:6379\"" "$compose"; then
         echo "📦 Configuring shared Redis (for multiple WP sites)..."
         sudo mkdir -p "$REDIS_SHARED_DIR"
         if [ -z "$(redis_shared_password)" ]; then
