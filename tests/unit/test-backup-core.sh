@@ -92,6 +92,9 @@ STUB
     export BACKUP_LOCK_FILE="$T/lock"
     export DB_CREDENTIALS_FILE="$T/db-credentials.conf"
     export BACKUP_RESTORE_TMP="$T/restore-tmp"
+    export LEGACY_DB_CRON="$T/legacy-db-cron" LEGACY_DB_SCRIPT="$T/legacy-db-backup.sh"
+    printf '#!/bin/bash\nif [ "$1" = -l ]; then cat "$T/crontab" 2>/dev/null; else cat > "$T/crontab"; fi\n' > "$T/bin/crontab"
+    chmod +x "$T/bin/crontab"
     unset MOCK_EXEC_FAIL MOCK_RESTIC_CAT_EXIT MOCK_RESTIC_BACKUP_EXIT MOCK_COMM
 }
 
@@ -211,6 +214,17 @@ test_init_creates_missing_repository_and_cron() {
     assert_eq "0" "$?" "init succeeds" || cat "$T/out"
     assert_true grep -q '^restic init' "$LOG"
     assert_contains "$(cat "$T/cron")" "stackpilot-backup run" "cron job installed"
+}
+
+test_init_removes_the_previous_backup_jobs() {
+    printf '0 3 * * * root /opt/stackpilot/scripts/db-backup.sh\n' > "$LEGACY_DB_CRON"
+    echo '#!/bin/bash' > "$LEGACY_DB_SCRIPT"
+    printf '0 4 * * * /opt/stackpilot/system/backup-core.sh\n15 * * * * /usr/bin/other-job\n' > "$T/crontab"
+    bash "$ENGINE" init > "$T/out" 2>&1
+    assert_eq "0" "$?" "init succeeds" || cat "$T/out"
+    assert_false test -e "$LEGACY_DB_CRON"
+    assert_false test -e "$LEGACY_DB_SCRIPT"
+    assert_eq "15 * * * * /usr/bin/other-job" "$(cat "$T/crontab")" "only the old rclone job left the crontab"
 }
 
 test_init_keeps_existing_repository() {

@@ -22,6 +22,8 @@ BACKUP_PATHS=${BACKUP_PATHS:-/opt/stacks /opt/dockge /opt/backups /etc/caddy /va
 BACKUP_CRON_FILE=${BACKUP_CRON_FILE:-/etc/cron.d/stackpilot-backup}
 BACKUP_LOCK_FILE=${BACKUP_LOCK_FILE:-/run/lock/stackpilot-backup.lock}
 BACKUP_RESTORE_TMP=${BACKUP_RESTORE_TMP:-/var/tmp}
+LEGACY_DB_CRON=${LEGACY_DB_CRON:-/etc/cron.d/stackpilot-db-backup}
+LEGACY_DB_SCRIPT=${LEGACY_DB_SCRIPT:-/opt/stackpilot/scripts/db-backup.sh}
 ENGINE_PATH=/usr/local/sbin/stackpilot-backup
 RESTIC_VERSION=0.19.1
 RESTIC_SHA256_amd64=f415415624dcc452f2a02b8c33641791a8c6d6d3b65bbb3543fcf9a25151585c
@@ -251,6 +253,17 @@ cmd_run() {
 
 # --- Setup -------------------------------------------------------------------
 
+# The previous rclone backup left a nightly dump job and a crontab entry; restic replaces both.
+remove_legacy_backup() {
+    rm -f "$LEGACY_DB_CRON" "$LEGACY_DB_SCRIPT"
+    local CRONTAB
+    CRONTAB=$(crontab -l 2> /dev/null) || return 0
+    if grep -q 'backup-core\.sh' <<< "$CRONTAB"; then
+        { grep -v 'backup-core\.sh' <<< "$CRONTAB" || true; } | crontab -
+        log "Removed the previous rclone backup job"
+    fi
+}
+
 restic_is_current() {
     local V
     V=$(restic version 2>/dev/null | awk '{print $2}') || return 1
@@ -306,6 +319,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 0 3 * * * root $ENGINE_PATH run >> /var/log/stackpilot-backup.log 2>&1
 EOF
     chmod 644 "$BACKUP_CRON_FILE"
+    remove_legacy_backup
     log "Daily backup scheduled at 03:00"
 }
 
