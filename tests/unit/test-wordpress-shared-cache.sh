@@ -53,7 +53,7 @@ MOCK
 }
 teardown() {
     PATH="$ORIGINAL_PATH"
-    unset STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE WP_REDIS REDIS_PASS POSTIZ_REDIS DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
+    unset BUNDLED_DB_TYPE STACKS_DIR STACKPILOT_DIR DOCKER_CALLS CHOWN_CALLS PERF_CAPTURE WP_REDIS REDIS_PASS POSTIZ_REDIS DOMAIN DB_HOST DB_USER DB_PASS YES_MODE HOST_GATEWAY RUNNING DETECTED_REDIS
     rm -rf "$TEST_TMPDIR"
 }
 
@@ -88,6 +88,20 @@ test_data_service_ports_name_a_host_address() {
     found=$(grep -HnE '^[[:space:]]*-[[:space:]]*"?(\$\{?[A-Za-z_]+\}?|[0-9]+):(6379|5432|3306|27017|11211|5672|9200)"?[[:space:]]*$' \
         "$REPO_ROOT"/apps/*/*.sh || true)
     assert_eq '' "$found" 'data service ports carry a host address'
+}
+test_bundled_mysql_is_part_of_the_stack() {
+    BUNDLED_DB_TYPE=mysql install_wordpress
+    local compose
+    compose=$(cat "$STACKS_DIR/wordpress-blog/docker-compose.yaml")
+    assert_contains "$compose" "image: mysql:8.0"
+    assert_contains "$compose" "db-data:/var/lib/mysql"
+    assert_contains "$compose" "MYSQL_PASSWORD: wp-db-pass"
+    assert_contains "$compose" "  db-data:"
+}
+test_external_database_adds_no_db_service() {
+    install_wordpress
+    assert_true test -s "$STACKS_DIR/wordpress-blog/docker-compose.yaml"
+    assert_not_contains "$(cat "$STACKS_DIR/wordpress-blog/docker-compose.yaml")" "image: mysql"
 }
 test_fresh_install_publishes_on_bridge_address_with_password() {
     install_wordpress
