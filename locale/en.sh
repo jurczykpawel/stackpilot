@@ -140,6 +140,7 @@ MSG_RES_CHECK_FAILED="   ${YELLOW}⚠ Could not check resources${NC}"
 
 MSG_PORT_IN_USE="   ${YELLOW}⚠ Port %s is in use!${NC}"
 MSG_PORT_OVERRIDE="   ${GREEN}✓ Using port %s instead of %s${NC}"
+MSG_PORT_CHECK_FAILED="${RED}❌ Cannot check which ports are in use on the server: the ss command (package iproute2) is missing and could not be installed. Install iproute2 on the server and run again.${NC}"
 
 # =============================================================================
 # DEPLOY - DATABASE

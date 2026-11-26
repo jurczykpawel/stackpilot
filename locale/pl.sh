@@ -139,6 +139,7 @@ MSG_RES_CHECK_FAILED="   ${YELLOW}⚠ Nie udało się sprawdzić zasobów${NC}"
 
 MSG_PORT_IN_USE="   ${YELLOW}⚠ Port %s jest zajęty!${NC}"
 MSG_PORT_OVERRIDE="   ${GREEN}✓ Używam portu %s zamiast %s${NC}"
+MSG_PORT_CHECK_FAILED="${RED}❌ Nie da się sprawdzić zajętych portów na serwerze: brak polecenia ss (pakiet iproute2), a jego instalacja się nie udała. Zainstaluj iproute2 na serwerze i uruchom ponownie.${NC}"
 
 # =============================================================================
 # DEPLOY - DATABASE

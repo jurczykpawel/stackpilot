@@ -637,18 +637,17 @@ if [ -n "$DEFAULT_PORT" ] && ! grep -qx '# PORT_MANAGED=true' "$SCRIPT_PATH"; th
         PORT_OVERRIDE="$_EXISTING_PORT"
         echo "   Reusing existing port $PORT_OVERRIDE (from previous install)"
     elif [ -z "$_EXISTING_PORT" ]; then
-        # Fresh install — check if default port is free
-        PORT_IN_USE=$(server_exec_timeout 5 "ss -tlnp 2>/dev/null | grep -q ':${DEFAULT_PORT} ' && echo 'yes' || echo 'no'" 2>/dev/null)
+        # No port marker — check if default port is free (one call, search in memory).
+        # Ports of the app's own running containers are not taken: install.sh recreates them.
+        USED_PORTS=$(listening_ports "$SSH_ALIAS") || { msg "$MSG_PORT_CHECK_FAILED"; exit 1; }
+        OWN_PORTS=$(app_published_ports "$APP_NAME")
+        [ -z "$OWN_PORTS" ] || USED_PORTS=$(grep -vxF "$OWN_PORTS" <<< "$USED_PORTS" || true)
 
-        if [ "$PORT_IN_USE" == "yes" ]; then
+        if grep -qx "$DEFAULT_PORT" <<< "$USED_PORTS"; then
             echo ""
             msg "$MSG_PORT_IN_USE" "$DEFAULT_PORT"
-
-            # Single SSH call → port list, search in memory (no retry limit)
-            PORT_OVERRIDE=$(find_free_port_remote "$SSH_ALIAS" $((DEFAULT_PORT + 1)))
-            if [ -n "$PORT_OVERRIDE" ]; then
-                msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
-            fi
+            PORT_OVERRIDE=$(next_free_port $((DEFAULT_PORT + 1)) "$USED_PORTS")
+            msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
         fi
     fi
     # else: re-deploy, existing port == default port → no override needed,
@@ -1025,6 +1024,9 @@ if [ "$DRY_RUN" = true ]; then
     echo -e "$MSG_EXEC_DRYRUN_DONE"
     exit 0
 fi
+
+# Port checks in installers need ss (iproute2), which minimal images lack
+listening_ports "$SSH_ALIAS" > /dev/null || { msg "$MSG_PORT_CHECK_FAILED"; exit 1; }
 
 # Auto-install Docker if missing (skip for sellf pm2 mode — doesn't need Docker)
 DOCKER_REQUIRED=true

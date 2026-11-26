@@ -25,6 +25,7 @@ User-facing changes to StackPilot. Entries are dated; the project follows the `m
 - **Sellf** update and restart check Node.js before they stop the application: with Node.js older than 20.12 they exit with instructions instead of leaving Sellf stopped. The installer now also upgrades an older Node.js, not only a missing one (#34).
 - Deploying over SSH to a server without rsync (e.g. a minimal Debian 12) installs the toolbox with a git clone instead of printing "Failed to install toolbox" (#30).
 - `--domain-type=caddy` and `cloudflare` install Caddy before the application installer runs, so installers that need it (LittleLink) work on a clean server; when Caddy cannot be installed, the deploy stops before the application installer runs (#29).
+- `deploy.sh` installs `iproute2` when the server has no `ss`, and stops with an error if that fails, instead of treating every port as free. A re-deploy no longer moves an application whose own containers hold its port (#32).
 - Docker installation on a clean Debian server through the one-line installer (#28).
 - `--domain-type=caddy` reporting a configured domain without Caddy on the server (#25).
 - Application ports published on all interfaces although the documentation says `127.0.0.1` (#26).
