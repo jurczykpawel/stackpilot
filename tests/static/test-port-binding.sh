@@ -13,8 +13,7 @@ TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$TESTS_DIR/../.." && pwd)"
 
 # file|published line|reason
-EXCEPTIONS='apps/wordpress/install.sh|- "6379:6379"|shared Redis, managed by the WordPress installer
-apps/wordpress/redis-shared.sh|- "$address:6379:6379"|shared Redis on the Docker bridge address
+EXCEPTIONS='apps/wordpress/redis-shared.sh|- "$address:6379:6379"|shared Redis on the Docker bridge address
 apps/sellf/release-verify.sh|network_mode: host|reaches a local Supabase on localhost; listener set by the app'
 
 # These bind to localhost for every domain type
