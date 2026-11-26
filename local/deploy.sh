@@ -32,6 +32,7 @@ source "$REPO_ROOT/lib/db-setup.sh"
 source "$REPO_ROOT/lib/domain-setup.sh"
 source "$REPO_ROOT/lib/sellf-setup.sh" 2>/dev/null || true  # Optional for Sellf
 source "$REPO_ROOT/lib/port-utils.sh"
+source "$REPO_ROOT/lib/validation.sh"
 source "$REPO_ROOT/lib/i18n.sh"
 source "$REPO_ROOT/lib/providers/detect.sh"
 
@@ -1150,15 +1151,15 @@ fi
 INSTALLED_STACK_DIR=$(server_exec "cat /tmp/app_stack_dir 2>/dev/null; rm -f /tmp/app_stack_dir" 2>/dev/null)
 APP_STACK_DIR="${INSTALLED_STACK_DIR:-/opt/stacks/$APP_NAME}"
 
+DOMAIN_FAILED=false
+PUBLIC_DOMAIN_FAILED=false
 if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
     echo ""
     if configure_domain "$APP_PORT" "$SSH_ALIAS"; then
         # Wait for domain to start responding (timeout 90s)
         wait_for_domain 90
     else
-        echo ""
-        msg "$MSG_DOMAIN_SERVICE_OK_BUT"
-        msg "$MSG_DOMAIN_MANUAL_LATER"
+        DOMAIN_FAILED=true
     fi
 fi
 
@@ -1180,10 +1181,12 @@ if [ -n "$DOMAIN_PUBLIC" ]; then
     fi
 
     # Configure Caddy file_server
-    if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
+    if sp_validate_domain "$DOMAIN_PUBLIC" && ensure_caddy "$SSH_ALIAS" \
+        && caddy_publish_site "$DOMAIN_PUBLIC" "$WEBROOT" static; then
         msg "$MSG_DOMAIN_STATIC_OK" "$DOMAIN_PUBLIC"
     else
         msg "$MSG_DOMAIN_CADDY_FAIL" "$DOMAIN_PUBLIC"
+        PUBLIC_DOMAIN_FAILED=true
     fi
     # Cleanup
     server_exec "rm -f /tmp/domain_public_webroot" 2>/dev/null
@@ -1194,16 +1197,21 @@ fi
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-printf "║  %s\n" "$MSG_SUMMARY_DONE"
-echo "╚════════════════════════════════════════════════════════════════╝"
+if [ "$DOMAIN_FAILED" = true ] || [ "$PUBLIC_DOMAIN_FAILED" = true ]; then
+    msg "$MSG_DOMAIN_SERVICE_OK_BUT"
+    msg "$MSG_DOMAIN_MANUAL_LATER"
+else
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    printf "║  %s\n" "$MSG_SUMMARY_DONE"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+fi
 
 if [ "$DOMAIN_TYPE" = "local" ]; then
     echo ""
     msg "$MSG_SUMMARY_TUNNEL"
     echo -e "   ${BLUE}ssh -L $APP_PORT:localhost:$APP_PORT $SSH_ALIAS${NC}"
     msg "$MSG_SUMMARY_THEN_OPEN" "$APP_PORT"
-elif [ -n "$DOMAIN" ]; then
+elif [ -n "$DOMAIN" ] && [ "$DOMAIN_FAILED" != true ]; then
     echo ""
     msg "$MSG_SUMMARY_AVAILABLE" "$DOMAIN"
 fi
@@ -1316,3 +1324,7 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 fi
 
 echo ""
+
+if [ "$DOMAIN_FAILED" = true ] || [ "$PUBLIC_DOMAIN_FAILED" = true ]; then
+    exit 1
+fi

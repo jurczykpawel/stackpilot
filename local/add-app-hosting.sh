@@ -71,14 +71,8 @@ fi
 echo "App is responding."
 echo ""
 
-# Install Caddy if sp-expose is missing.
-if ! server_exec "command -v sp-expose >/dev/null 2>&1"; then
-    echo "Installing Caddy..."
-    server_exec "bash -s" < "$SCRIPT_DIR/../system/caddy-install.sh" || { echo "Caddy install failed"; exit 1; }
-    echo "Caddy installed."
-else
-    echo "Caddy already installed."
-fi
+# Install Caddy if missing.
+ensure_caddy "$SSH_ALIAS" || exit 1
 echo ""
 
 # Frog (Mikrus free tier) blocks inbound IPv6:80 from the public internet,

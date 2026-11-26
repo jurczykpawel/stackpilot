@@ -4,10 +4,11 @@
 # Installs Caddy (Modern Reverse Proxy) and a CLI helper for instant HTTPS.
 # Author: Paweł (Lazy Engineer)
 
-set -e
+set -eo pipefail
 
 _CADDY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
-if [ -z "${TOOLBOX_LANG+x}" ]; then
+# An inherited TOOLBOX_LANG does not bring the messages along
+if [ -z "${MSG_CADDY_STEP1+x}" ]; then
     # When piped via ssh (bash -s), paths won't resolve — define fallbacks
     if [ -n "$_CADDY_DIR" ] && [ -f "$_CADDY_DIR/../lib/i18n.sh" ]; then
         source "$_CADDY_DIR/../lib/i18n.sh"
@@ -42,6 +43,7 @@ if [ "$TOOLS_ONLY" = false ]; then
         sudo rc-update add caddy default 2>/dev/null || true
     else
         # Debian/Ubuntu: install via Cloudsmith repo
+        sudo apt update -q
         sudo apt install -y -q debian-keyring debian-archive-keyring apt-transport-https curl
 
         # Add Key & Repo
@@ -53,14 +55,30 @@ if [ "$TOOLS_ONLY" = false ]; then
         sudo apt install caddy -y
     fi
 
-    # Replace default Caddyfile (default :80 block prevents self-signed certs for CF-proxied domains).
-    # Per-domain configuration lives in /etc/caddy/conf.d/<domain>.caddy and is imported here.
+    # Per-domain configuration lives in /etc/caddy/conf.d/<domain>.caddy and is imported
+    # from the Caddyfile. The package default (a :80 welcome page, which prevents
+    # self-signed certs for CF-proxied domains) is replaced; any other content is kept.
+    CADDYFILE=/etc/caddy/Caddyfile
     sudo mkdir -p /etc/caddy/conf.d
-    sudo tee /etc/caddy/Caddyfile > /dev/null <<'CADDYFILE_EOF'
+    CURRENT=""
+    if sudo test -f "$CADDYFILE"; then
+        CURRENT=$(sudo cat "$CADDYFILE" | sed 's/#.*//' | tr -d '[:space:]')
+    fi
+    if [ -z "$CURRENT" ] || [ "$CURRENT" = ':80{root*/usr/share/caddyfile_server}' ]; then
+        sudo tee "$CADDYFILE" > /dev/null <<'CADDYFILE_EOF'
 # Managed by StackPilot
 # Per-domain configuration lives in /etc/caddy/conf.d/<domain>.caddy
 import /etc/caddy/conf.d/*.caddy
 CADDYFILE_EOF
+    elif ! sudo grep -qE '^[[:space:]]*import[[:space:]]+(/etc/caddy/)?conf\.d/' "$CADDYFILE"; then
+        sudo cp "$CADDYFILE" "$CADDYFILE.before-stackpilot"
+        printf '\nimport /etc/caddy/conf.d/*.caddy\n' | sudo tee -a "$CADDYFILE" > /dev/null
+        if ! sudo caddy validate --config "$CADDYFILE" --adapter caddyfile; then
+            sudo cp "$CADDYFILE.before-stackpilot" "$CADDYFILE"
+            msg "$MSG_CADDY_IMPORT_FAILED" "$CADDYFILE"
+            exit 1
+        fi
+    fi
 
     msg "$MSG_CADDY_STEP2"
 else
@@ -154,7 +172,7 @@ PRIMARY="${PRIMARY//\//_}"
 TARGET_FILE="$CONF_D/$PRIMARY.caddy"
 
 # Check if domain already exists to avoid duplicates (search all conf.d files)
-if [ -d "$CONF_D" ] && grep -hE "^[[:space:]]*([^{}#]*[[:space:],])?${DOMAIN}([[:space:],{/]|$)" "$CONF_D"/*.caddy 2>/dev/null | grep -q '{[[:space:]]*$'; then
+if [ -d "$CONF_D" ] && grep -hE "^[[:space:]]*([^{}#]*[[:space:],])?(https?://)?${DOMAIN}([[:space:],{/]|$)" "$CONF_D"/*.caddy 2>/dev/null | grep -q '{[[:space:]]*$'; then
     echo "⚠️  Domain $DOMAIN already configured in $CONF_D/. Please edit manually."
     exit 1
 fi
@@ -198,18 +216,23 @@ CONFIG
 fi
 
 # Ensure Caddy is running and reload (portable: systemd or OpenRC)
+caddy_failed() {
+    echo "❌ Caddy did not load the configuration. Check: journalctl -u caddy -n 50"
+    exit 1
+}
 if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files caddy.service >/dev/null 2>&1; then
     if ! systemctl is-active --quiet caddy; then
-        sudo systemctl start caddy
+        # Caddy can report a successful start and exit right after
+        { sudo systemctl start caddy && sleep 2 && systemctl is-active --quiet caddy; } || caddy_failed
         sudo systemctl enable caddy 2>/dev/null
     else
-        sudo systemctl reload caddy
+        sudo systemctl reload caddy || caddy_failed
     fi
 elif command -v rc-service >/dev/null 2>&1; then
     if sudo rc-service caddy status >/dev/null 2>&1; then
-        sudo rc-service caddy reload 2>/dev/null || sudo rc-service caddy restart
+        sudo rc-service caddy reload 2>/dev/null || sudo rc-service caddy restart || caddy_failed
     else
-        sudo rc-service caddy start
+        { sudo rc-service caddy start && sleep 2 && sudo rc-service caddy status >/dev/null; } || caddy_failed
         sudo rc-update add caddy default 2>/dev/null || true
     fi
 else

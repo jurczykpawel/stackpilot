@@ -396,6 +396,77 @@ configure_domain() {
     return 1
 }
 
+# Is there a Caddy site block for exactly this domain?
+caddy_site_exists() {
+    local SITE="^[[:space:]]*([^{}#]*[[:space:],])?(https?://)?${1//./\\.}([[:space:],{:/]|\$)"
+    server_exec "grep -hsE '$SITE' /etc/caddy/Caddyfile /etc/caddy/conf.d/*.caddy | grep -q '{[[:space:]]*\$'"
+}
+
+# Load the configuration into Caddy, starting it when stopped. Caddy can report a
+# successful start and exit right after, so check that it stays up
+caddy_activate() {
+    server_exec "if command -v systemctl >/dev/null 2>&1; then sudo systemctl enable caddy >/dev/null 2>&1; sudo systemctl reload-or-restart caddy && sleep 2 && systemctl is-active --quiet caddy; else { sudo rc-service caddy reload || sudo rc-service caddy restart; } && sleep 2 && sudo rc-service caddy status >/dev/null; fi"
+}
+
+# Serve a domain through Caddy; succeeds only when the site is configured and loaded
+# Usage: caddy_publish_site DOMAIN PORT_OR_PATH proxy|static|php
+caddy_publish_site() {
+    local SITE_DOMAIN="$1"
+    local TARGET="$2"
+    local MODE="$3"
+
+    local OK_MSG="$MSG_DOM_FS_OK"
+    [ "$MODE" = "proxy" ] && OK_MSG="$MSG_DOM_RP_OK"
+
+    # sp-expose also refuses a domain it already serves (redeploy, or install.sh added it)
+    if ! server_exec "sp-expose '$SITE_DOMAIN' '$TARGET' '$MODE'"; then
+        if ! caddy_site_exists "$SITE_DOMAIN"; then
+            msg "$MSG_DOM_EXPOSE_FAIL" "$SITE_DOMAIN" >&2
+            msg "$MSG_DOM_EXPOSE_CHECK" "${SSH_ALIAS:-vps}" >&2
+            return 1
+        fi
+        OK_MSG="$MSG_DOM_ALREADY"
+    fi
+
+    if ! caddy_activate; then
+        msg "$MSG_DOM_EXPOSE_FAIL" "$SITE_DOMAIN" >&2
+        msg "$MSG_DOM_EXPOSE_CHECK" "${SSH_ALIAS:-vps}" >&2
+        return 1
+    fi
+    msg "$OK_MSG"
+}
+
+# Publish the installed app on $DOMAIN, installing Caddy first when missing:
+# a file server for the directory install.sh left in /tmp/*_webroot, otherwise
+# a reverse proxy to the port
+caddy_publish_app() {
+    local PORT="$1"
+    local SSH_ALIAS="$2"
+
+    ensure_caddy "$SSH_ALIAS" || return 1
+
+    # domain_public_webroot belongs to DOMAIN_PUBLIC, handled separately in deploy.sh
+    local WEBROOT=$(server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
+    if [ -z "$WEBROOT" ]; then
+        caddy_publish_site "$DOMAIN" "$PORT" proxy
+        return $?
+    fi
+
+    # PHP mode marker (e.g. /tmp/countdown-timer_mode containing "php")
+    local SITE_MODE=$(server_exec "ls /tmp/*_mode 2>/dev/null | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
+    local MODE="${SITE_MODE:-static}"
+    local LABEL="$WEBROOT"
+    [ "$MODE" = "php" ] && LABEL="$WEBROOT (PHP)"
+    msg "$MSG_DOM_STATIC" "$LABEL"
+
+    caddy_publish_site "$DOMAIN" "$WEBROOT" "$MODE" || return 1
+
+    # Remove markers (not domain_public_webroot)
+    server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
+    server_exec "rm -f /tmp/*_mode" 2>/dev/null
+    return 0
+}
+
 configure_domain_caddy() {
     local PORT="$1"
     local SSH_ALIAS="$2"
@@ -409,39 +480,7 @@ configure_domain_caddy() {
         return 1
     fi
 
-    # Check if this is a static/PHP site (look for /tmp/APP_webroot file, not domain_public_webroot)
-    local WEBROOT=$(server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
-    # Check for PHP mode marker (e.g. /tmp/countdown-timer_mode containing "php")
-    local SITE_MODE=$(server_exec "ls /tmp/*_mode 2>/dev/null | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
-
-    if [ -n "$WEBROOT" ]; then
-        local EXPOSE_MODE="${SITE_MODE:-static}"
-        if [ "$EXPOSE_MODE" = "php" ]; then
-            msg "$MSG_DOM_CADDY_STATIC" "$WEBROOT (PHP)"
-        else
-            msg "$MSG_DOM_CADDY_STATIC" "$WEBROOT"
-        fi
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' '$EXPOSE_MODE'"; then
-            msg "$MSG_DOM_CADDY_FS_OK"
-            # Remove markers (don't remove domain_public_webroot!)
-            server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
-            server_exec "rm -f /tmp/*_mode" 2>/dev/null
-        else
-            msg "$MSG_DOM_CADDY_EXPOSE_NA"
-        fi
-    else
-        # Docker app - use reverse_proxy
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT'" 2>/dev/null; then
-            msg "$MSG_DOM_CADDY_RP_OK"
-        else
-            # Check if domain is already in Caddyfile
-            if server_exec "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
-                msg "$MSG_DOM_CADDY_ALREADY"
-            else
-                msg "$MSG_DOM_CADDY_EXPOSE_NA"
-            fi
-        fi
-    fi
+    caddy_publish_app "$PORT" "$SSH_ALIAS" || return 1
 
     echo ""
     msg "$MSG_DOM_CADDY_DONE" "$DOMAIN"
@@ -500,85 +539,22 @@ configure_domain_cloudflare() {
     echo ""
     msg "$MSG_DOM_CF_HTTPS"
 
-    local CADDY_OK=false
-
-    # Make sure Caddy + sp-expose is on the server
-    if ! server_exec "command -v sp-expose &>/dev/null" 2>/dev/null; then
-        msg "$MSG_DOM_CF_EXPOSE_MISSING"
-        ensure_toolbox "$SSH_ALIAS"
-        local CADDY_SCRIPT="$REPO_ROOT/system/caddy-install.sh"
-        if [ -f "$CADDY_SCRIPT" ]; then
-            server_exec "bash -s" < "$CADDY_SCRIPT" 2>&1 | tail -3
+    if ! caddy_publish_app "$PORT" "$SSH_ALIAS"; then
+        echo ""
+        if [ "$DNS_OK" = true ]; then
+            msg "$MSG_DOM_CF_DNS_ONLY"
         else
-            server_exec "bash -s" < <(curl -sL "https://raw.githubusercontent.com/jurczykpawel/stackpilot/main/system/caddy-install.sh") 2>&1 | tail -3
+            msg "$MSG_DOM_CF_BOTH_FAIL"
         fi
-    fi
-
-    # Check if this is a static/PHP site (look for /tmp/APP_webroot file, not domain_public_webroot)
-    # domain_public_webroot is for DOMAIN_PUBLIC, handled separately in deploy.sh
-    local WEBROOT=$(server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
-    # Check for PHP mode marker (e.g. /tmp/countdown-timer_mode containing "php")
-    local SITE_MODE=$(server_exec "ls /tmp/*_mode 2>/dev/null | head -1 | xargs cat 2>/dev/null" 2>/dev/null)
-
-    if [ -n "$WEBROOT" ]; then
-        local EXPOSE_MODE="${SITE_MODE:-static}"
-        if [ "$EXPOSE_MODE" = "php" ]; then
-            msg "$MSG_DOM_CF_STATIC" "$WEBROOT (PHP)"
-        else
-            msg "$MSG_DOM_CF_STATIC" "$WEBROOT"
-        fi
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$WEBROOT' '$EXPOSE_MODE'" 2>/dev/null; then
-            msg "$MSG_DOM_CF_FS_OK"
-            CADDY_OK=true
-            # Remove markers (don't remove domain_public_webroot!)
-            server_exec "ls /tmp/*_webroot 2>/dev/null | grep -v domain_public_webroot | xargs rm -f" 2>/dev/null
-            server_exec "rm -f /tmp/*_mode" 2>/dev/null
-        fi
-    else
-        # Docker app - use reverse_proxy
-        if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN' '$PORT' proxy" 2>/dev/null; then
-            msg "$MSG_DOM_CF_RP_OK"
-            CADDY_OK=true
-        fi
-    fi
-
-    # Fallback: sp-expose may have refused because domain is already in Caddyfile — that's OK
-    if [ "$CADDY_OK" = false ]; then
-        if server_exec "grep -q '$DOMAIN' /etc/caddy/Caddyfile 2>/dev/null"; then
-            msg "$MSG_DOM_CF_ALREADY"
-            CADDY_OK=true
-        fi
-    fi
-
-    if [ "$CADDY_OK" = false ]; then
-        if server_exec "command -v sp-expose &>/dev/null" 2>/dev/null; then
-            msg "$MSG_DOM_CF_EXPOSE_FAIL"
-            msg "$MSG_DOM_CF_EXPOSE_CHECK" "$SSH_ALIAS"
-        else
-            msg "$MSG_DOM_CF_NOT_INSTALLED"
-            msg "$MSG_DOM_CF_INSTALL_HINT" "$SSH_ALIAS"
-        fi
-    fi
-
-    # Make sure Caddy is running
-    if [ "$CADDY_OK" = true ]; then
-        if ! server_exec "systemctl is-active --quiet caddy" 2>/dev/null; then
-            msg "$MSG_DOM_CF_STARTING_CADDY"
-            server_exec "systemctl start caddy && systemctl enable caddy 2>/dev/null" 2>/dev/null
-        fi
+        return 1
     fi
 
     # Summary
     echo ""
-    if [ "$DNS_OK" = true ] && [ "$CADDY_OK" = true ]; then
+    if [ "$DNS_OK" = true ]; then
         msg "$MSG_DOM_CF_FULL_OK" "$DOMAIN"
-    elif [ "$CADDY_OK" = true ]; then
-        msg "$MSG_DOM_CF_CADDY_OK" "$DOMAIN"
-    elif [ "$DNS_OK" = true ]; then
-        msg "$MSG_DOM_CF_DNS_ONLY"
     else
-        msg "$MSG_DOM_CF_BOTH_FAIL"
-        return 1
+        msg "$MSG_DOM_CF_CADDY_OK" "$DOMAIN"
     fi
 
     return 0
@@ -774,6 +750,7 @@ export -f ask_domain_caddy
 export -f ask_domain_cloudflare
 export -f show_domain_summary
 export -f configure_domain
+export -f caddy_site_exists caddy_activate caddy_publish_site caddy_publish_app
 export -f configure_domain_caddy
 export -f configure_domain_cloudflare
 export -f wait_for_domain
