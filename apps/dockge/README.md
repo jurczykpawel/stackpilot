@@ -14,7 +14,7 @@ Lightweight Docker Compose manager. Replaces the heavy Portainer.
 
 - **RAM:** ~150MB (container limit: not set in compose, image is very lightweight)
 - **Disk:** ~150MB (Docker image)
-- **Port:** 5001 — Note: port is bound to all interfaces (0.0.0.0) — use `--domain-type=cloudflare` or `--domain-type=caddy` to put it behind a reverse proxy.
+- **Port:** 5001 (bound to `127.0.0.1`, except with `--domain-type=cytrus`) — use `--domain-type=cloudflare` or `--domain-type=caddy` for a domain, or an SSH tunnel.
 
 ## Why Dockge?
 

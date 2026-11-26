@@ -431,7 +431,7 @@ Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN
 Apps that need PostgreSQL or MySQL can use a bundled database container (auto-provisioned, zero config) or connect to an external database you provide. WordPress also supports SQLite for simple sites.
 
 **Is this secure?**
-Apps run in isolated Docker containers. External access is HTTPS-only via Caddy. Ports are bound to `127.0.0.1` by default. Encrypted off-site backups are supported out of the box.
+Apps run in isolated Docker containers. With `cloudflare` or `caddy` domains, public traffic goes through Caddy over HTTPS, and application ports are bound to `127.0.0.1` by default. Exceptions: Cytrus domains on Mikrus (the app listens on all interfaces because Cytrus connects to the port directly), the Supabase PostgreSQL pooler (ports 5432 and 6543), and Sellf, WordPress and Coolify, which manage their own listeners. Encrypted off-site backups are supported out of the box.
 
 **How do I update an app?**
 Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved.

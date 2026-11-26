@@ -16,8 +16,16 @@ set -e
 
 APP_NAME="minio"
 STACK_DIR="/opt/stacks/$APP_NAME"
-API_PORT=${PORT:-9000}
-CONSOLE_PORT=${CONSOLE_PORT:-9001}
+PORT=${PORT:-9001}  # Console (Web UI): the port the domain points at
+CONSOLE_PORT=$PORT
+API_PORT=${API_PORT:-9000}
+
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
 
 echo "--- 📦 MinIO Setup (S3-Compatible Storage) ---"
 echo "MinIO is a self-hosted storage compatible with Amazon S3."
@@ -61,8 +69,8 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
     ports:
-      - "${API_PORT}:9000"
-      - "${CONSOLE_PORT}:9001"
+      - "${BIND_ADDR}${API_PORT}:9000"
+      - "${BIND_ADDR}${CONSOLE_PORT}:9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
@@ -83,6 +91,7 @@ EOF
 
 echo "--- Starting MinIO ---"
 sudo docker compose up -d
+printf '%s\n' "$PORT" | sudo tee "$STACK_DIR/.stackpilot-port" >/dev/null
 
 # Health check
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true

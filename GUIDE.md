@@ -570,7 +570,7 @@ ssh vps 'PGPASSWORD=<pass> psql -h <host> -U <user> -d <db> -c "SELECT 1"'
 
 - Check if the container is running: `docker ps`
 - Check if the port is open: `curl localhost:PORT`
-- Check if the port is NOT bound to 127.0.0.1 when using external domain access (must be 0.0.0.0 or no prefix)
+- Check the port binding: `127.0.0.1` is correct behind Caddy/Cloudflare; Cytrus needs no address prefix
 - Verify DNS records point to the correct server IP
 - Check Caddy status: `ssh vps 'systemctl status caddy'`
 
@@ -589,18 +589,18 @@ ssh vps 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'
 
 #### 5. App works locally but not via domain
 
-Ensure the port binding allows external access:
+The port binding depends on the domain type:
 ```yaml
-# WRONG - localhost only
+# Caddy / Cloudflare / SSH tunnel: Caddy runs on the same server
 ports:
   - "127.0.0.1:3000:3000"
 
-# CORRECT - all interfaces (needed for external reverse proxy)
+# Cytrus only: it connects to the port directly
 ports:
   - "3000:3000"
 ```
 
-For Caddy reverse proxy, 127.0.0.1 binding is fine since Caddy runs on the same server.
+Installers set this from `--domain-type`, so with Cytrus deploy with `--domain-type=cytrus`.
 
 ### Restarting Applications
 
@@ -749,6 +749,8 @@ deploy:
 
 - Ports 80 and 443 are used by Caddy (reverse proxy)
 - Use ports > 1024 for applications
+- Application ports listen on `127.0.0.1`; only `--domain-type=cytrus` publishes them on all interfaces (exceptions: README, "Is this secure?")
+- `--update` keeps the existing compose file. To change the binding of an older installation, prefix its `ports:` entry with `127.0.0.1:` and run `docker compose up -d` (a redeploy can generate new secrets for some apps)
 - Avoid conflicts - check `docker ps` before installing
 
 ---

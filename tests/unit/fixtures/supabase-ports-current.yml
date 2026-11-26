@@ -1,0 +1,9 @@
+# Port blocks recorded from supabase/supabase docker/docker-compose.yml @ 52a7fddc
+services:
+  api-gw:
+    ports:
+      - ${API_GW_HTTP_PORT:-${KONG_HTTP_PORT:-8000}}:8000/tcp
+  supavisor:
+    ports:
+      - ${POSTGRES_PORT}:5432
+      - ${POOLER_PROXY_PORT_TRANSACTION}:6543

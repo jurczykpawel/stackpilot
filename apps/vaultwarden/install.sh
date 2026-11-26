@@ -16,6 +16,13 @@ APP_NAME="vaultwarden"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8088}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 🔐 Vaultwarden Setup ---"
 echo "NOTE: Once installed, create your account immediately."
 echo "Then, restart the container with SIGNUPS_ALLOWED=false to secure it."
@@ -80,7 +87,7 @@ services:
     image: vaultwarden/server:latest
     restart: always
     ports:
-      - "PORT_PLACEHOLDER:80"
+      - "${BIND_ADDR}PORT_PLACEHOLDER:80"
     environment:
       - DOMAIN=DOMAIN_PLACEHOLDER
       - SIGNUPS_ALLOWED=true
@@ -103,7 +110,7 @@ ADMIN_TOKEN_PLACEHOLDER
           memory: 128M
 COMPOSE
 
-sudo sed -i "s|PORT_PLACEHOLDER|$PORT|" docker-compose.yaml
+sudo sed -i "s|\${BIND_ADDR}PORT_PLACEHOLDER|${BIND_ADDR}$PORT|" docker-compose.yaml
 sudo sed -i "s|DOMAIN_PLACEHOLDER|$DOMAIN_URL|" docker-compose.yaml
 
 if [ -n "$ADMIN_TOKEN_LINE" ]; then

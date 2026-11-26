@@ -1,0 +1,13 @@
+# Port blocks recorded from supabase/supabase docker/docker-compose.yml @ v1.24.09
+services:
+  kong:
+    ports:
+      - ${KONG_HTTP_PORT}:8000/tcp
+      - ${KONG_HTTPS_PORT}:8443/tcp
+  analytics:
+    ports:
+      - 4000:4000
+  supavisor:
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+      - ${POOLER_PROXY_PORT_TRANSACTION}:${POOLER_PROXY_PORT_TRANSACTION}
