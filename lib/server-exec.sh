@@ -159,11 +159,25 @@ ensure_toolbox() {
     fi
 }
 
-# Ensure Caddy + sp-expose are on the server, installing them if missing
+# Ensure Caddy + sp-expose are on the server, installing them if missing. Fails
+# before installing anything when another program holds port 80 or 443.
 # Usage: ensure_caddy [ssh_alias]
 ensure_caddy() {
     local ALIAS="${1:-${SSH_ALIAS:-vps}}"
     local CHECK="command -v caddy >/dev/null 2>&1 && command -v sp-expose >/dev/null 2>&1"
+    local HOLDERS PORT PROGRAM
+
+    if ! HOLDERS=$(server_exec "$_SP_WEB_PORT_HOLDERS" 2>/dev/null); then
+        msg "$MSG_PORT_CHECK_FAILED" >&2
+        return 1
+    fi
+    if [ -n "$HOLDERS" ]; then
+        while read -r PORT PROGRAM; do
+            msg "$MSG_SE_CADDY_PORT_TAKEN" "$PORT" "$PROGRAM" >&2
+        done <<< "$HOLDERS"
+        msg "$MSG_SE_CADDY_PORT_HINT" >&2
+        return 1
+    fi
 
     if server_exec "$CHECK" 2>/dev/null; then
         return 0
@@ -190,3 +204,6 @@ ensure_caddy() {
 export _ON_SERVER
 export -f is_on_server server_exec server_exec_tty server_exec_timeout
 export -f server_copy server_pipe_to server_hostname server_user ensure_toolbox ensure_caddy
+
+# ensure_caddy checks the web ports with the shell code from port-utils.sh
+source "$_SE_DIR/port-utils.sh"

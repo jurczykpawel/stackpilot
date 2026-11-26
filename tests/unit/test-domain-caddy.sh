@@ -53,7 +53,7 @@ setup() {
     export FAKE="$TEST_TMPDIR"
     mkdir -p "$FAKE/bin" "$FAKE/etc/caddy/conf.d" "$FAKE/tmp"
     local tool
-    for tool in bash cat grep head ls rm xargs; do
+    for tool in bash cat grep head id ls rm sort xargs; do
         ln -s "$(command -v "$tool")" "$FAKE/bin/$tool"
     done
     stub sudo 'exec "$@"'
@@ -61,6 +61,8 @@ setup() {
     stub systemctl '[ "$1" != is-active ] || [ ! -e "$FAKE/caddy-dies" ] || exit 3
 [ ! -e "$FAKE/caddy-down" ]'
     stub sleep 'exit 0'
+    # Nothing listens on ports 80 and 443
+    stub ss 'exit 0'
     INSTALL_RESULT=ok
     DOMAIN="app.internal"
     DOMAIN_TYPE="caddy"

@@ -6,7 +6,8 @@
 # Runs the installers and code of this checkout.
 #
 # Two servers: the one-line installer run on the server, and deploy.sh run from
-# this machine (ssh/scp replaced by docker exec/cp) with port 80 taken at first.
+# this machine (ssh/scp replaced by docker exec/cp) with port 80 taken at first:
+# the deploy stops before installing anything and names the program holding it.
 #
 # Docker and sudo are preinstalled: this test is about Caddy.
 #
@@ -164,6 +165,8 @@ on_server 'systemd-run --quiet --unit=port80 systemd-socket-activate -l 80 /bin/
 on_server 'systemd-run --quiet --unit=port8085 systemd-socket-activate -l 127.0.0.1:8085 /bin/sleep infinity'
 check "deploy fails" deploy_fails
 check "no success message" bash -c "! grep -qE 'Domain configured|Application available|DONE!' '$TEST_DIR/deploy.log'"
+check "names the program holding port 80" grep -q 'Port 80 is in use by systemd-socket' "$TEST_DIR/deploy.log"
+check "stops before installing Caddy and ntfy" on_server '! command -v caddy && [ ! -e /opt/stacks/ntfy ]'
 on_server 'systemctl stop port80.socket port80.service 2>/dev/null; systemctl reset-failed 2>/dev/null; true'
 check "deploy succeeds once port 80 is free" deploy
 check "toolbox installed without rsync on the server" toolbox_installed
