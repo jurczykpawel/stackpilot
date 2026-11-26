@@ -1039,6 +1039,11 @@ if [ "$DOCKER_REQUIRED" = true ] && { [ "$APP_NAME" != "sellf" ] || [ "${RUNTIME
     fi
 fi
 
+# Installers find Caddy in place when the domain goes through it
+if [ "$NEEDS_DOMAIN" = true ] && { [ "$DOMAIN_TYPE" = "caddy" ] || [ "$DOMAIN_TYPE" = "cloudflare" ]; }; then
+    ensure_caddy "$SSH_ALIAS" || exit 1
+fi
+
 # Upload script to server and execute
 msg "$MSG_EXEC_STARTING"
 echo ""

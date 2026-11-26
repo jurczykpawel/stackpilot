@@ -24,13 +24,8 @@ if ! command -v git &> /dev/null; then
     sudo apt update && sudo apt install -y git
 fi
 
-# Caddy file_server mode
+# Caddy file_server mode (deploy.sh installs Caddy and publishes the directory)
 echo "Mode: Caddy file_server"
-
-if ! command -v caddy &> /dev/null; then
-    echo "Caddy not installed. Run system/caddy-install.sh"
-    exit 1
-fi
 
 WEB_ROOT="/var/www/$APP_NAME"
 
