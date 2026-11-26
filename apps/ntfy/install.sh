@@ -13,6 +13,13 @@ APP_NAME="ntfy"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8085}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 🔔 ntfy Setup ---"
 
 sudo mkdir -p "$STACK_DIR"
@@ -51,7 +58,7 @@ services:
     volumes:
       - ./cache:/var/cache/ntfy
     ports:
-      - "$PORT:80"
+      - "${BIND_ADDR}$PORT:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost/v1/health | grep -q healthy || exit 1"]
       interval: 15s

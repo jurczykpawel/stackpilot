@@ -24,7 +24,7 @@ DEFAULT_BUCKET=myfiles \
 - **Port:** 9000 (S3 API), 9001 (Console Web UI)
 
 > When deployed **with a domain**, Caddy exposes the **Console (port 9001)** at `https://<domain>`.
-> The S3 API (port 9000) remains on localhost and requires a separate subdomain or direct access.
+> Both ports are bound to `127.0.0.1` (all interfaces only with `--domain-type=cytrus`). The S3 API (port 9000) needs a separate subdomain behind Caddy, an SSH tunnel, or a shared Docker network.
 
 ## Ports
 

@@ -19,6 +19,13 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 API_PORT=${PORT:-9000}
 CONSOLE_PORT=${CONSOLE_PORT:-9001}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 📦 MinIO Setup (S3-Compatible Storage) ---"
 echo "MinIO is a self-hosted storage compatible with Amazon S3."
 echo ""
@@ -61,8 +68,8 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
     ports:
-      - "${API_PORT}:9000"
-      - "${CONSOLE_PORT}:9001"
+      - "${BIND_ADDR}${API_PORT}:9000"
+      - "${BIND_ADDR}${CONSOLE_PORT}:9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}

@@ -24,6 +24,13 @@ STACK_DIR="/opt/stacks/$APP_NAME"
 PORT_BUILDER=8081
 PORT_VIEWER=8082
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 🤖 Typebot Setup ---"
 echo "Requires PostgreSQL Database."
 
@@ -90,7 +97,7 @@ services:
     image: baptistearno/typebot-builder:latest
     restart: always
     ports:
-      - "$PORT_BUILDER:3000"
+      - "${BIND_ADDR}$PORT_BUILDER:3000"
     environment:
       - DATABASE_URL=$DATABASE_URL
       - NEXTAUTH_URL=$NEXTAUTH_URL
@@ -109,7 +116,7 @@ $([ -n "$BUNDLED_DB_TYPE" ] && echo "      - db")
     image: baptistearno/typebot-viewer:latest
     restart: always
     ports:
-      - "$PORT_VIEWER:3000"
+      - "${BIND_ADDR}$PORT_VIEWER:3000"
     environment:
       - DATABASE_URL=$DATABASE_URL
       - NEXTAUTH_URL=$NEXTAUTH_URL

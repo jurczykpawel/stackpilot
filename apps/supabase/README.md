@@ -44,6 +44,15 @@ Supabase is a complete backend-as-a-service platform:
 ./local/deploy.sh supabase --ssh=vps --domain-type=local --yes
 ```
 
+## 🌐 Ports
+
+| Port | Service | Listens on |
+|------|---------|------------|
+| 8000 | API gateway + Studio | `127.0.0.1` (all interfaces with `--domain-type=cytrus`) |
+| 5432 (5433 if taken), 6543 | PostgreSQL pooler | all interfaces |
+
+The pooler speaks the PostgreSQL protocol, which Caddy and Cloudflare do not proxy, so it stays as shipped by Supabase. If you do not connect to the database from outside, prefix both pooler entries in `docker-compose.yml` with `127.0.0.1:` and run `sudo docker compose up -d`. Containers on the same server reach the API through the domain or a shared Docker network.
+
 ## 🔌 Using in Applications
 
 ```javascript

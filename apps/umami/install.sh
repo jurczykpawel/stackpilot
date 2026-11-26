@@ -21,6 +21,13 @@ APP_NAME="umami"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3000}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 📊 Umami Analytics Setup ---"
 echo "Requires PostgreSQL Database with pgcrypto extension."
 
@@ -61,7 +68,7 @@ services:
     image: ghcr.io/umami-software/umami:postgresql-latest
     restart: always
     ports:
-      - "$PORT:3000"
+      - "${BIND_ADDR}$PORT:3000"
     environment:
       - DATABASE_URL=$DATABASE_URL
       - DATABASE_TYPE=postgresql

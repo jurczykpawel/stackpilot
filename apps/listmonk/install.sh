@@ -22,6 +22,13 @@ APP_NAME="listmonk"
 STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
 PORT=${PORT:-9000}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 📧 Listmonk Setup ---"
 echo "Requires PostgreSQL Database."
 
@@ -77,7 +84,7 @@ services:
     image: listmonk/listmonk:latest
     restart: always
     ports:
-      - "$PORT:9000"
+      - "${BIND_ADDR}$PORT:9000"
     environment:
       - TZ=Europe/Warsaw
       - LISTMONK_db__host=$DB_HOST

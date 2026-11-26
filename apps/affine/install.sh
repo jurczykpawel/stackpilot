@@ -29,6 +29,13 @@ APP_NAME="affine"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3010}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 📝 AFFiNE Setup ---"
 echo "Open-source knowledge base (Notion + Miro alternative)."
 echo ""
@@ -112,7 +119,7 @@ services:
     container_name: affine_server
     restart: unless-stopped
     ports:
-      - "$PORT:3010"
+      - "${BIND_ADDR}$PORT:3010"
     depends_on:
       redis:
         condition: service_healthy

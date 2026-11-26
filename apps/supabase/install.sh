@@ -24,6 +24,13 @@ APP_NAME="supabase"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8000}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 🔥 Supabase Self-Hosted Setup ---"
 echo "Open-source Firebase alternative: PostgreSQL, Auth, Storage, Realtime, Functions."
 echo ""
@@ -132,6 +139,15 @@ SERVICE_ROLE_KEY=$(gen_jwt "$JWT_SECRET" "service_role")
 
 echo "✅ Secrets generated"
 
+# HTTP ports of the downloaded compose file; the pooler speaks the PostgreSQL protocol and stays as shipped
+bind_gateway_ports() {
+    sudo sed -i.bak -E "s#^([[:space:]]*- )(127\.0\.0\.1:)?((\\$\{.*\}|4000):(8000|8443|4000)(/tcp)?)[[:space:]]*\$#\1${BIND_ADDR}\3#" "$1"
+    sudo rm -f "$1.bak"
+    [ -n "$BIND_ADDR" ] || return 0
+    sudo grep -qE '^[[:space:]]*- 127\.0\.0\.1:.*:8000(/tcp)?[[:space:]]*$' "$1" &&
+        ! sudo grep -qE '^[[:space:]]*- .?\$\{.*:(8000|8443)(/tcp)?.?[[:space:]]*$' "$1"
+}
+
 # =============================================================================
 # 3. DOWNLOAD OFFICIAL DOCKER SETUP FROM GITHUB
 # =============================================================================
@@ -217,6 +233,11 @@ sudo sed -i \
 if [ "$POOLER_HOST_PORT" != "5432" ]; then
     sudo sed -i "s|- \${POSTGRES_PORT}:5432|- ${POOLER_HOST_PORT}:5432|" docker-compose.yml
 fi
+
+bind_gateway_ports docker-compose.yml || {
+    echo "❌ Unrecognised gateway port format in $STACK_DIR/docker-compose.yml, cannot bind it to localhost"
+    exit 1
+}
 
 sudo chmod 600 .env
 echo "✅ Configuration ready"
