@@ -231,8 +231,12 @@ cmd_run() {
         [ -e "$P" ] && SOURCES+=("$P")
     done
     [ -d "$BACKUP_STAGE" ] && SOURCES+=("$BACKUP_STAGE")
-    restic backup --tag stackpilot --exclude-caches ${EXCLUDES[@]+"${EXCLUDES[@]}"} "${SOURCES[@]}" ||
+    # The dumps and SQLite copies are in the snapshot now; do not keep a second copy on disk.
+    if restic backup --tag stackpilot --exclude-caches ${EXCLUDES[@]+"${EXCLUDES[@]}"} "${SOURCES[@]}"; then
+        rm -rf "$BACKUP_STAGE"
+    else
         warn "restic backup failed or skipped unreadable files"
+    fi
     restic forget --tag stackpilot --group-by host,tags --keep-daily "${BACKUP_KEEP_DAILY:-14}" \
         --keep-weekly "${BACKUP_KEEP_WEEKLY:-8}" --keep-monthly "${BACKUP_KEEP_MONTHLY:-12}" --prune ||
         warn "restic forget/prune failed"

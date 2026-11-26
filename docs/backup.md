@@ -18,6 +18,9 @@ Databases are found automatically from the running containers (by image: `postgr
 `postgis`, `mysql`, `mariadb`, `mongo`), whatever the service is called. A database container that
 is stopped is copied as plain files, which is consistent because nothing writes to it.
 
+Dumps and SQLite copies are prepared in `/opt/backups/stackpilot` and deleted once the snapshot is saved,
+so the server does not keep a second copy of its databases on disk.
+
 Every snapshot is encrypted on the server before upload. The storage provider sees only random chunks.
 
 ## Set up

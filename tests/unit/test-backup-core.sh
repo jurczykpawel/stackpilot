@@ -62,7 +62,7 @@ case "$1" in
             existing) echo "Fatal: create key failed: repository master key and config already initialized" >&2; exit 1 ;;
             *) echo "Fatal: create repository failed: client.BucketExists: Access Denied" >&2; exit 1 ;;
         esac ;;
-    backup) exit "${MOCK_RESTIC_BACKUP_EXIT:-0}" ;;
+    backup) rm -rf "$T/sent"; [ -d "$BACKUP_STAGE" ] && cp -R "$BACKUP_STAGE" "$T/sent"; exit "${MOCK_RESTIC_BACKUP_EXIT:-0}" ;;
     restore)
         target="" include=""
         while [ $# -gt 0 ]; do
@@ -120,12 +120,12 @@ test_run_dumps_running_databases_and_skips_their_raw_data() {
     bash "$ENGINE" run > "$T/out" 2>&1
     assert_eq "0" "$?" "run succeeds" || cat "$T/out"
 
-    assert_contains "$(cat "$T/stage/db/umami/db.postgres")" "DUMP:c1" "postgres dump written"
+    assert_contains "$(cat "$T/sent/db/umami/db.postgres")" "DUMP:c1" "postgres dump written"
     assert_contains "$(cat "$FIX/exec.c1")" "pg_dumpall" "postgres dumped with pg_dumpall"
-    assert_contains "$(cat "$T/stage/db/umami/db.mount")" "$(printf 'volume\tumami_db-data')" "DB volume recorded for restore"
+    assert_contains "$(cat "$T/sent/db/umami/db.mount")" "$(printf 'volume\tumami_db-data')" "DB volume recorded for restore"
     assert_contains "$(cat "$FIX/exec.c4")" "mongodump" "MongoDB dumped"
-    assert_true test -s "$T/stage/db/mailcheap/mongo.mongo"
-    assert_contains "$(cat "$T/stage/db/immich/database.mount")" "$STACKS/immich/postgres" "bind DB dir recorded"
+    assert_true test -s "$T/sent/db/mailcheap/mongo.mongo"
+    assert_contains "$(cat "$T/sent/db/immich/database.mount")" "$STACKS/immich/postgres" "bind DB dir recorded"
     assert_false test -e "$FIX/exec.c5"
     assert_false test -e "$FIX/exec.c7"
 
@@ -139,8 +139,8 @@ test_run_dumps_running_databases_and_skips_their_raw_data() {
     assert_not_contains "$args" "mailcheap_mongo-data" "dumped Mongo volume not copied raw"
     assert_not_contains "$args" "$T/missing" "missing paths skipped"
     assert_contains "$args" "--tag stackpilot" "snapshot tagged"
-    assert_contains "$(cat "$T/stage/volumes/routepix.list")" "$(printf 'routepix_app_data\t%s' "$T/vol/routepix_app_data/_data")" "volume manifest"
-    assert_contains "$(cat "$T/stage/stacks.list")" "routepix" "stack list"
+    assert_contains "$(cat "$T/sent/volumes/routepix.list")" "$(printf 'routepix_app_data\t%s' "$T/vol/routepix_app_data/_data")" "volume manifest"
+    assert_contains "$(cat "$T/sent/stacks.list")" "routepix" "stack list"
     assert_contains "$(grep '^restic forget' "$LOG")" "--prune" "retention applied"
     assert_contains "$(grep '^curl' "$LOG")" "https://hc.example/ping/abc" "success ping"
     assert_not_contains "$(grep '^curl' "$LOG")" "/fail" "no failure ping"
@@ -155,11 +155,11 @@ test_run_takes_consistent_sqlite_snapshots() {
     bash "$ENGINE" run > "$T/out" 2>&1
     assert_eq "0" "$?" "run succeeds" || cat "$T/out"
     local index
-    index=$(cat "$T/stage/sqlite/vaultwarden/index")
-    assert_eq "1" "$(wc -l < "$T/stage/sqlite/vaultwarden/index" | tr -d ' ')" "only real SQLite files"
+    index=$(cat "$T/sent/sqlite/vaultwarden/index")
+    assert_eq "1" "$(wc -l < "$T/sent/sqlite/vaultwarden/index" | tr -d ' ')" "only real SQLite files"
     assert_contains "$index" "$STACKS/vaultwarden/data/db.sqlite3" "original path recorded"
     assert_not_contains "$(cat "$T/out")" "No such file" "no shell errors in the log"
-    assert_eq "secret-row" "$(sqlite3 "$T/stage/sqlite/vaultwarden/1.sqlite" 'SELECT v FROM t')" "snapshot readable"
+    assert_eq "secret-row" "$(sqlite3 "$T/sent/sqlite/vaultwarden/1.sqlite" 'SELECT v FROM t')" "snapshot readable"
 }
 
 test_run_failure_still_backs_up_and_sends_failure_ping() {
@@ -169,7 +169,7 @@ test_run_failure_still_backs_up_and_sends_failure_ping() {
     assert_not_eq "0" "$?" "run reports failure"
     assert_true grep -q '^restic backup' "$LOG"
     assert_contains "$(grep '^curl' "$LOG")" "https://hc.example/ping/abc/fail" "failure ping"
-    assert_false test -e "$T/stage/db/umami/db.postgres"
+    assert_false test -e "$T/sent/db/umami/db.postgres"
 }
 
 test_run_fails_when_restic_backup_fails() {
@@ -186,10 +186,24 @@ CUSTOM_DATABASES=(
 EOF
     bash "$ENGINE" run > "$T/out" 2>&1
     assert_eq "0" "$?" "run succeeds" || cat "$T/out"
-    assert_contains "$(cat "$T/stage/external/shared-pg.postgres")" "EXTERNAL-DUMP" "external dump written"
+    assert_contains "$(cat "$T/sent/external/shared-pg.postgres")" "EXTERNAL-DUMP" "external dump written"
     assert_contains "$(grep '^docker run' "$LOG")" "pg_dump" "dumped with pg_dump"
     assert_not_contains "$(grep '^docker run' "$LOG")" "S3cr3tPass" "password not in arguments"
     assert_contains "$(grep '^run-env' "$LOG")" "PGPASSWORD=S3cr3tPass" "password passed via environment"
+}
+
+test_run_removes_stage_after_successful_backup() {
+    add_container "c1|$STACKS/umami|db|postgres:16|true" "volume|umami_db-data|/v|/var/lib/postgresql/data"
+    bash "$ENGINE" run > "$T/out" 2>&1
+    assert_eq "0" "$?" "run succeeds" || cat "$T/out"
+    assert_true test -s "$T/sent/db/umami/db.postgres"
+    assert_false test -e "$T/stage"
+}
+
+test_run_keeps_stage_when_restic_backup_fails() {
+    add_container "c1|$STACKS/umami|db|postgres:16|true" "volume|umami_db-data|/v|/var/lib/postgresql/data"
+    MOCK_RESTIC_BACKUP_EXIT=1 bash "$ENGINE" run > "$T/out" 2>&1
+    assert_true test -s "$T/stage/db/umami/db.postgres"
 }
 
 test_init_creates_missing_repository_and_cron() {
