@@ -21,8 +21,16 @@ set -e
 
 APP_NAME="typebot"
 STACK_DIR="/opt/stacks/$APP_NAME"
-PORT_BUILDER=8081
-PORT_VIEWER=8082
+PORT=${PORT:-8082}  # Viewer: the port the base domain points at
+PORT_VIEWER=$PORT
+PORT_BUILDER=${PORT_BUILDER:-8081}
+
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
 
 echo "--- 🤖 Typebot Setup ---"
 echo "Requires PostgreSQL Database."
@@ -90,7 +98,7 @@ services:
     image: baptistearno/typebot-builder:latest
     restart: always
     ports:
-      - "$PORT_BUILDER:3000"
+      - "${BIND_ADDR}$PORT_BUILDER:3000"
     environment:
       - DATABASE_URL=$DATABASE_URL
       - NEXTAUTH_URL=$NEXTAUTH_URL
@@ -109,7 +117,7 @@ $([ -n "$BUNDLED_DB_TYPE" ] && echo "      - db")
     image: baptistearno/typebot-viewer:latest
     restart: always
     ports:
-      - "$PORT_VIEWER:3000"
+      - "${BIND_ADDR}$PORT_VIEWER:3000"
     environment:
       - DATABASE_URL=$DATABASE_URL
       - NEXTAUTH_URL=$NEXTAUTH_URL
@@ -147,6 +155,13 @@ DBEOF
 fi
 
 sudo docker compose up -d
+printf '%s\n' "$PORT" | sudo tee "$STACK_DIR/.stackpilot-port" >/dev/null
+
+# deploy.sh points $DOMAIN at the viewer unless told otherwise: use the builder
+# for builder.* domains and when there is no domain yet (single Cytrus domain, tunnel)
+if [ -z "$DOMAIN_BUILDER" ] || [ "$DOMAIN" = "$DOMAIN_BUILDER" ]; then
+    echo "$PORT_BUILDER" > /tmp/app_port
+fi
 
 # Health check (check both ports)
 source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true

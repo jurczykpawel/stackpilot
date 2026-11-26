@@ -32,6 +32,7 @@ source "$REPO_ROOT/lib/db-setup.sh"
 source "$REPO_ROOT/lib/domain-setup.sh"
 source "$REPO_ROOT/lib/sellf-setup.sh" 2>/dev/null || true  # Optional for Sellf
 source "$REPO_ROOT/lib/port-utils.sh"
+source "$REPO_ROOT/lib/validation.sh"
 source "$REPO_ROOT/lib/i18n.sh"
 source "$REPO_ROOT/lib/providers/detect.sh"
 
@@ -319,6 +320,13 @@ if [ "$UPDATE_MODE" = true ]; then
         server_copy "$REPO_ROOT/apps/sellf/release-verify.sh" "$REMOTE_RELEASE_LIB"
     fi
 
+    # WordPress: shared Redis helper sourced by update.sh
+    REMOTE_REDIS_LIB=""
+    if [ "$APP_NAME" = "wordpress" ]; then
+        REMOTE_REDIS_LIB="/tmp/sp-wp-redis-$$.sh"
+        server_copy "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$REMOTE_REDIS_LIB"
+    fi
+
     # If we have a local build file, copy it to the server
     REMOTE_BUILD_FILE=""
     if [ -n "$BUILD_FILE" ]; then
@@ -353,6 +361,10 @@ if [ "$UPDATE_MODE" = true ]; then
         ENV_VARS="$ENV_VARS SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
     fi
 
+    if [ -n "$REMOTE_REDIS_LIB" ]; then
+        ENV_VARS="$ENV_VARS WP_REDIS_SHARED_LIB='$REMOTE_REDIS_LIB'"
+    fi
+
     # For multi-instance: pass instance name (from --instance or --domain)
     if [ -n "$INSTANCE" ]; then
         ENV_VARS="$ENV_VARS INSTANCE='$INSTANCE'"
@@ -375,6 +387,9 @@ if [ "$UPDATE_MODE" = true ]; then
     fi
     if [ -n "$REMOTE_RELEASE_LIB" ]; then
         CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_RELEASE_LIB'"
+    fi
+    if [ -n "$REMOTE_REDIS_LIB" ]; then
+        CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_REDIS_LIB'"
     fi
 
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
@@ -953,6 +968,11 @@ EXTRA_ENV=""
 [ -n "$DOMAIN_PUBLIC" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_PUBLIC='$DOMAIN_PUBLIC'"
 [ -n "$DOMAIN_TYPE" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_TYPE='$DOMAIN_TYPE'"
 [ -n "$WP_DB_MODE" ] && EXTRA_ENV="$EXTRA_ENV WP_DB_MODE='$WP_DB_MODE'"
+[ -n "$WP_REDIS" ] && EXTRA_ENV="$EXTRA_ENV WP_REDIS='$WP_REDIS'"
+[ -n "$POSTIZ_REDIS" ] && EXTRA_ENV="$EXTRA_ENV POSTIZ_REDIS='$POSTIZ_REDIS'"
+if [ -n "$REDIS_PASS" ] && [[ "$APP_NAME" =~ ^(wordpress|postiz)$ ]]; then
+    EXTRA_ENV="$EXTRA_ENV REDIS_PASS=$(printf '%q' "$REDIS_PASS")"
+fi
 [ -n "$CONTAINER_CONFIG" ] && EXTRA_ENV="$EXTRA_ENV CONTAINER_CONFIG='$CONTAINER_CONFIG'"
 [ -n "$NOTIFICATION_URL" ] && EXTRA_ENV="$EXTRA_ENV NOTIFICATION_URL='$NOTIFICATION_URL'"
 [ -n "$REPO_USER" ] && EXTRA_ENV="$EXTRA_ENV REPO_USER='$REPO_USER'"
@@ -1074,6 +1094,15 @@ else
         CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_RELEASE_LIB';"
     fi
 
+    # WordPress: shared Redis helper sourced by install.sh
+    REMOTE_REDIS_LIB=""
+    if [ "$APP_NAME" = "wordpress" ]; then
+        REMOTE_REDIS_LIB="/tmp/sp-wp-redis-$$.sh"
+        scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB"
+        EXTRA_ENV="$EXTRA_ENV WP_REDIS_SHARED_LIB='$REMOTE_REDIS_LIB'"
+        CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_REDIS_LIB';"
+    fi
+
     if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
         DEPLOY_SUCCESS=true
     fi
@@ -1094,6 +1123,9 @@ else
             msg "$MSG_DOCKER_STORAGE_RETRY"
             ssh "$SSH_ALIAS" "sudo systemctl restart containerd 2>/dev/null; sleep 5; sudo systemctl restart docker 2>/dev/null; sleep 3" 2>/dev/null
             scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" 2>/dev/null
+            if [ -n "$REMOTE_REDIS_LIB" ]; then
+                scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB" 2>/dev/null
+            fi
             if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
                 DEPLOY_SUCCESS=true
             fi
@@ -1150,15 +1182,15 @@ fi
 INSTALLED_STACK_DIR=$(server_exec "cat /tmp/app_stack_dir 2>/dev/null; rm -f /tmp/app_stack_dir" 2>/dev/null)
 APP_STACK_DIR="${INSTALLED_STACK_DIR:-/opt/stacks/$APP_NAME}"
 
+DOMAIN_FAILED=false
+PUBLIC_DOMAIN_FAILED=false
 if [ "$NEEDS_DOMAIN" = true ] && [ "$DOMAIN_TYPE" != "local" ]; then
     echo ""
     if configure_domain "$APP_PORT" "$SSH_ALIAS"; then
         # Wait for domain to start responding (timeout 90s)
         wait_for_domain 90
     else
-        echo ""
-        msg "$MSG_DOMAIN_SERVICE_OK_BUT"
-        msg "$MSG_DOMAIN_MANUAL_LATER"
+        DOMAIN_FAILED=true
     fi
 fi
 
@@ -1180,10 +1212,12 @@ if [ -n "$DOMAIN_PUBLIC" ]; then
     fi
 
     # Configure Caddy file_server
-    if server_exec "command -v sp-expose &>/dev/null && sp-expose '$DOMAIN_PUBLIC' '$WEBROOT' static"; then
+    if sp_validate_domain "$DOMAIN_PUBLIC" && ensure_caddy "$SSH_ALIAS" \
+        && caddy_publish_site "$DOMAIN_PUBLIC" "$WEBROOT" static; then
         msg "$MSG_DOMAIN_STATIC_OK" "$DOMAIN_PUBLIC"
     else
         msg "$MSG_DOMAIN_CADDY_FAIL" "$DOMAIN_PUBLIC"
+        PUBLIC_DOMAIN_FAILED=true
     fi
     # Cleanup
     server_exec "rm -f /tmp/domain_public_webroot" 2>/dev/null
@@ -1194,16 +1228,21 @@ fi
 # =============================================================================
 
 echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-printf "║  %s\n" "$MSG_SUMMARY_DONE"
-echo "╚════════════════════════════════════════════════════════════════╝"
+if [ "$DOMAIN_FAILED" = true ] || [ "$PUBLIC_DOMAIN_FAILED" = true ]; then
+    msg "$MSG_DOMAIN_SERVICE_OK_BUT"
+    msg "$MSG_DOMAIN_MANUAL_LATER"
+else
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    printf "║  %s\n" "$MSG_SUMMARY_DONE"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+fi
 
 if [ "$DOMAIN_TYPE" = "local" ]; then
     echo ""
     msg "$MSG_SUMMARY_TUNNEL"
     echo -e "   ${BLUE}ssh -L $APP_PORT:localhost:$APP_PORT $SSH_ALIAS${NC}"
     msg "$MSG_SUMMARY_THEN_OPEN" "$APP_PORT"
-elif [ -n "$DOMAIN" ]; then
+elif [ -n "$DOMAIN" ] && [ "$DOMAIN_FAILED" != true ]; then
     echo ""
     msg "$MSG_SUMMARY_AVAILABLE" "$DOMAIN"
 fi
@@ -1316,3 +1355,7 @@ if [ -n "$POST_RAM_TOTAL" ] && [ "$POST_RAM_TOTAL" -gt 0 ] 2>/dev/null && \
 fi
 
 echo ""
+
+if [ "$DOMAIN_FAILED" = true ] || [ "$PUBLIC_DOMAIN_FAILED" = true ]; then
+    exit 1
+fi

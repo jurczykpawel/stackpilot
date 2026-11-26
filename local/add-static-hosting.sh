@@ -75,13 +75,7 @@ if [ -n "$LOCAL_DIR" ]; then
 fi
 
 # Install Caddy if missing
-if ! server_exec "command -v sp-expose >/dev/null 2>&1"; then
-    msg "$MSG_ASH_CADDY_INSTALLING"
-    server_exec "bash -s" < "$SCRIPT_DIR/../system/caddy-install.sh" || { msg "$MSG_ASH_CADDY_FAIL"; exit 1; }
-    msg "$MSG_ASH_CADDY_INSTALLED"
-else
-    msg "$MSG_ASH_CADDY_ALREADY"
-fi
+ensure_caddy "$SSH_ALIAS" || exit 1
 
 # Detect "frog" — Mikrus free tier (Alpine, IPv6-only, no /klucz_api, no Cytrus API).
 # Mikrus blocks incoming IPv6:80 from the internet for frog (no Cloudflare whitelist),

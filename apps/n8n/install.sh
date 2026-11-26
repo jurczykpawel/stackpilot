@@ -20,6 +20,13 @@ APP_NAME="n8n"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-5678}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 🧠 n8n Setup (Smart Mode) ---"
 echo "This setup uses External PostgreSQL (saves RAM and CPU on your VPS)."
 echo ""
@@ -77,7 +84,7 @@ services:
     image: docker.n8n.io/n8nio/n8n
     restart: always
     ports:
-      - "$PORT:5678"
+      - "${BIND_ADDR}$PORT:5678"
     environment:
       - N8N_HOST=${DOMAIN:-localhost}
       - N8N_PORT=5678

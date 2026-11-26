@@ -18,6 +18,13 @@ APP_NAME="gotenberg"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-3000}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 📄 Gotenberg Setup ---"
 echo "Lightweight API for document conversion (Go + Chromium + LibreOffice)"
 
@@ -51,7 +58,7 @@ services:
     image: gotenberg/gotenberg:8
     restart: always
     ports:
-      - "$PORT:3000"
+      - "${BIND_ADDR}$PORT:3000"
     environment:
       - GOTENBERG_API_BASIC_AUTH_USERNAME=$GOTENBERG_USER
       - GOTENBERG_API_BASIC_AUTH_PASSWORD=$GOTENBERG_PASS

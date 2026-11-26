@@ -18,6 +18,13 @@ APP_NAME="sgtm"
 STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
 PORT=${PORT:-8084}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 🏷️  Server-Side GTM Setup ---"
 echo "Google Tag Manager running server-side for 1st-party data collection."
 echo ""
@@ -45,7 +52,7 @@ services:
     image: gcr.io/cloud-tagging-10302018/gtm-cloud-image:stable
     restart: always
     ports:
-      - "$PORT:8080"
+      - "${BIND_ADDR}$PORT:8080"
     environment:
       - CONTAINER_CONFIG=$CONTAINER_CONFIG
     healthcheck:

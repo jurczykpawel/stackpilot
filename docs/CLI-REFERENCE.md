@@ -161,7 +161,7 @@ Own domain managed via Cloudflare. DNS record added through Cloudflare API, Cadd
 
 ### --domain-type=caddy
 
-Direct domain with Caddy reverse proxy and automatic Let's Encrypt SSL. DNS must point directly to your server IP.
+Direct domain with Caddy reverse proxy and automatic Let's Encrypt SSL. DNS must point directly to your server IP. Caddy is installed automatically when missing; the deploy exits with an error if the domain cannot be configured.
 
 ```bash
 ./local/deploy.sh n8n --ssh=vps \

@@ -72,7 +72,7 @@
 set -e
 
 APP_NAME="postiz"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACKS_DIR:-/opt/stacks}/$APP_NAME"
 PORT=${PORT:-5000}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT:-8080}
 
@@ -136,17 +136,22 @@ else
 fi
 
 # =============================================================================
-# REDIS — BUNDLED vs EXTERNAL (auto-detekcja)
+# REDIS — domyślnie własny (kolejki nie mogą być usuwane z pamięci);
+# POSTIZ_REDIS=external|auto wybiera Redisa z hosta
 # =============================================================================
-source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
+source "${STACKPILOT_DIR:-/opt/stackpilot}"/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
-    detect_redis "${POSTIZ_REDIS:-auto}" "postiz-redis"
+    detect_redis "${POSTIZ_REDIS:-bundled}" "postiz-redis"
 else
     REDIS_HOST="postiz-redis"
     echo "✅ Redis: bundled (lib/redis-detect.sh niedostępne)"
 fi
 
 REDIS_PASS="${REDIS_PASS:-}"
+# The shared Redis installed with WordPress requires its own password
+if [ "$REDIS_HOST" = "host-gateway" ] && [ -z "$REDIS_PASS" ]; then
+    REDIS_PASS=$(sudo sed -n 's/^REDIS_PASSWORD=//p' "${STACKS_DIR:-/opt/stacks}/redis-shared/.env" 2>/dev/null || true)
+fi
 if [ "$REDIS_HOST" = "host-gateway" ]; then
     USE_BUNDLED_REDIS=false
     if [ -n "$REDIS_PASS" ]; then
@@ -268,7 +273,7 @@ if [ "$USE_BUNDLED_REDIS" = true ]; then
   postiz-redis:
     image: redis:7.2-alpine
     restart: always
-    command: redis-server --save 60 1 --loglevel warning
+    command: redis-server --save 60 1 --loglevel warning --maxmemory-policy noeviction
     volumes:
       - ./redis-data:/data
     networks:
@@ -420,7 +425,7 @@ sudo docker compose up -d
 
 # Health check - Temporal + Postiz potrzebują więcej czasu na start
 echo "⏳ Czekam na uruchomienie Postiz (~90-120s, Temporal + Next.js)..."
-source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
+source "${STACKPILOT_DIR:-/opt/stackpilot}"/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 120 || { echo "❌ Instalacja nie powiodła się!"; exit 1; }
 else

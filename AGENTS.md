@@ -135,7 +135,7 @@ Three domain types are supported:
 
 ### 2. Caddy (direct domain, auto-HTTPS)
 
-- Caddy runs on the server as a reverse proxy
+- Caddy runs on the server as a reverse proxy (installed automatically when missing, via `ensure_caddy` in `lib/server-exec.sh`; a failure fails the deploy)
 - Automatic Let's Encrypt SSL certificates
 - Domain DNS must point directly to your server IP
 
@@ -339,7 +339,7 @@ The most complex application. Custom Dockerfile, 3 containers, auto-tuning based
 ```
 wordpress (build: .) -> wordpress:php8.3-fpm-alpine + pecl redis + WP-CLI
 nginx:alpine          -> gzip, FastCGI cache, rate limiting, security headers
-redis:alpine          -> object cache (bundled or external, auto-detection)
+redis:alpine          -> object cache (shared or external, auto-detection)
 ```
 
 **Server files (`/opt/stacks/wordpress/`):**
@@ -348,7 +348,8 @@ redis:alpine          -> object cache (bundled or external, auto-detection)
 - `config/` - php-opcache.ini, php-performance.ini, www.conf, nginx.conf
 - `wp-init.sh` - post-install: wp-config tuning + Redis Object Cache (WP-CLI)
 - `flush-cache.sh` - clears FastCGI cache
-- `.redis-host` - `redis` (bundled) or `host-gateway` (external)
+- `.redis-host` - `host-gateway` (shared or external Redis), `.redis-pass` - its password
+- `redis-shared.sh` (in the repo) - shared Redis in `/opt/stacks/redis-shared/`: Docker bridge address only, password in `.env`
 
 **DB detection:** install.sh contains literals `DB_HOST` and `mysql`, so deploy.sh automatically detects MySQL requirement. In `WP_DB_MODE=sqlite` mode, DB variables are ignored.
 

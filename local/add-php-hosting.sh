@@ -79,13 +79,7 @@ else
 fi
 
 # Install Caddy if missing
-if ! server_exec "command -v sp-expose >/dev/null 2>&1"; then
-    msg "$MSG_APH_CADDY_INSTALLING"
-    server_exec "bash -s" < "$SCRIPT_DIR/../system/caddy-install.sh" || { msg "$MSG_APH_CADDY_FAIL"; exit 1; }
-    msg "$MSG_APH_CADDY_INSTALLED"
-else
-    msg "$MSG_APH_CADDY_ALREADY"
-fi
+ensure_caddy "$SSH_ALIAS" || exit 1
 
 # Configure DNS via Cloudflare if available
 if [ -f "$SCRIPT_DIR/dns-add.sh" ]; then

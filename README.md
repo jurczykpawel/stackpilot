@@ -301,10 +301,11 @@ Three options, depending on your needs:
 
 ### Caddy (recommended)
 
-Caddy is installed during [Quick Start](#quick-start) and automatically provisions Let's Encrypt certificates for every domain you expose.
+Caddy automatically provisions Let's Encrypt certificates for every domain you expose. Deploying with `--domain-type=caddy` installs it when the server does not have it yet; if Caddy cannot be installed or cannot serve the domain, the deploy exits with an error. An existing Caddyfile is kept: StackPilot only adds `import /etc/caddy/conf.d/*.caddy` to it.
 
 ```bash
-ssh vps 'sp-expose n8n.example.com 5678'
+./local/deploy.sh n8n --domain-type=caddy --domain=n8n.example.com
+ssh vps 'sp-expose n8n.example.com 5678'      # Or expose a running service yourself
 ```
 
 ### Cloudflare
@@ -430,10 +431,10 @@ Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN
 Apps that need PostgreSQL or MySQL can use a bundled database container (auto-provisioned, zero config) or connect to an external database you provide. WordPress also supports SQLite for simple sites.
 
 **Is this secure?**
-Apps run in isolated Docker containers. External access is HTTPS-only via Caddy. Ports are bound to `127.0.0.1` by default. Encrypted off-site backups are supported out of the box.
+Apps run in isolated Docker containers. With `cloudflare` or `caddy` domains, public traffic goes through Caddy over HTTPS, and application ports are bound to `127.0.0.1` by default. Exceptions: Cytrus domains on Mikrus (the app listens on all interfaces because Cytrus connects to the port directly), the Supabase PostgreSQL pooler (ports 5432 and 6543), and Sellf, WordPress and Coolify, which manage their own listeners. Encrypted off-site backups are supported out of the box.
 
 **How do I update an app?**
-Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved.
+Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved. Changes that need action on existing installations are listed in [CHANGELOG.md](CHANGELOG.md).
 
 **Can I deploy custom Docker apps?**
 Yes. Add your own `apps/<name>/install.sh` installer (see GUIDE.md) -- you are not limited to the built-in apps.
@@ -557,6 +558,12 @@ StackPilot includes a comprehensive test suite:
 # Optional public HTTPS checks through the existing Cloudflare/Caddy flow
 ./tests/run.sh e2e --ssh=your-vps --suite=email-apps \
   --domain-type=cloudflare --domain-suffix=sp-test.example.com
+
+# One-line installer on clean Debian 12 and Ubuntu 22.04/24.04 (local Docker, privileged containers)
+./tests/e2e/oneliner-docker.sh
+
+# --domain-type=caddy on clean Debian 12 (local Docker, privileged containers)
+./tests/e2e/caddy-domain-docker.sh
 
 # Run everything
 ./tests/run.sh all --ssh=your-vps

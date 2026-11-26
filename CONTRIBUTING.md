@@ -47,6 +47,13 @@ APP_NAME="myapp"
 STACK_DIR="/opt/stacks/$APP_NAME"
 PORT=${PORT:-8080}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 # Create directory
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
@@ -58,7 +65,7 @@ services:
     image: myapp:latest
     restart: always
     ports:
-      - "$PORT:8080"
+      - "${BIND_ADDR}$PORT:8080"
     volumes:
       - ./data:/data
 EOF

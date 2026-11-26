@@ -26,6 +26,7 @@
 #   DOMAIN - domain (optional)
 #   WP_REDIS (optional): auto|external|bundled (default: auto)
 #   REDIS_PASS (optional): password for external Redis
+#                          (the shared Redis gets a generated one)
 
 set -e
 
@@ -52,7 +53,7 @@ else
     APP_NAME="wordpress"
 fi
 
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACKS_DIR:-/opt/stacks}/$APP_NAME"
 
 # Prevent overwriting existing installation
 if [ -z "$INSTANCE_NAME" ] && [ -d "$STACK_DIR" ] && [ -f "$STACK_DIR/docker-compose.yaml" ]; then
@@ -106,7 +107,7 @@ fi
 # WP_REDIS=bundled   → always bundle redis:alpine in compose
 # WP_REDIS=auto      → auto-detect (default)
 
-source /opt/stackpilot/lib/redis-detect.sh 2>/dev/null || true
+source "${STACKPILOT_DIR:-/opt/stackpilot}"/lib/redis-detect.sh 2>/dev/null || true
 if type detect_redis &>/dev/null; then
     detect_redis "${WP_REDIS:-auto}" "redis"
 else
@@ -116,50 +117,27 @@ else
 fi
 
 # Shared Redis: if bundled was selected (no Redis on host),
-# install a shared Redis container instead of bundling one per stack.
+# use one shared Redis container instead of bundling one per stack.
 # Saves ~96MB RAM per additional WordPress instance.
-if [ "$REDIS_HOST" = "redis" ]; then
-    REDIS_SHARED_DIR="/opt/stacks/redis-shared"
-    if [ ! -f "$REDIS_SHARED_DIR/docker-compose.yaml" ]; then
-        echo "📦 Installing shared Redis (for multiple WP sites)..."
-        sudo mkdir -p "$REDIS_SHARED_DIR"
-        cat <<'REDISEOF' | sudo tee "$REDIS_SHARED_DIR/docker-compose.yaml" > /dev/null
-services:
-  redis:
-    image: redis:alpine
-    restart: always
-    ports:
-      - "6379:6379"
-    command: redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru --save 60 1 --loglevel warning
-    volumes:
-      - ./data:/data
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-REDISEOF
-        sudo docker compose -f "$REDIS_SHARED_DIR/docker-compose.yaml" up -d
-        sleep 2
-    fi
+# An already existing shared Redis is what "host-gateway" reaches, unless the
+# user asked for their own with WP_REDIS=external.
+REDIS_SHARED_LIB="${WP_REDIS_SHARED_LIB:-$(dirname "${BASH_SOURCE[0]}")/redis-shared.sh}"
+source "$REDIS_SHARED_LIB" || { echo "❌ Missing $REDIS_SHARED_LIB"; exit 1; }
+
+# Redis password (user provides via REDIS_PASS env var for an external Redis)
+REDIS_PASS="${REDIS_PASS:-}"
+
+OWN_REDIS=false
+if [ "${WP_REDIS:-}" = "external" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
+    OWN_REDIS=true
+elif [ "$REDIS_HOST" = "redis" ] || [ -f "$REDIS_SHARED_DIR/docker-compose.yaml" ]; then
+    redis_shared_apply
     REDIS_HOST="host-gateway"
-    echo "✅ Redis: shared (127.0.0.1:6379)"
+    REDIS_PASS=$(redis_shared_password)
+    echo "✅ Redis: shared (password protected, not published outside this server)"
 fi
 
-# Redis password (user provides via REDIS_PASS env var)
-REDIS_PASS="${REDIS_PASS:-}"
-if [ -n "$REDIS_PASS" ] && [ "$REDIS_HOST" = "host-gateway" ]; then
+if [ -n "$REDIS_PASS" ]; then
     echo "   🔑 Redis password: set"
 fi
 
@@ -236,7 +214,7 @@ echo ""
 # 3. PREPARE DIRECTORIES
 # =============================================================================
 
-sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache,redis-data}
+sudo mkdir -p "$STACK_DIR"/{config,wp-content,nginx-cache}
 # Nginx requires these directories for buffering uploads (e.g. plugin install)
 sudo mkdir -p "$STACK_DIR"/nginx-cache/{client_temp,proxy_temp,fastcgi_temp,uwsgi_temp,scgi_temp}
 sudo chown -R 101:101 "$STACK_DIR"/nginx-cache
@@ -246,7 +224,17 @@ cd "$STACK_DIR"
 echo "$REDIS_HOST" | sudo tee "$STACK_DIR/.redis-host" > /dev/null
 if [ -n "$REDIS_PASS" ]; then
     echo "$REDIS_PASS" | sudo tee "$STACK_DIR/.redis-pass" > /dev/null
+    # Owned by the invoking user: wp-init.sh (and its cron retry) reads it
+    sudo chown "$(id -u):$(id -g)" "$STACK_DIR/.redis-pass"
     sudo chmod 600 "$STACK_DIR/.redis-pass"
+else
+    sudo rm -f "$STACK_DIR/.redis-pass"
+fi
+# Keeps later shared cache updates away from a site with its own Redis
+if [ "$OWN_REDIS" = true ]; then
+    sudo touch "$STACK_DIR/.redis-external"
+else
+    sudo rm -f "$STACK_DIR/.redis-external"
 fi
 
 # =============================================================================
@@ -600,43 +588,9 @@ if [ "$WP_DB_MODE" != "sqlite" ]; then
       - WORDPRESS_DB_NAME=${DB_NAME}"
 fi
 
-# --- Redis: bundled vs external ---
-WP_DEPENDS=""
-WP_EXTRA_HOSTS=""
-REDIS_SERVICE=""
-
-if [ "$REDIS_HOST" = "redis" ]; then
-    # Bundled Redis
-    WP_DEPENDS="    depends_on:
-      - redis"
-    REDIS_SERVICE="
-  redis:
-    image: redis:alpine
-    restart: always
-    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save 60 1 --loglevel warning
-    volumes:
-      - ./redis-data:/data
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: \"5m\"
-        max-file: \"2\"
-    healthcheck:
-      test: [\"CMD\", \"redis-cli\", \"ping\"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 96M"
-else
-    # External Redis - connect to host
-    WP_EXTRA_HOSTS="    extra_hosts:
+# --- Redis runs on the host side - reach it through host-gateway ---
+WP_EXTRA_HOSTS="    extra_hosts:
       - \"host-gateway:host-gateway\""
-fi
 
 # SQLite: mount pre-generated wp-config.php (must exist before WP starts)
 WP_CONFIG_VOLUME=""
@@ -660,7 +614,6 @@ $WP_ENV_BLOCK
 $WP_CONFIG_VOLUME
     tmpfs:
       - /tmp:size=128M,mode=1777
-$WP_DEPENDS
 $WP_EXTRA_HOSTS
     security_opt:
       - no-new-privileges:true
@@ -679,7 +632,6 @@ $WP_EXTRA_HOSTS
       resources:
         limits:
           memory: $WP_MEMORY
-$REDIS_SERVICE
 
   nginx:
     image: nginx:alpine
@@ -959,7 +911,7 @@ sudo docker compose up -d
 
 # Health check - build + start need more time
 echo "⏳ Waiting for startup..."
-source /opt/stackpilot/lib/health-check.sh 2>/dev/null || true
+source "${STACKPILOT_DIR:-/opt/stackpilot}"/lib/health-check.sh 2>/dev/null || true
 if type wait_for_healthy &>/dev/null; then
     wait_for_healthy "$APP_NAME" "$PORT" 60 || { echo "❌ Installation failed!"; exit 1; }
 else
@@ -985,6 +937,8 @@ fi
 echo ""
 echo "⚙️  Running wp-config.php optimizations..."
 bash "$STACK_DIR/wp-init.sh" 2>&1 | sed 's/^/   /'
+# PHP-FPM keeps compiled files until reloaded (opcache.validate_timestamps=0)
+sudo docker compose kill -s USR2 wordpress
 
 # Pass STACK_DIR to deploy.sh
 echo "$STACK_DIR" > /tmp/app_stack_dir

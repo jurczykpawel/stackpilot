@@ -13,6 +13,13 @@ DOCKGE_DIR="/opt/dockge"
 STACKS_DIR="/opt/stacks"
 PORT=${PORT:-5001}
 
+# Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
+if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
+    BIND_ADDR=""
+else
+    BIND_ADDR="127.0.0.1:"
+fi
+
 echo "--- 1. Checking Prerequisites ---"
 if ! command -v docker &> /dev/null; then
     echo "❌ Docker is not installed. Running system/docker-setup.sh first..."
@@ -32,7 +39,7 @@ services:
     image: louislam/dockge:1
     restart: always
     ports:
-      - "$PORT:5001"
+      - "${BIND_ADDR}$PORT:5001"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
