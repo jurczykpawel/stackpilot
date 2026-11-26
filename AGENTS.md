@@ -76,7 +76,7 @@ Provider-specific code lives in `lib/providers/<provider>/`. Detection is in `li
 Install once per clone: `pre-commit install` (installs the pre-commit and pre-push hooks from `.pre-commit-config.yaml`).
 
 - pre-commit: TruffleHog secret scan.
-- pre-push: **no unhandled open pull requests.** The push is refused while any open PR other than the one for the branch being pushed exists (Dependabot included). Handle them first: merge after review and green CI, fix, or close with a reason. Emergency bypass only: `git push --no-verify`.
+- pre-push: **no unhandled open pull requests or issues.** The push is refused while (a) any open PR other than the one for the branch being pushed exists (Dependabot included), or (b) any open issue is neither closed nor closed by the pushed commits (`Closes #N` / `Fixes #N` / `Resolves #N` in a commit message, so merging closes it). Findings outside a task's scope are filed as issues labelled `znalezisko` and must be handled the same way: fix, or close with a reason. Emergency bypass only: `git push --no-verify`.
 
 ## Dual-Mode Operation (local + on-server)
 

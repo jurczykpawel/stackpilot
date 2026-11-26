@@ -13,9 +13,9 @@ repos:
 
   - repo: local
     hooks:
-      - id: open-pull-requests
-        name: No unhandled open pull requests
-        entry: .githooks/pre-push-open-prs.sh
+      - id: open-items
+        name: No unhandled open pull requests or issues
+        entry: .githooks/pre-push-open-items.sh
         language: script
         pass_filenames: false
         always_run: true
