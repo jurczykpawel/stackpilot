@@ -66,7 +66,7 @@ install_twice() {
     # The server keeps the toolbox in /opt/stackpilot; here the checkout stands in for it
     sed "s#/opt/stackpilot/lib/#$REPO_ROOT/lib/#g" "$REPO_ROOT/apps/$app/install.sh" > "$script"
     for run in 1 2; do
-        (cd "$TEST_TMPDIR" && env "$@" STACK_DIR="$stack" STACKS_DIR="$TEST_TMPDIR/stacks" STACKPILOT_LIB="$REPO_ROOT/lib" STACKPILOT_DIR="$REPO_ROOT" YES_MODE=true \
+        (cd "$TEST_TMPDIR" && env YES_MODE=true "$@" STACK_DIR="$stack" STACKS_DIR="$TEST_TMPDIR/stacks" STACKPILOT_LIB="$REPO_ROOT/lib" STACKPILOT_DIR="$REPO_ROOT" \
             DOMAIN_TYPE=local LC_ALL=C bash "$script") > "$TEST_TMPDIR/$app-$run.log" 2>&1 \
             || { echo "run $run failed:"; tail -5 "$TEST_TMPDIR/$app-$run.log"; return 0; }
         find "$stack" -maxdepth 1 -type f ! -name '*.log' -exec sh -c 'for f; do echo "== $f"; cat "$f"; done' sh {} + \
@@ -105,6 +105,60 @@ test_gotenberg() { assert_eq same "$(install_twice gotenberg)"; }
 test_redis() { assert_eq same "$(install_twice redis)"; }
 test_social_media_generator() { assert_eq same "$(install_twice social-media-generator)"; }
 test_postiz() { assert_eq same "$(install_twice postiz POSTIZ_REDIS=bundled)"; }
+test_vaultwarden() { assert_eq same "$(install_twice vaultwarden)"; }
+
+VW_STACK_FILE=stacks/vaultwarden/docker-compose.yaml
+HASH='$argon2id$v=19$m=65540,t=3,p=4$c2FsdA$aGFzaA'
+
+# vaultwarden_run ANSWERS [VAR=value...] — one installer run answering the prompts; prints the ADMIN_TOKEN line
+vaultwarden_run() {
+    local answers="$1" script="$TEST_TMPDIR/vaultwarden-install.sh"
+    shift
+    printf '#!/bin/bash\ncat > /dev/null\necho '"'%s'"'\n' "$HASH" > "$TEST_TMPDIR/bin/argon2"
+    chmod +x "$TEST_TMPDIR/bin/argon2"
+    sed "s#/opt/stackpilot/lib/#$REPO_ROOT/lib/#g" "$REPO_ROOT/apps/vaultwarden/install.sh" > "$script"
+    printf '%b' "$answers" | (cd "$TEST_TMPDIR" && env YES_MODE= "$@" STACK_DIR="$TEST_TMPDIR/stacks/vaultwarden" \
+        STACKPILOT_LIB="$REPO_ROOT/lib" DOMAIN_TYPE=local LC_ALL=C bash "$script") > "$TEST_TMPDIR/vaultwarden.log" 2>&1 \
+        || { echo "run failed:"; tail -5 "$TEST_TMPDIR/vaultwarden.log"; return 0; }
+    grep -E '^ *- ADMIN_TOKEN=' "$TEST_TMPDIR/$VW_STACK_FILE" || echo "no token"
+}
+
+test_vaultwarden_stores_the_hash_for_compose() {
+    # Compose reads "$name" as a variable: every $ of the hash is written as $$
+    assert_eq '      - ADMIN_TOKEN=$$argon2id$$v=19$$m=65540,t=3,p=4$$c2FsdA$$aGFzaA' "$(vaultwarden_run 'y\n\n')"
+}
+
+test_vaultwarden_rerun_keeps_the_admin_token() {
+    local first
+    first=$(vaultwarden_run 'y\n\n')
+    assert_contains "$first" "ADMIN_TOKEN=" "first run enables the panel"
+    assert_eq "$first" "$(vaultwarden_run '\n')" "Enter keeps the token"
+    assert_eq "$first" "$(vaultwarden_run '' YES_MODE=true)" "--yes keeps the token"
+}
+
+test_vaultwarden_rerun_changes_the_token_only_on_request() {
+    vaultwarden_run 'y\n\n' > /dev/null
+    assert_eq "no token" "$(vaultwarden_run 'd\n')" "d disables the panel"
+    vaultwarden_run 'y\n\n' > /dev/null
+    assert_contains "$(vaultwarden_run 'n\n\n')" "ADMIN_TOKEN=" "n sets a new token"
+    assert_contains "$(cat "$TEST_TMPDIR/vaultwarden.log")" "SAVE THIS TOKEN" "the new token is shown"
+}
+
+test_vaultwarden_rerun_repairs_a_hash_written_without_escaping() {
+    mkdir -p "$TEST_TMPDIR/stacks/vaultwarden"
+    printf 'services:\n  vaultwarden:\n    environment:\n      - ADMIN_TOKEN=%s\n' "$HASH" > "$TEST_TMPDIR/$VW_STACK_FILE"
+    assert_eq '      - ADMIN_TOKEN=$$argon2id$$v=19$$m=65540,t=3,p=4$$c2FsdA$$aGFzaA' "$(vaultwarden_run '' YES_MODE=true)"
+}
+
+test_vaultwarden_rerun_keeps_disabled_signups() {
+    local file="$TEST_TMPDIR/$VW_STACK_FILE"
+    vaultwarden_run '' YES_MODE=true > /dev/null
+    # README step after creating the account
+    sed 's/SIGNUPS_ALLOWED=true/SIGNUPS_ALLOWED=false/' "$file" > "$file.new" && mv "$file.new" "$file"
+    vaultwarden_run '' YES_MODE=true > /dev/null
+    assert_contains "$(cat "$file")" "SIGNUPS_ALLOWED=false" "registration stays disabled"
+}
+
 test_supabase() {
     # The installer edits .env with GNU sed -i, as on the server
     sed --version >/dev/null 2>&1 || { skip_test "needs GNU sed"; return 0; }

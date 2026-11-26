@@ -13,7 +13,8 @@
 set -e
 
 APP_NAME="vaultwarden"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-8088}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
@@ -37,37 +38,54 @@ else
     echo "⚠️  No domain - using localhost"
 fi
 
-# Admin panel (interactive, disabled by default)
-ADMIN_TOKEN_LINE=""
+# Admin panel /admin: disabled by default; a re-install keeps the current token
+# and changes or removes it only when asked to.
+ADMIN_TOKEN=$(stack_value "$STACK_DIR/docker-compose.yaml" ADMIN_TOKEN || true)
+# Compose reads "$name" as a variable, so every $ of an Argon2 hash is stored as $$
+[[ "$ADMIN_TOKEN" == *'$$'* ]] || ADMIN_TOKEN="${ADMIN_TOKEN//\$/\$\$}"
+
+new_admin_token() {
+    local plain_token hashed_token
+    plain_token=$(openssl rand -hex 32)
+
+    if ! command -v argon2 &>/dev/null; then
+        echo "📦 Installing argon2..."
+        sudo apt-get install -y argon2 > /dev/null 2>&1 || true
+    fi
+
+    if command -v argon2 &>/dev/null; then
+        hashed_token=$(echo -n "$plain_token" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4)
+        ADMIN_TOKEN="${hashed_token//\$/\$\$}"
+    else
+        ADMIN_TOKEN="$plain_token"
+    fi
+
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  ⚠️  SAVE THIS TOKEN — IT CANNOT BE RECOVERED!              ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  $plain_token  ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "  Use it to log in at /admin. Only the Argon2 hash is stored"
+    echo "  in docker-compose — save the original yourself (e.g. in Vaultwarden)."
+    echo ""
+    read -p "  Press Enter when you have saved the token..." _
+}
+
 if [ -z "$YES" ] && [ -z "$YES_MODE" ]; then
     echo ""
-    read -p "🔐 Enable admin panel /admin? (N/y): " ENABLE_ADMIN
-    if [[ "$ENABLE_ADMIN" =~ ^[yY]$ ]]; then
-        PLAIN_TOKEN=$(openssl rand -hex 32)
-
-        if ! command -v argon2 &>/dev/null; then
-            echo "📦 Installing argon2..."
-            sudo apt-get install -y argon2 > /dev/null 2>&1 || true
+    if [ -n "$ADMIN_TOKEN" ]; then
+        read -p "🔐 Admin panel /admin is enabled. Keep the current token (Enter), set a new one (n) or disable the panel (d)? " ADMIN_ANSWER
+        case "$ADMIN_ANSWER" in
+            [nN]) new_admin_token ;;
+            [dD]) ADMIN_TOKEN="" ;;
+        esac
+    else
+        read -p "🔐 Enable admin panel /admin? (N/y): " ENABLE_ADMIN
+        if [[ "$ENABLE_ADMIN" =~ ^[yY]$ ]]; then
+            new_admin_token
         fi
-
-        if command -v argon2 &>/dev/null; then
-            HASHED_TOKEN=$(echo -n "$PLAIN_TOKEN" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4)
-            ADMIN_TOKEN_LINE="      - ADMIN_TOKEN=$HASHED_TOKEN"
-        else
-            ADMIN_TOKEN_LINE="      - ADMIN_TOKEN=$PLAIN_TOKEN"
-        fi
-
-        echo ""
-        echo "╔══════════════════════════════════════════════════════════════╗"
-        echo "║  ⚠️  SAVE THIS TOKEN — IT CANNOT BE RECOVERED!              ║"
-        echo "╠══════════════════════════════════════════════════════════════╣"
-        echo "║  $PLAIN_TOKEN  ║"
-        echo "╚══════════════════════════════════════════════════════════════╝"
-        echo ""
-        echo "  Use it to log in at /admin. Only the Argon2 hash is stored"
-        echo "  in docker-compose — save the original yourself (e.g. in Vaultwarden)."
-        echo ""
-        read -p "  Press Enter when you have saved the token..." _
     fi
 fi
 
@@ -81,27 +99,35 @@ else
     DOMAIN_URL="http://localhost:$PORT"
 fi
 
-cat <<'COMPOSE' | sudo tee docker-compose.yaml > /dev/null
+# Registration is closed by hand after creating the account; a re-install keeps that
+SIGNUPS_ALLOWED=$(stack_value "$STACK_DIR/docker-compose.yaml" SIGNUPS_ALLOWED || echo true)
+
+{
+    cat <<COMPOSE
 services:
   vaultwarden:
     image: vaultwarden/server:latest
     restart: always
     ports:
-      - "${BIND_ADDR}PORT_PLACEHOLDER:80"
+      - "${BIND_ADDR}${PORT}:80"
     environment:
-      - DOMAIN=DOMAIN_PLACEHOLDER
-      - SIGNUPS_ALLOWED=true
+      - DOMAIN=${DOMAIN_URL}
+      - SIGNUPS_ALLOWED=${SIGNUPS_ALLOWED}
       - WEBSOCKET_ENABLED=true
+COMPOSE
+    cat <<'COMPOSE'
       # --- Admin panel ---
       # To enable manually:
       #   1. Generate token:     openssl rand -hex 32
       #   2. Hash with Argon2:   echo -n "YOUR_TOKEN" | argon2 "$(openssl rand -base64 32)" -e -id -k 65540 -t 3 -p 4
-      #   3. Uncomment and paste hash below: (if no argon2: apt install argon2)
+      #   3. Uncomment and paste the hash below, writing every $ as $$ (if no argon2: apt install argon2)
       #   4. Restart:            docker compose up -d
       #   5. Log in with the original token (not the hash) at /admin
       #   6. When done, comment out ADMIN_TOKEN and restart
-      #- ADMIN_TOKEN=$argon2id$v=19$m=65540,t=3,p=4$SALT$HASH
-ADMIN_TOKEN_PLACEHOLDER
+      #- ADMIN_TOKEN=$$argon2id$$v=19$$m=65540,t=3,p=4$$SALT$$HASH
+COMPOSE
+    [ -z "$ADMIN_TOKEN" ] || printf '      - ADMIN_TOKEN=%s\n' "$ADMIN_TOKEN"
+    cat <<'COMPOSE'
     volumes:
       - ./data:/data
     deploy:
@@ -109,15 +135,7 @@ ADMIN_TOKEN_PLACEHOLDER
         limits:
           memory: 128M
 COMPOSE
-
-sudo sed -i "s|\${BIND_ADDR}PORT_PLACEHOLDER|${BIND_ADDR}$PORT|" docker-compose.yaml
-sudo sed -i "s|DOMAIN_PLACEHOLDER|$DOMAIN_URL|" docker-compose.yaml
-
-if [ -n "$ADMIN_TOKEN_LINE" ]; then
-    sudo sed -i "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN_LINE|" docker-compose.yaml
-else
-    sudo sed -i "/ADMIN_TOKEN_PLACEHOLDER/d" docker-compose.yaml
-fi
+} | sudo tee docker-compose.yaml > /dev/null
 
 sudo docker compose up -d
 
@@ -151,16 +169,18 @@ else
     echo "🔗 Access via SSH tunnel: ssh -L $PORT:localhost:$PORT <server>"
 fi
 echo ""
-if [ -n "$ADMIN_TOKEN_LINE" ]; then
-    echo "🔐 Admin panel ENABLED at /admin (Argon2 hash in docker-compose)"
+if [ -n "$ADMIN_TOKEN" ]; then
+    echo "🔐 Admin panel ENABLED at /admin (token in docker-compose)"
 else
     echo "🔒 Admin panel DISABLED (default)."
     echo "   To enable: see $STACK_DIR/docker-compose.yaml (instructions in comments)"
 fi
-echo ""
-echo "📝 Next steps:"
-echo "   1. Create your account in the browser"
-echo "   2. Disable registration (command below!)"
-echo ""
-echo "🔒 IMPORTANT — disable registration after creating your account:"
-echo "   ssh ${SSH_ALIAS:-vps} 'cd $STACK_DIR && sed -i \"s/SIGNUPS_ALLOWED=true/SIGNUPS_ALLOWED=false/\" docker-compose.yaml && docker compose up -d'"
+if [ "$SIGNUPS_ALLOWED" = true ]; then
+    echo ""
+    echo "📝 Next steps:"
+    echo "   1. Create your account in the browser"
+    echo "   2. Disable registration (command below!)"
+    echo ""
+    echo "🔒 IMPORTANT — disable registration after creating your account:"
+    echo "   ssh ${SSH_ALIAS:-vps} 'cd $STACK_DIR && sed -i \"s/SIGNUPS_ALLOWED=true/SIGNUPS_ALLOWED=false/\" docker-compose.yaml && docker compose up -d'"
+fi

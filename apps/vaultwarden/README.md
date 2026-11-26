@@ -42,11 +42,7 @@ The `--domain-type=local` mode (SSH tunnel) is secure locally, but do not expose
    ```bash
    ssh ALIAS 'cd /opt/stacks/vaultwarden && sed -i "s/SIGNUPS_ALLOWED=true/SIGNUPS_ALLOWED=false/" docker-compose.yaml && docker compose up -d'
    ```
-3. **Admin panel** -- token saved in `/opt/stacks/vaultwarden/.admin_token`:
-   ```bash
-   ssh ALIAS 'cat /opt/stacks/vaultwarden/.admin_token'
-   ```
-   Access: `https://your-domain.com/admin`
+3. **Admin panel** (`https://your-domain.com/admin`) -- disabled by default. The interactive installer asks whether to enable it and shows the token once; only its Argon2 hash is stored in `docker-compose.yaml`, so save the token yourself. Running the installer again keeps the token and the registration setting: press Enter to keep the token, `n` for a new one, `d` to disable the panel (`--yes` keeps it).
 4. Use the **Bitwarden** mobile app and browser extension -- they are fully compatible with Vaultwarden
 
 ## Backup
