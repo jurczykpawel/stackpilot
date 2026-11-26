@@ -1352,6 +1352,7 @@ MSG_LM_DONE="${GREEN}✅ Done!${NC}"
 
 # ── system/bun-setup.sh ───────────────────────────────────────
 MSG_SELLF_SYSTEM_BINARY_MISSING="❌ Cannot find executable '%s'. Install Bun (https://bun.sh), add its bin directory to PATH, run 'bun install -g pm2', then retry."
+MSG_SELLF_NODE_TOO_OLD="❌ Sellf needs Node.js 20.12 or newer (found: %s). Nothing was changed. Upgrade Node.js, e.g. on Debian/Ubuntu: curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash - && sudo apt-get install -y nodejs, then retry."
 MSG_BUN_HEADER="--- 🥟 Bun + PM2 Setup ---"
 MSG_BUN_ALREADY="✅ Bun already installed: v%s"
 MSG_BUN_INSTALLING="📦 Installing Bun..."

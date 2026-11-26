@@ -22,6 +22,7 @@ User-facing changes to StackPilot. Entries are dated; the project follows the `m
 - **MinIO** (also the MinIO bundled with Cap and Plunk) installs again: the `minio/minio` image no longer exists, so the installers now use the maintained fork `pgsty/silo`, pinned to `RELEASE.2026-11-12T00-00-00Z`. Reasons and upgrade steps: `apps/minio/README.md` (#36).
 - The n8n installer no longer says it uses an external PostgreSQL when it starts the bundled one, and the README memory guidance matches the n8n requirements (#27).
 - `stackpilot.techskills.academy/mailstack` and `/mailcheap` are no longer published: both need a step on your computer first. Install them as described in their READMEs (#24).
+- **Sellf** update and restart check Node.js before they stop the application: with Node.js older than 20.12 they exit with instructions instead of leaving Sellf stopped. The installer now also upgrades an older Node.js, not only a missing one (#34).
 - Docker installation on a clean Debian server through the one-line installer (#28).
 - `--domain-type=caddy` reporting a configured domain without Caddy on the server (#25).
 - Application ports published on all interfaces although the documentation says `127.0.0.1` (#26).

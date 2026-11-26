@@ -84,6 +84,20 @@ sellf_ensure_system_path() {
     done
 }
 
+# sellf_node_ready [NODE] — the PM2 start reads .env.local with util.parseEnv (Node.js 20.12+)
+sellf_node_ready() {
+    local NODE="${1:-node}" VERSION
+    if "$NODE" -e 'process.exit(typeof require("node:util").parseEnv === "function" ? 0 : 1)' >/dev/null 2>&1; then
+        return 0
+    fi
+    VERSION=$("$NODE" --version 2>/dev/null) || VERSION="-"
+    if [ -z "${MSG_SELLF_NODE_TOO_OLD:-}" ]; then
+        source "$(dirname "${BASH_SOURCE[0]}")/../../lib/i18n.sh"
+    fi
+    printf '%s\n' "${MSG_SELLF_NODE_TOO_OLD//%s/$VERSION}" >&2
+    return 1
+}
+
 # sellf_release_base_url REPO — prints the download base URL of the newest
 # release, e.g. https://github.com/owner/repo/releases/download/v2026.9.3.
 # Resolving the tag once keeps all four assets from the same release.

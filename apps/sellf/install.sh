@@ -145,12 +145,12 @@ else
 
     # PM2 requires real Node.js for fork mode IPC (bun's child_process.fork is
     # not fully compatible with PM2's process management protocol).
-    # Install Node.js LTS via NodeSource if not already present.
+    # Install Node.js LTS via NodeSource when missing or too old for the start script.
     # Also remove any bun->node symlink that may shadow the real node binary.
     if [ -L "/root/.bun/bin/node" ]; then
         rm -f /root/.bun/bin/node
     fi
-    if ! /usr/bin/node --version &> /dev/null 2>&1; then
+    if ! sellf_node_ready /usr/bin/node 2>/dev/null; then
         echo "📦 Installing Node.js LTS (required by PM2)..."
         if command -v apt-get &> /dev/null; then
             curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - 2>/dev/null
