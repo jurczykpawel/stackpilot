@@ -121,6 +121,7 @@ fi
 echo ""
 msg "$MSG_BKP_PING_INFO"
 ask PING_URL "" "$MSG_BKP_PING_PROMPT"
+[ -z "$PING_URL" ] || [[ "$PING_URL" =~ ^https?://[^[:space:]]+$ ]] || { msg "$MSG_BKP_PING_INVALID"; exit 1; }
 
 RUN_NOW=n
 if [ "$NEW_PASSWORD" = true ]; then
@@ -133,10 +134,12 @@ ENV_LINES=("$(printf 'RESTIC_REPOSITORY=%q' "$REPOSITORY")" "$(printf 'RESTIC_PA
 echo ""
 msg "$MSG_BKP_DEPLOYING"
 backup_install_engine
+# The current configuration is replaced only after the new one opens or creates the repository.
+CONFIG=/opt/stackpilot/config/backup.env
 printf '%s\n' "# StackPilot backup configuration (restic). Keep this file private." "${ENV_LINES[@]}" |
-    backup_write_private /opt/stackpilot/config/backup.env
+    backup_write_private "$CONFIG.new"
 
-if ! server_exec "$(backup_sudo) $BACKUP_ENGINE init" < /dev/null; then
+if ! server_exec "$(backup_sudo) sh -c 'BACKUP_ENV=$CONFIG.new $BACKUP_ENGINE init && mv -f $CONFIG.new $CONFIG || { rm -f $CONFIG.new; exit 1; }'" < /dev/null; then
     msg "$MSG_BKP_INIT_FAILED"
     exit 1
 fi

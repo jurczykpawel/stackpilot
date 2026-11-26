@@ -19,6 +19,7 @@ setup() {
 printf '%s\n' "$*" >> "$T/argv"
 case "$*" in
     *"id -u"*) echo 0 ;;
+    *"stackpilot-backup init"*) [ -n "${INIT_FAIL:-}" ] && exit 1 ;;
     *hostname*) echo srv1 ;;
     *"cat >"*) cat > "$T/stdin/$(date +%s%N)-$RANDOM" ;;
 esac
@@ -26,6 +27,7 @@ exit 0
 STUB
     chmod +x "$T/bin/ssh"
     export T PATH="$T/bin:$PATH" TOOLBOX_LANG=en
+    unset INIT_FAIL
 }
 
 wizard() { # answers, one per line
@@ -98,6 +100,26 @@ test_invalid_choice_and_cancel_write_nothing() {
 test_relative_local_path_rejected() {
     wizard y 5 backups/restic
     assert_not_eq "0" "$?" "relative path rejected"
+    assert_not_contains "$(cat "$T/argv")" "cat >" "nothing written to the server"
+}
+
+test_new_configuration_replaces_old_only_after_init() {
+    wizard y 5 /mnt/backup/restic "" "" n
+    assert_eq "0" "$?" "wizard succeeds" || cat "$T/out"
+    assert_contains "$(cat "$T/argv")" "cat > /opt/stackpilot/config/backup.env.new" "written next to the old one"
+    assert_contains "$(cat "$T/argv")" "init && mv -f /opt/stackpilot/config/backup.env.new /opt/stackpilot/config/backup.env" "moved after init"
+}
+
+test_failed_init_keeps_current_configuration() {
+    INIT_FAIL=1 wizard y 5 /mnt/backup/restic "wrong password" ""
+    assert_not_eq "0" "$?" "wizard fails"
+    assert_not_contains "$(cat "$T/argv")" "cat > /opt/stackpilot/config/backup.env &&" "current config not overwritten"
+    assert_contains "$(cat "$T/argv")" "rm -f /opt/stackpilot/config/backup.env.new" "rejected config removed"
+}
+
+test_invalid_heartbeat_url_rejected() {
+    wizard y 5 /mnt/backup/restic "" "y"
+    assert_not_eq "0" "$?" "non-URL rejected"
     assert_not_contains "$(cat "$T/argv")" "cat >" "nothing written to the server"
 }
 

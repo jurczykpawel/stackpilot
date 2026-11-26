@@ -897,6 +897,7 @@ MSG_BKP_PASSWORD_INFO="Backups are encrypted with a repository password. Restori
 MSG_BKP_PASSWORD_PROMPT="Existing repository password (Enter = generate a new one): "
 MSG_BKP_PING_INFO="Optional: a heartbeat URL (healthchecks.io or an Uptime Kuma push monitor) alerts you when a backup fails or stops running."
 MSG_BKP_PING_PROMPT="Heartbeat URL (Enter = skip): "
+MSG_BKP_PING_INVALID="${RED}❌ The heartbeat URL must start with https:// or http://${NC}"
 MSG_BKP_RUN_NOW="Run the first backup now? (Y/n) "
 MSG_BKP_DEPLOYING="--- Configuring the server ---"
 MSG_BKP_INIT_FAILED="${RED}❌ Could not open or create the repository. Check the details above and run the wizard again.${NC}"

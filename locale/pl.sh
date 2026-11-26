@@ -896,6 +896,7 @@ MSG_BKP_PASSWORD_INFO="Kopie są szyfrowane hasłem repozytorium. Przywrócenie 
 MSG_BKP_PASSWORD_PROMPT="Hasło istniejącego repozytorium (Enter = wygeneruj nowe): "
 MSG_BKP_PING_INFO="Opcjonalnie: adres heartbeat (healthchecks.io albo monitor push w Uptime Kuma) powiadomi Cię, gdy kopia się nie uda albo przestanie się robić."
 MSG_BKP_PING_PROMPT="Adres heartbeat (Enter = pomiń): "
+MSG_BKP_PING_INVALID="${RED}❌ Adres heartbeat musi zaczynać się od https:// albo http://${NC}"
 MSG_BKP_RUN_NOW="Zrobić pierwszą kopię teraz? (T/n) "
 MSG_BKP_DEPLOYING="--- Konfiguruję serwer ---"
 MSG_BKP_INIT_FAILED="${RED}❌ Nie udało się otworzyć ani utworzyć repozytorium. Sprawdź dane powyżej i uruchom kreator ponownie.${NC}"
