@@ -86,6 +86,16 @@ test_typebot() { assert_eq same "$(install_twice typebot "${EXTERNAL_DB[@]}")"; 
 test_umami() { assert_eq same "$(install_twice umami "${EXTERNAL_DB[@]}")"; }
 test_keila() { assert_eq same "$(install_twice keila "${EXTERNAL_DB[@]}")"; }
 test_cap() { assert_eq same "$(install_twice cap DOMAIN=cap.example.com MYSQL_ROOT_PASS=rootpass1234 USE_LOCAL_MINIO=true)"; }
+test_cap_minio_credentials_differ_per_installation() {
+    local first second
+    install_twice cap DOMAIN=cap.example.com MYSQL_ROOT_PASS=rootpass1234 USE_LOCAL_MINIO=true > /dev/null
+    mv "$TEST_TMPDIR/stacks/cap" "$TEST_TMPDIR/cap-first"
+    install_twice cap DOMAIN=cap.example.com MYSQL_ROOT_PASS=rootpass1234 USE_LOCAL_MINIO=true > /dev/null
+    first=$(grep -E 'MINIO_ROOT_(USER|PASSWORD)=' "$TEST_TMPDIR/cap-first/docker-compose.yaml")
+    second=$(grep -E 'MINIO_ROOT_(USER|PASSWORD)=' "$TEST_TMPDIR/stacks/cap/docker-compose.yaml")
+    assert_eq 2 "$(grep -c . <<< "$first")" "MinIO credentials written"
+    assert_not_eq "$first" "$second" "each installation gets its own MinIO credentials"
+}
 test_affine() { assert_eq same "$(install_twice affine)"; }
 test_convertx() { assert_eq same "$(install_twice convertx)"; }
 test_crawl4ai() { assert_eq same "$(install_twice crawl4ai)"; }
