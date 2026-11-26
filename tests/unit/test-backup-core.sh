@@ -56,6 +56,12 @@ printf 'restic %s\n' "$*" >> "$LOG"
 case "$1" in
     version) echo "restic 0.19.1 compiled with go1.24 on linux/amd64" ;;
     cat) exit "${MOCK_RESTIC_CAT_EXIT:-0}" ;;
+    init)
+        case "${MOCK_REPO:-existing}" in
+            missing) echo "created restic repository" ;;
+            existing) echo "Fatal: create key failed: repository master key and config already initialized" >&2; exit 1 ;;
+            *) echo "Fatal: create repository failed: client.BucketExists: Access Denied" >&2; exit 1 ;;
+        esac ;;
     backup) exit "${MOCK_RESTIC_BACKUP_EXIT:-0}" ;;
     restore)
         target="" include=""
@@ -186,7 +192,7 @@ EOF
 }
 
 test_init_creates_missing_repository_and_cron() {
-    MOCK_RESTIC_CAT_EXIT=10 bash "$ENGINE" init > "$T/out" 2>&1
+    MOCK_REPO=missing bash "$ENGINE" init > "$T/out" 2>&1
     assert_eq "0" "$?" "init succeeds" || cat "$T/out"
     assert_true grep -q '^restic init' "$LOG"
     assert_contains "$(cat "$T/cron")" "stackpilot-backup run" "cron job installed"
@@ -194,16 +200,25 @@ test_init_creates_missing_repository_and_cron() {
 
 test_init_keeps_existing_repository() {
     bash "$ENGINE" init > "$T/out" 2>&1
-    assert_eq "0" "$?" "init succeeds"
-    assert_false grep -q '^restic init' "$LOG"
+    assert_eq "0" "$?" "init succeeds" || cat "$T/out"
+    assert_true grep -q '^restic cat config' "$LOG"
+    assert_contains "$(cat "$T/out")" "existing repository" "reuse reported"
 }
 
-test_init_rejects_wrong_password_without_reinitialising() {
+test_init_rejects_wrong_password_for_existing_repository() {
     MOCK_RESTIC_CAT_EXIT=12 bash "$ENGINE" init > "$T/out" 2>&1
     assert_not_eq "0" "$?" "init fails"
-    assert_false grep -q '^restic init' "$LOG"
+    assert_contains "$(cat "$T/out")" "Wrong password" "reason shown"
     assert_false test -e "$T/cron"
     assert_not_contains "$(cat "$T/out")" "test-password" "password never printed"
+}
+
+test_init_storage_error_fails_at_once() {
+    MOCK_REPO=error bash "$ENGINE" init > "$T/out" 2>&1
+    assert_not_eq "0" "$?" "init fails"
+    assert_contains "$(cat "$T/out")" "Access Denied" "storage error shown"
+    assert_false grep -q '^restic cat' "$LOG"
+    assert_false test -e "$T/cron"
 }
 
 test_restore_requires_confirmation_flag() {

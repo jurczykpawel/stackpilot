@@ -269,7 +269,7 @@ install_restic() {
 }
 
 cmd_init() {
-    local MISSING=() TOOL RC=0
+    local MISSING=() TOOL RC=0 OUT
     load_config
     for TOOL in sqlite3 bzip2 curl flock; do
         command -v "$TOOL" > /dev/null || MISSING+=("$TOOL")
@@ -279,13 +279,20 @@ cmd_init() {
         apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${MISSING[@]}" > /dev/null
     fi
     restic_is_current || install_restic
-    restic cat config > /dev/null || RC=$?
-    case "$RC" in
-        0) log "Using the existing repository" ;;
-        10) restic init > /dev/null && log "Repository created" ;;
-        12) die "Wrong password for the existing repository" ;;
-        *) die "Cannot open the repository (restic exit code $RC)" ;;
-    esac
+    # init first: it creates a missing S3 bucket and fails at once on bad keys,
+    # while "cat config" keeps retrying a missing bucket for many minutes.
+    if OUT=$(restic init 2>&1 < /dev/null); then
+        log "Repository created"
+    elif [[ "$OUT" == *"already initialized"* ]]; then
+        restic cat config > /dev/null < /dev/null || RC=$?
+        case "$RC" in
+            0) log "Using the existing repository" ;;
+            12) die "Wrong password for the existing repository" ;;
+            *) die "Cannot open the repository (restic exit code $RC)" ;;
+        esac
+    else
+        die "Cannot create the repository: $OUT"
+    fi
     cat > "$BACKUP_CRON_FILE" <<EOF
 # StackPilot - daily restic backup (files, Docker volumes, database dumps)
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
