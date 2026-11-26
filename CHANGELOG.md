@@ -13,6 +13,10 @@ User-facing changes to StackPilot. Entries are dated; the project follows the `m
 - **`--domain-type=caddy`** installs Caddy when it is missing. If Caddy or the domain cannot be set up, including after a successful Cloudflare DNS step, the deploy now exits with an error and does not report success. An existing custom Caddyfile is kept: only the `conf.d` import is added, and the previous file is saved as `Caddyfile.before-stackpilot`.
 - The one-line installer installs `sudo` when the system has none.
 
+### Removed
+
+- **RoutePix** is no longer in the catalog: its source repository is private, so the installer could not work for anyone (#35).
+
 ### Fixed
 
 - Docker installation on a clean Debian server through the one-line installer (#28).

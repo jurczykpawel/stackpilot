@@ -118,7 +118,6 @@ Applications are located in `apps/<name>/install.sh`:
 | **mcp-docker** | MCP server for Docker management | - | - |
 | **captions-cli** | Burn karaoke captions onto videos (Whisper + ffmpeg) | - | - |
 | **picoclaw** | Ultra-lightweight AI assistant (Telegram/Discord/Slack) | - | 8080 |
-| **routepix** | Visualize travel routes from geotagged photos | - | 3000 |
 | **immich** | Self-hosted photo/video library (alt. Google Photos) | PostgreSQL | 2283 |
 | **supabase** | Self-hosted PostgreSQL + Auth + Storage + Studio | PostgreSQL | 54321 |
 | **coolify** | Full PaaS with 280+ one-click apps (requires 4GB+ RAM, 8GB recommended) | PostgreSQL | 8000 |

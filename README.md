@@ -108,7 +108,6 @@ cd stackpilot
 | [LittleLink](apps/littlelink/) | Linktree | Ultra-lightweight link-in-bio page (pure HTML). |
 | [Umami](apps/umami/) | Google Analytics | Privacy-focused web analytics. No cookies, GDPR-compliant. |
 | [AFFiNE](apps/affine/) | Notion / Miro | Knowledge base with docs, whiteboards, and databases. Open-source. |
-| [RoutePix](apps/routepix/) | - | Visualize travel routes from geotagged photos. |
 | [Immich](apps/immich/) | Google Photos | Self-hosted photo and video library. Face recognition, CLIP search, mobile backup. |
 
 ### Security and Storage
