@@ -27,7 +27,8 @@ install_docker_for_distribution() {
             rm "$installer"
             return 1
         fi
-        bash "$installer" || status=$?
+        # get.docker.com treats any non-empty DRY_RUN, "false" included, as a dry run
+        (unset DRY_RUN; bash "$installer") || status=$?
         rm "$installer"
         return "$status"
     fi

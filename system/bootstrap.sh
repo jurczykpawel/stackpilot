@@ -42,18 +42,23 @@ echo "  Target: $INSTALL_DIR (branch: $BRANCH)"
 echo ""
 
 # --- Prerequisites ---
-if ! command -v git &>/dev/null; then
-    echo -e "${YELLOW}> Installing git...${NC}"
+# The other scripts call sudo, which minimal images omit even for root
+MISSING=()
+for tool in git sudo; do
+    command -v "$tool" &>/dev/null || MISSING+=("$tool")
+done
+if [ "${#MISSING[@]}" -gt 0 ]; then
+    echo -e "${YELLOW}> Installing ${MISSING[*]}...${NC}"
     if command -v apt-get &>/dev/null; then
-        $SUDO apt-get update -qq && $SUDO apt-get install -y -qq git
+        $SUDO apt-get update -qq && $SUDO apt-get install -y -qq "${MISSING[@]}"
     elif command -v dnf &>/dev/null; then
-        $SUDO dnf install -y -q git
+        $SUDO dnf install -y -q "${MISSING[@]}"
     elif command -v yum &>/dev/null; then
-        $SUDO yum install -y -q git
+        $SUDO yum install -y -q "${MISSING[@]}"
     elif command -v apk &>/dev/null; then
-        $SUDO apk add --quiet git
+        $SUDO apk add --quiet "${MISSING[@]}"
     else
-        echo -e "${RED}Error: no supported package manager found. Install git manually first.${NC}" >&2
+        echo -e "${RED}Error: no supported package manager found. Install ${MISSING[*]} manually first.${NC}" >&2
         exit 1
     fi
 fi

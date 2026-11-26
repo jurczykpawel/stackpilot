@@ -558,6 +558,9 @@ StackPilot includes a comprehensive test suite:
 ./tests/run.sh e2e --ssh=your-vps --suite=email-apps \
   --domain-type=cloudflare --domain-suffix=sp-test.example.com
 
+# One-line installer on clean Debian 12 and Ubuntu 22.04/24.04 (local Docker, privileged containers)
+./tests/e2e/oneliner-docker.sh
+
 # Run everything
 ./tests/run.sh all --ssh=your-vps
 ```

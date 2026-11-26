@@ -20,6 +20,7 @@ curl() {
 }
 bash() {
     printf '%s\n' "$*" >> "$DIR/bash"
+    printf '%s\n' "${DRY_RUN-unset}" > "$DIR/dry_run"
     if [ -n "${1:-}" ]; then test -s "$1"; fi
     return "${INSTALL_FAIL:-0}"
 }
@@ -31,6 +32,12 @@ old_calls=$(wc -l < "$DIR/bash")
 if DOWNLOAD_FAIL=1 install_docker_for_distribution debian; then echo 'FAIL: download error accepted'; exit 1; fi
 test "$(wc -l < "$DIR/bash")" = "$old_calls"
 if INSTALL_FAIL=23 install_docker_for_distribution debian; then echo 'FAIL: installation error accepted'; exit 1; fi
+# The CLI parser exports DRY_RUN=false; the vendor installer treats any value as a dry run
+export DRY_RUN=false
+install_docker_for_distribution debian
+test "$(cat "$DIR/dry_run")" = unset || { echo 'FAIL: vendor installer inherits DRY_RUN'; exit 1; }
+test "$DRY_RUN" = false || { echo 'FAIL: caller lost DRY_RUN'; exit 1; }
+unset DRY_RUN
 install_docker_for_distribution ubuntu
 grep -q 'unkn0w/noobs/main/scripts/chce_dockera.sh' "$DIR/curl"
 piped_output=$({ printf 'docker_setup_main() { printf called; }\n'; sed -n '/^if \[\[ /,$p' "$ROOT/system/docker-setup.sh"; } | command bash -s)
