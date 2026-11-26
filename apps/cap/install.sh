@@ -14,7 +14,8 @@
 set -e
 
 APP_NAME="cap"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-3000}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
@@ -101,8 +102,8 @@ fi
 # Generate secrets
 echo ""
 echo "Generating security keys..."
-NEXTAUTH_SECRET=$(openssl rand -base64 32)
-DATABASE_ENCRYPTION_KEY=$(openssl rand -base64 32)
+NEXTAUTH_SECRET=$(stack_value "$STACK_DIR/docker-compose.yaml" NEXTAUTH_SECRET || openssl rand -base64 32)
+DATABASE_ENCRYPTION_KEY=$(stack_value "$STACK_DIR/docker-compose.yaml" DATABASE_ENCRYPTION_KEY || openssl rand -base64 32)
 
 # 4. Prepare directory
 sudo mkdir -p "$STACK_DIR"
@@ -158,7 +159,7 @@ if [ "$USE_LOCAL_MINIO" == "true" ]; then
 cat <<EOF | sudo tee -a docker-compose.yaml
 
   cap-minio:
-    image: minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z
     command: server /data --console-address ":9001"
     restart: unless-stopped
     ports:

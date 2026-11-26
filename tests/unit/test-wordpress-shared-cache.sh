@@ -328,7 +328,7 @@ install_postiz() {
     chmod +x "$TEST_TMPDIR/bin/ss"
     mkdir -p "$SHARED"
     echo 'REDIS_PASSWORD=abc123' > "$SHARED/.env"
-    bash "$REPO_ROOT/apps/postiz/install.sh" > "$TEST_TMPDIR/output" 2>&1 || true
+    STACKPILOT_LIB="$REPO_ROOT/lib" bash "$REPO_ROOT/apps/postiz/install.sh" > "$TEST_TMPDIR/output" 2>&1 || true
     POSTIZ_COMPOSE=$(cat "$STACKS_DIR/postiz/docker-compose.yaml" 2>/dev/null)
 }
 test_postiz_brings_its_own_redis_by_default() {

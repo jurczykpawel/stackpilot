@@ -637,18 +637,17 @@ if [ -n "$DEFAULT_PORT" ] && ! grep -qx '# PORT_MANAGED=true' "$SCRIPT_PATH"; th
         PORT_OVERRIDE="$_EXISTING_PORT"
         echo "   Reusing existing port $PORT_OVERRIDE (from previous install)"
     elif [ -z "$_EXISTING_PORT" ]; then
-        # Fresh install — check if default port is free
-        PORT_IN_USE=$(server_exec_timeout 5 "ss -tlnp 2>/dev/null | grep -q ':${DEFAULT_PORT} ' && echo 'yes' || echo 'no'" 2>/dev/null)
+        # No port marker — check if default port is free (one call, search in memory).
+        # Ports of the app's own running containers are not taken: install.sh recreates them.
+        USED_PORTS=$(listening_ports "$SSH_ALIAS") || { msg "$MSG_PORT_CHECK_FAILED"; exit 1; }
+        OWN_PORTS=$(app_published_ports "$APP_NAME")
+        [ -z "$OWN_PORTS" ] || USED_PORTS=$(grep -vxF "$OWN_PORTS" <<< "$USED_PORTS" || true)
 
-        if [ "$PORT_IN_USE" == "yes" ]; then
+        if grep -qx "$DEFAULT_PORT" <<< "$USED_PORTS"; then
             echo ""
             msg "$MSG_PORT_IN_USE" "$DEFAULT_PORT"
-
-            # Single SSH call → port list, search in memory (no retry limit)
-            PORT_OVERRIDE=$(find_free_port_remote "$SSH_ALIAS" $((DEFAULT_PORT + 1)))
-            if [ -n "$PORT_OVERRIDE" ]; then
-                msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
-            fi
+            PORT_OVERRIDE=$(next_free_port $((DEFAULT_PORT + 1)) "$USED_PORTS")
+            msg "$MSG_PORT_OVERRIDE" "$PORT_OVERRIDE" "$DEFAULT_PORT"
         fi
     fi
     # else: re-deploy, existing port == default port → no override needed,
@@ -1026,6 +1025,9 @@ if [ "$DRY_RUN" = true ]; then
     exit 0
 fi
 
+# Port checks in installers need ss (iproute2), which minimal images lack
+listening_ports "$SSH_ALIAS" > /dev/null || { msg "$MSG_PORT_CHECK_FAILED"; exit 1; }
+
 # Auto-install Docker if missing (skip for sellf pm2 mode — doesn't need Docker)
 DOCKER_REQUIRED=true
 if grep -qx '# DOCKER_REQUIRED=false' "$SCRIPT_PATH"; then
@@ -1037,6 +1039,11 @@ if [ "$DOCKER_REQUIRED" = true ] && { [ "$APP_NAME" != "sellf" ] || [ "${RUNTIME
         msg "$MSG_DOCKER_MISSING"
         server_exec "bash -s" < "$REPO_ROOT/system/docker-setup.sh" || { msg "$MSG_DOCKER_INSTALL_FAILED"; exit 1; }
     fi
+fi
+
+# Installers find Caddy in place when the domain goes through it
+if [ "$NEEDS_DOMAIN" = true ] && { [ "$DOMAIN_TYPE" = "caddy" ] || [ "$DOMAIN_TYPE" = "cloudflare" ]; }; then
+    ensure_caddy "$SSH_ALIAS" || exit 1
 fi
 
 # Upload script to server and execute
@@ -1067,6 +1074,7 @@ fi
 
 DEPLOY_SUCCESS=false
 if is_on_server; then
+    EXTRA_ENV="$EXTRA_ENV STACKPILOT_LIB='$REPO_ROOT/lib'"
     # On server: run script directly (no scp/cleanup).
     # eval is required so the single quotes baked into *_ENV values
     # (e.g. DOMAIN='foo.bar') are processed by the shell rather than
@@ -1093,6 +1101,13 @@ else
         EXTRA_ENV="$EXTRA_ENV SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
         CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_RELEASE_LIB';"
     fi
+
+    # Helpers installers source from STACKPILOT_LIB (the toolbox on the server may be older)
+    REMOTE_LIB_DIR="/tmp/sp-lib-$$"
+    upload_install_lib() { server_exec "mkdir -p '$REMOTE_LIB_DIR'" && scp -q "$REPO_ROOT/lib/stack-config.sh" "$SSH_ALIAS:$REMOTE_LIB_DIR/"; }
+    upload_install_lib
+    EXTRA_ENV="$EXTRA_ENV STACKPILOT_LIB='$REMOTE_LIB_DIR'"
+    CLEANUP_CMD="$CLEANUP_CMD rm -rf '$REMOTE_LIB_DIR';"
 
     # WordPress: shared Redis helper sourced by install.sh
     REMOTE_REDIS_LIB=""
@@ -1123,6 +1138,7 @@ else
             msg "$MSG_DOCKER_STORAGE_RETRY"
             ssh "$SSH_ALIAS" "sudo systemctl restart containerd 2>/dev/null; sleep 5; sudo systemctl restart docker 2>/dev/null; sleep 3" 2>/dev/null
             scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" 2>/dev/null
+            upload_install_lib 2>/dev/null
             if [ -n "$REMOTE_REDIS_LIB" ]; then
                 scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB" 2>/dev/null
             fi

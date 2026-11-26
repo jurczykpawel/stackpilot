@@ -13,8 +13,20 @@ User-facing changes to StackPilot. Entries are dated; the project follows the `m
 - **`--domain-type=caddy`** installs Caddy when it is missing. If Caddy or the domain cannot be set up, including after a successful Cloudflare DNS step, the deploy now exits with an error and does not report success. An existing custom Caddyfile is kept: only the `conf.d` import is added, and the previous file is saved as `Caddyfile.before-stackpilot`.
 - The one-line installer installs `sudo` when the system has none.
 
+### Removed
+
+- **RoutePix** is no longer in the catalog: its source repository is private, so the installer could not work for anyone (#35).
+
 ### Fixed
 
+- **MinIO** (also the MinIO bundled with Cap and Plunk) installs again: the `minio/minio` image no longer exists, so the installers now use the maintained fork `pgsty/silo`, pinned to `RELEASE.2026-11-12T00-00-00Z`. Reasons and upgrade steps: `apps/minio/README.md` (#36).
+- The n8n installer no longer says it uses an external PostgreSQL when it starts the bundled one, and the README memory guidance matches the n8n requirements (#27).
+- `stackpilot.techskills.academy/mailstack` and `/mailcheap` are no longer published: both need a step on your computer first. Install them as described in their READMEs (#24).
+- **Sellf** update and restart check Node.js before they stop the application: with Node.js older than 20.12 they exit with instructions instead of leaving Sellf stopped. The installer now also upgrades an older Node.js, not only a missing one (#34).
+- Re-running an installer (`deploy.sh <app>`) keeps the passwords and keys of the existing installation instead of generating new ones, so stored data stays readable and bundled databases accept the connection. Covers affine, cap, convertx, crawl4ai, gotenberg, immich, keila, minio, postiz, redis, social-media-generator, supabase (all its keys, including the API keys), typebot, umami and the WordPress SQLite salts (#31).
+- `--domain-type=caddy` and `cloudflare` install Caddy before the application installer runs, so installers that need it (LittleLink) work on a clean server; when Caddy cannot be installed, the deploy stops before the application installer runs (#29).
+- Deploying over SSH to a server without rsync (e.g. a minimal Debian 12) installs the toolbox with a git clone instead of printing "Failed to install toolbox" (#30).
+- `deploy.sh` installs `iproute2` when the server has no `ss`, and stops with an error if that fails, instead of treating every port as free. A re-deploy no longer moves an application whose own containers hold its port (#32).
 - Docker installation on a clean Debian server through the one-line installer (#28).
 - `--domain-type=caddy` reporting a configured domain without Caddy on the server (#25).
 - Application ports published on all interfaces although the documentation says `127.0.0.1` (#26).
@@ -33,6 +45,6 @@ User-facing changes to StackPilot. Entries are dated; the project follows the `m
    - On the server: `deploy.sh wordpress --update`
 
    Cached data and site content are kept; sites may report a Redis connection error for a few seconds. Details: `apps/wordpress/README.md`.
-3. **Ports of other applications:** `--update` keeps the existing Compose file. To bind an older installation to localhost, prefix each web entry under `ports:` with `127.0.0.1:` and run `sudo docker compose up -d` in `/opt/stacks/<app>/`. Skip this for `--domain-type=cytrus`. Do not re-run the installer for this: for some applications it generates new secrets.
+3. **Ports of other applications:** `--update` keeps the existing Compose file. To bind an older installation to localhost, prefix each web entry under `ports:` with `127.0.0.1:` and run `sudo docker compose up -d` in `/opt/stacks/<app>/`. Skip this for `--domain-type=cytrus`. Re-running the installer (`deploy.sh <app>`) also binds the ports to localhost and keeps the existing passwords and keys.
 4. **Postiz on the shared Redis:** the WordPress update adds the password to its configuration. To move it to its own Redis, follow `apps/postiz/README.md`.
 5. **If a Docker installation failed on Debian before:** update the checkout (step 1), or run `curl -fsSL https://stackpilot.techskills.academy/install | bash`, then repeat the application one-liner.

@@ -118,7 +118,6 @@ Applications are located in `apps/<name>/install.sh`:
 | **mcp-docker** | MCP server for Docker management | - | - |
 | **captions-cli** | Burn karaoke captions onto videos (Whisper + ffmpeg) | - | - |
 | **picoclaw** | Ultra-lightweight AI assistant (Telegram/Discord/Slack) | - | 8080 |
-| **routepix** | Visualize travel routes from geotagged photos | - | 3000 |
 | **immich** | Self-hosted photo/video library (alt. Google Photos) | PostgreSQL | 2283 |
 | **supabase** | Self-hosted PostgreSQL + Auth + Storage + Studio | PostgreSQL | 54321 |
 | **coolify** | Full PaaS with 280+ one-click apps (requires 4GB+ RAM, 8GB recommended) | PostgreSQL | 8000 |
@@ -721,7 +720,7 @@ deploy:
 - Ports 80 and 443 are used by Caddy (reverse proxy)
 - Use ports > 1024 for applications
 - Application ports listen on `127.0.0.1`; only `--domain-type=cytrus` publishes them on all interfaces (exceptions: README, "Is this secure?")
-- `--update` keeps the existing compose file. To change the binding of an older installation, prefix its `ports:` entry with `127.0.0.1:` and run `docker compose up -d` (a redeploy can generate new secrets for some apps)
+- `--update` keeps the existing compose file. To change the binding of an older installation, prefix its `ports:` entry with `127.0.0.1:` and run `docker compose up -d` (a redeploy also works and keeps the existing passwords and keys)
 - Avoid conflicts - check `docker ps` before installing
 
 ---

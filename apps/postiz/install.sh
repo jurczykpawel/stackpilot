@@ -73,6 +73,7 @@ set -e
 
 APP_NAME="postiz"
 STACK_DIR="${STACKS_DIR:-/opt/stacks}/$APP_NAME"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-5000}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT:-8080}
 
@@ -118,7 +119,7 @@ fi
 # =============================================================================
 # BAZA DANYCH — BUNDLED vs EXTERNAL
 # =============================================================================
-JWT_SECRET=$(openssl rand -hex 32)
+JWT_SECRET=$(stack_value "$STACK_DIR/docker-compose.yaml" JWT_SECRET || openssl rand -hex 32)
 
 if [ -n "${DB_HOST:-}" ] && [ -n "${DB_USER:-}" ] && [ -n "${DB_PASS:-}" ]; then
     # External DB — przekazana przez deploy.sh (--db=custom)
@@ -130,7 +131,8 @@ if [ -n "${DB_HOST:-}" ] && [ -n "${DB_USER:-}" ] && [ -n "${DB_PASS:-}" ]; then
 else
     # Bundled DB — postgres:17-alpine w compose
     USE_BUNDLED_PG=true
-    PG_POSTIZ_PASS=$(openssl rand -hex 16)
+    PG_POSTIZ_PASS=$(stack_value "$STACK_DIR/docker-compose.yaml" DATABASE_URL | sed -n 's#^postgresql://postiz:\([^@]*\)@postiz-postgres:.*#\1#p')
+    [ -n "$PG_POSTIZ_PASS" ] || PG_POSTIZ_PASS=$(openssl rand -hex 16)
     DATABASE_URL="postgresql://postiz:${PG_POSTIZ_PASS}@postiz-postgres:5432/postiz"
     echo "✅ Baza PostgreSQL: bundled (postgres:17-alpine)"
 fi

@@ -25,7 +25,7 @@ You help users manage their VPS servers. You can:
 ```
 local/           -> User scripts (deploy, backup, setup)
 apps/<app>/      -> App installers (install.sh + README.md)
-lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils)
+lib/             -> Helper libraries (cli-parser, db-setup, domain-setup, server-exec, port-utils, stack-config)
 lib/providers/   -> Provider plugins (mikrus/, generic hooks via detect.sh)
 locale/          -> i18n language files (en.sh, pl.sh)
 system/          -> System scripts (docker, caddy, backup-core)
@@ -38,7 +38,7 @@ docs/            -> Documentation (Cloudflare, CLI reference)
 
 `curl -fsSL https://stackpilot.techskills.academy/<app> | bash` is generated automatically from `apps/*/` via `installers/template.sh` + `installers/build.sh`.
 
-- Source of truth: any `apps/<app>/install.sh` becomes an endpoint.
+- Source of truth: any `apps/<app>/install.sh` becomes an endpoint, unless its header has the line `# ONELINER=false`. Use it for installers that need a step on your computer first (a local image build or `deploy.mjs`, e.g. mailstack, mailcheap); `tests/unit/test-installers-build.sh` requires it for every app with `deploy.mjs` or `build.sh`.
 - Build: `installers/build.sh <output_dir>` renders one extensionless file per app + a `_headers` manifest.
 - Publishing: daily cron in `jurczykpawel/static-sites` (`.github/workflows/sync-stackpilot-installers.yml`) clones this repo, runs the build into `stackpilot.techskills.academy/`, commits, and triggers the existing CF Pages deploy. For instant sync after adding/renaming an app:
   ```bash
@@ -318,7 +318,7 @@ Per-domain configuration lives in `/etc/caddy/conf.d/<domain>.caddy`. The main `
 
 All located in `apps/<name>/install.sh`. Run via `deploy.sh`, not directly.
 
-affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, ksef-gateway, linkstack, listmonk, littlelink, mailcheap, mailstack, mcp-docker, minio, n8n, nocodb, notifuse, ntfy, picoclaw, plunk, postiz, poststack, redis, routepix, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
+affine, cap, captions-cli, convertx, cookie-hub, coolify, countdown-timer, crawl4ai, dockge, filebrowser, gotenberg, immich, keila, ksef-gateway, linkstack, listmonk, littlelink, mailcheap, mailstack, mcp-docker, minio, n8n, nocodb, notifuse, ntfy, picoclaw, plunk, postiz, poststack, redis, sellf, sgtm, social-media-generator, stirling-pdf, supabase, typebot, umami, uptime-kuma, vaultwarden, watchtower, wordpress
 
 Plus static site hosting (Astro, Next.js static export, Hugo, Eleventy, SvelteKit, Gatsby, Docusaurus, VitePress, MkDocs) via `local/deploy-static.sh` — see GUIDE.md.
 
@@ -424,6 +424,7 @@ sudo docker compose up -d
 - `|| { echo "Error: ..."; exit 1; }` for error handling
 - `|| true` for optional commands
 - Never log secrets
+- Generated secrets must survive a re-install: `source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"`, then `SECRET=$(stack_value "$STACK_DIR/.env" SECRET || openssl rand -hex 32)` (`tests/unit/test-reinstall-keeps-secrets.sh` runs installers twice)
 - Secrets in env vars, configuration in `~/.config/stackpilot/`
 
 ## More Information

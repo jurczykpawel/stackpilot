@@ -34,7 +34,7 @@ SKIP_APPS="coolify sellf littlelink cookie-hub dockge"
 
 # Apps where heredoc extraction is known to produce incomplete YAML
 # (multi-part heredocs, env_file references, conditional composition).
-BEST_EFFORT_APPS="typebot vaultwarden postiz routepix social-media-generator filebrowser stirling-pdf ksef-gateway"
+BEST_EFFORT_APPS="typebot vaultwarden postiz social-media-generator filebrowser stirling-pdf ksef-gateway"
 
 echo "--- Compose Syntax Validation ---"
 echo ""

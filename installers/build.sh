@@ -5,7 +5,9 @@
 #   1. /install            — verbatim copy of system/bootstrap.sh
 #   2. /<setup-alias>      — setup-template.sh rendered per local/setup-*.sh script
 #                            (cloudflare, sellf-config, ...)
-#   3. /<app>              — template.sh rendered per apps/<app>/install.sh
+#   3. /<app>              — template.sh rendered per apps/<app>/install.sh, except
+#                            installers marked "# ONELINER=false" (they need a local
+#                            build or deploy step first)
 #
 # Also writes _headers so Cloudflare Pages serves the extensionless files as
 # text/plain (and keeps the landing as text/html).
@@ -79,6 +81,10 @@ for dir in "$APPS_DIR"/*/; do
     [ -f "$dir/install.sh" ] || continue
     if is_reserved "$app"; then
         echo "  skip (reserved name): $app" >&2
+        continue
+    fi
+    if grep -qx '# ONELINER=false' "$dir/install.sh"; then
+        echo "  skip (no one-liner): $app" >&2
         continue
     fi
     sed "s/__APP__/$app/g" "$APP_TEMPLATE" > "$OUT/$app"

@@ -26,7 +26,8 @@
 set -e
 
 APP_NAME="affine"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-3010}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
@@ -83,7 +84,7 @@ else
     # Bundled DB — pgvector/pgvector:pg16 in compose
     USE_BUNDLED_PG=true
     DB_USER="affine"
-    DB_PASS=$(openssl rand -hex 16)
+    DB_PASS=$(stack_value "$STACK_DIR/docker-compose.yaml" POSTGRES_PASSWORD || openssl rand -hex 16)
     DB_NAME="affine"
     DB_HOST="postgres"
     DB_PORT=5432

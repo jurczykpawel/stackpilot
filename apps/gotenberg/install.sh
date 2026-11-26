@@ -15,7 +15,8 @@
 set -e
 
 APP_NAME="gotenberg"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-3000}
 
 # Port binding: Cytrus needs 0.0.0.0, Cloudflare/Caddy/local → 127.0.0.1
@@ -41,7 +42,8 @@ sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
 
 # Generate password if not provided
-GOTENBERG_USER="${GOTENBERG_USER:-admin}"
+GOTENBERG_USER="${GOTENBERG_USER:-$(stack_value "$STACK_DIR/docker-compose.yaml" GOTENBERG_API_BASIC_AUTH_USERNAME || echo admin)}"
+GOTENBERG_PASS="${GOTENBERG_PASS:-$(stack_value "$STACK_DIR/docker-compose.yaml" GOTENBERG_API_BASIC_AUTH_PASSWORD || true)}"
 if [ -z "$GOTENBERG_PASS" ]; then
     GOTENBERG_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
     echo "✅ API password generated"

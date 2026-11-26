@@ -1,6 +1,8 @@
 #!/bin/bash
 # Local Docker integration: --domain-type=caddy on a clean Debian 12 server
-# installs Caddy and serves the application with a certificate from its local CA.
+# installs Caddy and serves the application with a certificate from its local CA,
+# also for an installer that needs Caddy (littlelink), with no rsync on the server
+# and with no ss there while the default application port is taken.
 # Runs the installers and code of this checkout.
 #
 # Two servers: the one-line installer run on the server, and deploy.sh run from
@@ -69,14 +71,16 @@ start_server() {
         || { echo "server is not clean"; exit 1; }
 }
 
-served_through_caddy() {
+# serves DOMAIN PATH PATTERN
+serves() {
     on_server "for _ in \$(seq 1 60); do
-        curl -fsS --resolve $DOMAIN:443:127.0.0.1 \
+        curl -fsS --resolve $1:443:127.0.0.1 \
             --cacert /var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt \
-            https://$DOMAIN/v1/health 2>/dev/null | grep -q '\"healthy\":true' && exit 0
+            https://$1$2 2>/dev/null | grep -qi '$3' && exit 0
         sleep 1
     done; exit 1"
 }
+served_through_caddy() { serves "$DOMAIN" /v1/health '"healthy":true'; }
 
 # The served endpoints plus a git repository the bootstrap can clone
 bash "$REPO_ROOT/installers/build.sh" "$TEST_DIR/srv/installers" >/dev/null
@@ -112,10 +116,14 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     PULLED=true
 fi
 
+copy_served_files() {
+    docker cp "$TEST_DIR/srv" "$NAME:/srv/stackpilot"
+    on_server 'chown -R root:root /srv/stackpilot'
+}
+
 echo "=== one-line installer on the server ==="
 start_server
-docker cp "$TEST_DIR/srv" "$NAME:/srv/stackpilot"
-on_server 'chown -R root:root /srv/stackpilot'
+copy_served_files
 oneliner() {
     docker exec \
         -e STACKPILOT_BOOTSTRAP_URL=file:///srv/stackpilot/installers/install \
@@ -133,21 +141,41 @@ check "$DOMAIN answers through Caddy" served_through_caddy
 check "second run exits 0" oneliner
 check "$DOMAIN still answers" served_through_caddy
 
-echo "=== deploy.sh from this machine, port 80 taken ==="
-start_server
-on_server 'systemd-run --quiet --unit=port80 systemd-socket-activate -l 80 /bin/sleep infinity'
-deploy() {
+# The server image has no rsync, so the toolbox comes from the bootstrap clone
+deploy_app() {
+    local app="$1" domain="$2"
     env HOME="$TEST_DIR/home" PATH="$TEST_DIR/bin:$PATH" DOCKER_CONFIG="$DOCKER_CONFIG_DIR" \
-        "$REPO_ROOT/local/deploy.sh" ntfy --ssh=sp-e2e --domain-type=caddy --domain="$DOMAIN" --yes \
+        STACKPILOT_REPO=file:///srv/stackpilot/repo \
+        "$REPO_ROOT/local/deploy.sh" "$app" --ssh=sp-e2e --domain-type=caddy --domain="$domain" --yes \
         2>&1 | tee "$TEST_DIR/deploy.log"
     return "${PIPESTATUS[0]}"
 }
+deploy() { deploy_app ntfy "$DOMAIN"; }
 deploy_fails() { ! deploy; }
+toolbox_installed() {
+    ! grep -q 'Failed to install toolbox' "$TEST_DIR/deploy.log" && on_server 'test -f /opt/stackpilot/local/deploy.sh'
+}
+
+echo "=== deploy.sh from this machine, port 80 and the ntfy port taken, no ss ==="
+start_server
+copy_served_files
+check "server starts without ss (iproute2)" on_server '! command -v ss'
+on_server 'systemd-run --quiet --unit=port80 systemd-socket-activate -l 80 /bin/sleep infinity'
+on_server 'systemd-run --quiet --unit=port8085 systemd-socket-activate -l 127.0.0.1:8085 /bin/sleep infinity'
 check "deploy fails" deploy_fails
 check "no success message" bash -c "! grep -qE 'Domain configured|Application available|DONE!' '$TEST_DIR/deploy.log'"
 on_server 'systemctl stop port80.socket port80.service 2>/dev/null; systemctl reset-failed 2>/dev/null; true'
 check "deploy succeeds once port 80 is free" deploy
+check "toolbox installed without rsync on the server" toolbox_installed
+check "ss installed and ntfy moved to the next free port" on_server \
+    'command -v ss && curl -fsS http://127.0.0.1:8086/v1/health | grep -q healthy'
 check "$DOMAIN answers through Caddy" served_through_caddy
+
+echo "=== littlelink from this machine on a server without Caddy ==="
+start_server
+copy_served_files
+check "littlelink deploy succeeds" deploy_app littlelink bio.internal
+check "bio.internal serves LittleLink through Caddy" serves bio.internal / littlelink
 
 echo ""
 if [ "$FAILED" -gt 0 ]; then

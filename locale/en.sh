@@ -140,6 +140,7 @@ MSG_RES_CHECK_FAILED="   ${YELLOW}⚠ Could not check resources${NC}"
 
 MSG_PORT_IN_USE="   ${YELLOW}⚠ Port %s is in use!${NC}"
 MSG_PORT_OVERRIDE="   ${GREEN}✓ Using port %s instead of %s${NC}"
+MSG_PORT_CHECK_FAILED="${RED}❌ Cannot check which ports are in use on the server: the ss command (package iproute2) is missing and could not be installed. Install iproute2 on the server and run again.${NC}"
 
 # =============================================================================
 # DEPLOY - DATABASE
@@ -1352,6 +1353,7 @@ MSG_LM_DONE="${GREEN}✅ Done!${NC}"
 
 # ── system/bun-setup.sh ───────────────────────────────────────
 MSG_SELLF_SYSTEM_BINARY_MISSING="❌ Cannot find executable '%s'. Install Bun (https://bun.sh), add its bin directory to PATH, run 'bun install -g pm2', then retry."
+MSG_SELLF_NODE_TOO_OLD="❌ Sellf needs Node.js 20.12 or newer (found: %s). Nothing was changed. Upgrade Node.js, e.g. on Debian/Ubuntu: curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash - && sudo apt-get install -y nodejs, then retry."
 MSG_BUN_HEADER="--- 🥟 Bun + PM2 Setup ---"
 MSG_BUN_ALREADY="✅ Bun already installed: v%s"
 MSG_BUN_INSTALLING="📦 Installing Bun..."

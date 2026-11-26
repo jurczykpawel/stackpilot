@@ -16,8 +16,9 @@ SSH_ALIAS='test'
 MSG_PORT_IN_USE=''
 MSG_PORT_OVERRIDE=''
 read_existing_app_port() { return 1; }
-server_exec_timeout() { echo yes; }
-find_free_port_remote() { echo 31879; }
+listening_ports() { echo 31878; }
+next_free_port() { echo 31879; }
+app_published_ports() { :; }
 msg() { :; }
 source "$1/phase.sh" > /dev/null
 [ "$DEFAULT_PORT" = 31878 ]

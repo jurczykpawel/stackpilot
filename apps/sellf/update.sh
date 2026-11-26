@@ -237,6 +237,7 @@ if [ ! -f "$SELLF_RELEASE_LIB" ]; then
 fi
 source "$SELLF_RELEASE_LIB"
 sellf_ensure_system_path
+sellf_node_ready || exit 1
 # ----- SELLF SYSTEM PATH END -----
 
 # =============================================================================

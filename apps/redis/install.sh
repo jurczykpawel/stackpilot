@@ -12,12 +12,13 @@
 set -e
 
 APP_NAME="redis"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
 PORT=${PORT:-6379}
 
 echo "--- ⚡ Redis Setup ---"
 
-# Generate password if not provided
+# Password: given, kept from an earlier installation, or generated
+REDIS_PASS="${REDIS_PASS:-$(sudo cat "$STACK_DIR/.redis_password" 2>/dev/null || true)}"
 if [ -z "$REDIS_PASS" ]; then
     REDIS_PASS=$(openssl rand -hex 16)
     echo "✅ Redis password generated"

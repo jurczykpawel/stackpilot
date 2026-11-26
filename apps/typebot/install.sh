@@ -20,7 +20,8 @@
 set -e
 
 APP_NAME="typebot"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-8082}  # Viewer: the port the base domain points at
 PORT_VIEWER=$PORT
 PORT_BUILDER=${PORT_BUILDER:-8081}
@@ -75,7 +76,7 @@ else
 fi
 
 # Generate secret — Typebot requires EXACTLY 32 characters
-ENCRYPTION_SECRET=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+ENCRYPTION_SECRET=$(stack_value "$STACK_DIR/docker-compose.yaml" ENCRYPTION_SECRET || openssl rand -base64 32 | tr -d '/+=' | head -c 32)
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"

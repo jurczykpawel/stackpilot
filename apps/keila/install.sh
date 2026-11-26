@@ -19,7 +19,8 @@
 set -e
 
 APP_NAME="keila"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-4500}
 
 if [ "${DOMAIN_TYPE:-}" = "cytrus" ]; then
@@ -64,7 +65,7 @@ else
 fi
 
 # Generate secret key base
-SECRET_KEY_BASE=$(openssl rand -base64 48 | tr -d '\n')
+SECRET_KEY_BASE=$(stack_value "$STACK_DIR/docker-compose.yaml" SECRET_KEY_BASE || openssl rand -base64 48 | tr -d '\n')
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"

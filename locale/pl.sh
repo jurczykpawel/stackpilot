@@ -139,6 +139,7 @@ MSG_RES_CHECK_FAILED="   ${YELLOW}⚠ Nie udało się sprawdzić zasobów${NC}"
 
 MSG_PORT_IN_USE="   ${YELLOW}⚠ Port %s jest zajęty!${NC}"
 MSG_PORT_OVERRIDE="   ${GREEN}✓ Używam portu %s zamiast %s${NC}"
+MSG_PORT_CHECK_FAILED="${RED}❌ Nie da się sprawdzić zajętych portów na serwerze: brak polecenia ss (pakiet iproute2), a jego instalacja się nie udała. Zainstaluj iproute2 na serwerze i uruchom ponownie.${NC}"
 
 # =============================================================================
 # DEPLOY - DATABASE
@@ -1351,6 +1352,7 @@ MSG_LM_DONE="${GREEN}✅ Gotowe!${NC}"
 
 # ── system/bun-setup.sh ───────────────────────────────────────
 MSG_SELLF_SYSTEM_BINARY_MISSING="❌ Nie znaleziono pliku wykonywalnego '%s'. Zainstaluj Bun (https://bun.sh), dodaj jego katalog bin do PATH, uruchom 'bun install -g pm2' i spróbuj ponownie."
+MSG_SELLF_NODE_TOO_OLD="❌ Sellf wymaga Node.js 20.12 lub nowszego (jest: %s). Niczego nie zmieniono. Zaktualizuj Node.js, np. na Debianie/Ubuntu: curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash - && sudo apt-get install -y nodejs, i spróbuj ponownie."
 MSG_BUN_HEADER="--- 🥟 Instalacja Bun + PM2 ---"
 MSG_BUN_ALREADY="✅ Bun już zainstalowany: v%s"
 MSG_BUN_INSTALLING="📦 Instaluję Bun..."

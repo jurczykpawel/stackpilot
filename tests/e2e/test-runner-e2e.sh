@@ -298,8 +298,6 @@ suite_deploy_no_db() {
         e2e_test "vaultwarden"   "8088" "200 302"     "60"
         # gotenberg: /health returns 200, root returns 401 (basic auth required)
         e2e_test "gotenberg"     "3000" "200 401 302 301" "120" "--domain-type=local --yes" "/health"
-        # routepix: requires private GitHub repo access — skip in CI
-        # e2e_test "routepix"      "3000" "200 302 301" "120"
         e2e_test "convertx"      "3000" "200 302 301" "120"
         # stirling-pdf: returns 401 (login required) — expected
         e2e_test "stirling-pdf"  "8087" "200 302 301 401" "120"

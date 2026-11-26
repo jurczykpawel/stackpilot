@@ -110,14 +110,14 @@ add_container() { # id|workdir|service|image|running, then mount lines type|name
 backup_args() { grep '^restic backup' "$LOG"; }
 
 test_run_dumps_running_databases_and_skips_their_raw_data() {
-    mkdir -p "$STACKS/umami" "$STACKS/immich/postgres" "$STACKS/immich/init" "$STACKS/mailcheap" "$STACKS/cap" "$STACKS/routepix"
+    mkdir -p "$STACKS/umami" "$STACKS/immich/postgres" "$STACKS/immich/init" "$STACKS/mailcheap" "$STACKS/cap" "$STACKS/myapp"
     add_container "c1|$STACKS/umami|db|postgres:16-alpine|true" "volume|umami_db-data|$T/vol/umami_db-data/_data|/var/lib/postgresql/data"
     add_container "c2|$STACKS/umami|umami|ghcr.io/umami-software/umami:postgresql-latest|true"
     add_container "c3|$STACKS/immich|database|ghcr.io/immich-app/postgres:14-vectorchord0.4.3|true" \
         "bind||$STACKS/immich/postgres|/var/lib/postgresql/data" "bind||$STACKS/immich/init|/docker-entrypoint-initdb.d"
     add_container "c4|$STACKS/mailcheap|mongo|mongo:7.0.45|true" "volume|mailcheap_mongo-data|$T/vol/mailcheap_mongo-data/_data|/data/db"
     add_container "c5|$STACKS/cap|mysql|mysql:8.0|false" "volume|cap_db-data|$T/vol/cap_db-data/_data|/var/lib/mysql"
-    add_container "c6|$STACKS/routepix|app|ghcr.io/x/routepix:latest|true" "volume|routepix_app_data|$T/vol/routepix_app_data/_data|/app/data"
+    add_container "c6|$STACKS/myapp|app|ghcr.io/x/myapp:latest|true" "volume|myapp_app_data|$T/vol/myapp_app_data/_data|/app/data"
     add_container "c7|/home/someone/proj|db|postgres:16|true" "volume|proj_db|$T/vol/proj_db/_data|/var/lib/postgresql/data"
 
     bash "$ENGINE" run > "$T/out" 2>&1
@@ -136,14 +136,14 @@ test_run_dumps_running_databases_and_skips_their_raw_data() {
     args=$(backup_args)
     assert_contains "$args" "--exclude $STACKS/immich/postgres" "live bind DB dir excluded"
     assert_not_contains "$args" "--exclude $STACKS/immich/init" "init scripts stay in the backup"
-    assert_contains "$args" "$T/vol/routepix_app_data/_data" "app volume backed up"
+    assert_contains "$args" "$T/vol/myapp_app_data/_data" "app volume backed up"
     assert_contains "$args" "$T/vol/cap_db-data/_data" "stopped DB volume backed up raw"
     assert_not_contains "$args" "umami_db-data" "dumped DB volume not copied raw"
     assert_not_contains "$args" "mailcheap_mongo-data" "dumped Mongo volume not copied raw"
     assert_not_contains "$args" "$T/missing" "missing paths skipped"
     assert_contains "$args" "--tag stackpilot" "snapshot tagged"
-    assert_contains "$(cat "$T/sent/volumes/routepix.list")" "$(printf 'routepix_app_data\t%s' "$T/vol/routepix_app_data/_data")" "volume manifest"
-    assert_contains "$(cat "$T/sent/stacks.list")" "routepix" "stack list"
+    assert_contains "$(cat "$T/sent/volumes/myapp.list")" "$(printf 'myapp_app_data\t%s' "$T/vol/myapp_app_data/_data")" "volume manifest"
+    assert_contains "$(cat "$T/sent/stacks.list")" "myapp" "stack list"
     assert_contains "$(grep '^restic forget' "$LOG")" "--prune" "retention applied"
     assert_contains "$(grep '^curl' "$LOG")" "https://hc.example/ping/abc" "success ping"
     assert_not_contains "$(grep '^curl' "$LOG")" "/fail" "no failure ping"

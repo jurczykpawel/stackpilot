@@ -18,7 +18,8 @@
 set -e
 
 APP_NAME="crawl4ai"
-STACK_DIR="/opt/stacks/$APP_NAME"
+STACK_DIR="${STACK_DIR:-/opt/stacks/$APP_NAME}"
+source "${STACKPILOT_LIB:-/opt/stackpilot/lib}/stack-config.sh"
 PORT=${PORT:-8000}
 
 echo "--- 🕷️ Crawl4AI Setup ---"
@@ -58,8 +59,8 @@ else
     echo "⚠️  No domain - use --domain=... or access via SSH tunnel"
 fi
 
-# Generate API token
-CRAWL4AI_API_TOKEN=$(openssl rand -hex 32)
+# API token: kept from an earlier installation
+CRAWL4AI_API_TOKEN=$(stack_value "$STACK_DIR/docker-compose.yaml" CRAWL4AI_API_TOKEN || openssl rand -hex 32)
 
 sudo mkdir -p "$STACK_DIR"
 cd "$STACK_DIR"
@@ -67,7 +68,7 @@ cd "$STACK_DIR"
 # Save token
 echo "$CRAWL4AI_API_TOKEN" | sudo tee .api_token > /dev/null
 sudo chmod 600 .api_token
-echo "✅ API token generated and saved"
+echo "✅ API token saved"
 
 cat <<EOF | sudo tee docker-compose.yaml > /dev/null
 services:

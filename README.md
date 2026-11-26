@@ -108,7 +108,6 @@ cd stackpilot
 | [LittleLink](apps/littlelink/) | Linktree | Ultra-lightweight link-in-bio page (pure HTML). |
 | [Umami](apps/umami/) | Google Analytics | Privacy-focused web analytics. No cookies, GDPR-compliant. |
 | [AFFiNE](apps/affine/) | Notion / Miro | Knowledge base with docs, whiteboards, and databases. Open-source. |
-| [RoutePix](apps/routepix/) | - | Visualize travel routes from geotagged photos. |
 | [Immich](apps/immich/) | Google Photos | Self-hosted photo and video library. Face recognition, CLIP search, mobile backup. |
 
 ### Security and Storage
@@ -425,7 +424,7 @@ Any provider that gives you a Linux VPS with SSH access: Hetzner, DigitalOcean, 
 Yes. Static sites hosted on Mikrus (a $5/month Polish VPS) behind Cloudflare CDN can achieve perfect Lighthouse scores (Performance, Accessibility, Best Practices, SEO — all 100). The key is proper development: defer non-critical resources (fonts, analytics) after `window.load`, avoid CPU-intensive CSS like SVG `feTurbulence`, inline small assets as base64 to eliminate LCP from external network requests, and use `font-display: optional` to prevent font-swap LCP spikes.
 
 **How much RAM do I need?**
-512MB handles Caddy + 1 lightweight app. 1GB runs n8n + 2--3 smaller services comfortably. 2GB supports a full stack of 10+ apps. Coolify requires 4GB+ (8GB recommended).
+512MB handles Caddy + 1 lightweight app. n8n needs about 1GB with an external database and about 1.5GB with the bundled one, so a 1GB server fits n8n with an external database and little else. 2GB runs n8n with its bundled database plus a few lightweight apps, or a stack of 10+ lightweight apps without n8n. Coolify requires 4GB+ (8GB recommended).
 
 **How do databases work?**
 Apps that need PostgreSQL or MySQL can use a bundled database container (auto-provisioned, zero config) or connect to an external database you provide. WordPress also supports SQLite for simple sites.
@@ -434,7 +433,7 @@ Apps that need PostgreSQL or MySQL can use a bundled database container (auto-pr
 Apps run in isolated Docker containers. With `cloudflare` or `caddy` domains, public traffic goes through Caddy over HTTPS, and application ports are bound to `127.0.0.1` by default. Exceptions: Cytrus domains on Mikrus (the app listens on all interfaces because Cytrus connects to the port directly), the Supabase PostgreSQL pooler (ports 5432 and 6543), and Sellf, WordPress and Coolify, which manage their own listeners. Encrypted off-site backups are supported out of the box.
 
 **How do I update an app?**
-Run `deploy.sh` again. The script detects existing installations and pulls the latest Docker image. Data in Docker volumes is preserved. Changes that need action on existing installations are listed in [CHANGELOG.md](CHANGELOG.md).
+Run `deploy.sh <app> --update` (from your computer: `./local/deploy.sh <app> --ssh=ALIAS --update`). It pulls the latest image and restarts the app with its existing configuration. Running `deploy.sh <app>` again re-runs the installer: it writes the configuration anew but keeps the passwords and keys of the existing installation, and data in Docker volumes is preserved. Changes that need action on existing installations are listed in [CHANGELOG.md](CHANGELOG.md).
 
 **Can I deploy custom Docker apps?**
 Yes. Add your own `apps/<name>/install.sh` installer (see GUIDE.md) -- you are not limited to the built-in apps.
