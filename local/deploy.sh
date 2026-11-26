@@ -320,6 +320,13 @@ if [ "$UPDATE_MODE" = true ]; then
         server_copy "$REPO_ROOT/apps/sellf/release-verify.sh" "$REMOTE_RELEASE_LIB"
     fi
 
+    # WordPress: shared Redis helper sourced by update.sh
+    REMOTE_REDIS_LIB=""
+    if [ "$APP_NAME" = "wordpress" ]; then
+        REMOTE_REDIS_LIB="/tmp/sp-wp-redis-$$.sh"
+        server_copy "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$REMOTE_REDIS_LIB"
+    fi
+
     # If we have a local build file, copy it to the server
     REMOTE_BUILD_FILE=""
     if [ -n "$BUILD_FILE" ]; then
@@ -354,6 +361,10 @@ if [ "$UPDATE_MODE" = true ]; then
         ENV_VARS="$ENV_VARS SELLF_RELEASE_LIB='$REMOTE_RELEASE_LIB'"
     fi
 
+    if [ -n "$REMOTE_REDIS_LIB" ]; then
+        ENV_VARS="$ENV_VARS WP_REDIS_SHARED_LIB='$REMOTE_REDIS_LIB'"
+    fi
+
     # For multi-instance: pass instance name (from --instance or --domain)
     if [ -n "$INSTANCE" ]; then
         ENV_VARS="$ENV_VARS INSTANCE='$INSTANCE'"
@@ -376,6 +387,9 @@ if [ "$UPDATE_MODE" = true ]; then
     fi
     if [ -n "$REMOTE_RELEASE_LIB" ]; then
         CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_RELEASE_LIB'"
+    fi
+    if [ -n "$REMOTE_REDIS_LIB" ]; then
+        CLEANUP_CMD="$CLEANUP_CMD '$REMOTE_REDIS_LIB'"
     fi
 
     if server_exec_tty "export $ENV_VARS; bash '$REMOTE_SCRIPT' $UPDATE_SCRIPT_ARGS; EXIT_CODE=\$?; $CLEANUP_CMD; exit \$EXIT_CODE"; then
@@ -954,6 +968,11 @@ EXTRA_ENV=""
 [ -n "$DOMAIN_PUBLIC" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_PUBLIC='$DOMAIN_PUBLIC'"
 [ -n "$DOMAIN_TYPE" ] && EXTRA_ENV="$EXTRA_ENV DOMAIN_TYPE='$DOMAIN_TYPE'"
 [ -n "$WP_DB_MODE" ] && EXTRA_ENV="$EXTRA_ENV WP_DB_MODE='$WP_DB_MODE'"
+[ -n "$WP_REDIS" ] && EXTRA_ENV="$EXTRA_ENV WP_REDIS='$WP_REDIS'"
+[ -n "$POSTIZ_REDIS" ] && EXTRA_ENV="$EXTRA_ENV POSTIZ_REDIS='$POSTIZ_REDIS'"
+if [ -n "$REDIS_PASS" ] && [[ "$APP_NAME" =~ ^(wordpress|postiz)$ ]]; then
+    EXTRA_ENV="$EXTRA_ENV REDIS_PASS=$(printf '%q' "$REDIS_PASS")"
+fi
 [ -n "$CONTAINER_CONFIG" ] && EXTRA_ENV="$EXTRA_ENV CONTAINER_CONFIG='$CONTAINER_CONFIG'"
 [ -n "$NOTIFICATION_URL" ] && EXTRA_ENV="$EXTRA_ENV NOTIFICATION_URL='$NOTIFICATION_URL'"
 [ -n "$REPO_USER" ] && EXTRA_ENV="$EXTRA_ENV REPO_USER='$REPO_USER'"
@@ -1075,6 +1094,15 @@ else
         CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_RELEASE_LIB';"
     fi
 
+    # WordPress: shared Redis helper sourced by install.sh
+    REMOTE_REDIS_LIB=""
+    if [ "$APP_NAME" = "wordpress" ]; then
+        REMOTE_REDIS_LIB="/tmp/sp-wp-redis-$$.sh"
+        scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB"
+        EXTRA_ENV="$EXTRA_ENV WP_REDIS_SHARED_LIB='$REMOTE_REDIS_LIB'"
+        CLEANUP_CMD="$CLEANUP_CMD rm -f '$REMOTE_REDIS_LIB';"
+    fi
+
     if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
         DEPLOY_SUCCESS=true
     fi
@@ -1095,6 +1123,9 @@ else
             msg "$MSG_DOCKER_STORAGE_RETRY"
             ssh "$SSH_ALIAS" "sudo systemctl restart containerd 2>/dev/null; sleep 5; sudo systemctl restart docker 2>/dev/null; sleep 3" 2>/dev/null
             scp -q "$SCRIPT_PATH" "$SSH_ALIAS:$REMOTE_SCRIPT" 2>/dev/null
+            if [ -n "$REMOTE_REDIS_LIB" ]; then
+                scp -q "$REPO_ROOT/apps/wordpress/redis-shared.sh" "$SSH_ALIAS:$REMOTE_REDIS_LIB" 2>/dev/null
+            fi
             if ssh -t "$SSH_ALIAS" "export DEPLOY_SSH_ALIAS='$SSH_ALIAS' SSH_ALIAS='$SSH_ALIAS' YES_MODE='$YES_MODE' $PORT_ENV $DB_ENV_VARS $DOMAIN_ENV $EXTRA_ENV; bash '$REMOTE_SCRIPT'; EXIT_CODE=\$?; rm -f '$REMOTE_SCRIPT'; $CLEANUP_CMD exit \$EXIT_CODE"; then
                 DEPLOY_SUCCESS=true
             fi

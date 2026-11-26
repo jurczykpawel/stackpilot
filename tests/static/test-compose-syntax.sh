@@ -88,6 +88,8 @@ for install_sh in "$REPO_ROOT"/apps/*/install.sh; do
     export SECRET_KEY="secret123456"
     export WP_DB_MODE="mysql"
     export WP_REDIS="bundled"
+    export WP_MEMORY="256M"
+    export NGINX_MEMORY="64M"
     export REDIS_HOST="redis"
     export ROOT_USERNAME="admin"
     export ROOT_PASSWORD="adminpass"

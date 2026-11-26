@@ -17,9 +17,44 @@ Alternative to Buffer/Hootsuite. Schedule posts to Twitter/X, LinkedIn, Instagra
 # External PostgreSQL
 ./local/deploy.sh postiz --ssh=ALIAS --db-source=custom --domain-type=cloudflare --domain=postiz.example.com
 
-# External Redis (auto-detected on host)
+# Redis on the host instead of the bundled one (see "Redis" below)
 POSTIZ_REDIS=external ./local/deploy.sh postiz --ssh=ALIAS --domain-type=cloudflare --domain=postiz.example.com
 ```
+
+## Redis
+
+Postiz gets its own Redis (`postiz-redis`, `noeviction`) by default, even when another one is listening on the server. The shared WordPress cache evicts keys under memory pressure, which does not suit queued jobs. `POSTIZ_REDIS=external` (or `auto`) uses the Redis on the host.
+
+### Moving an existing installation to its own Redis
+
+Updates keep the Redis an installation already uses. If `grep REDIS_URL /opt/stacks/postiz/docker-compose.yaml` shows `host-gateway` and you want to switch, edit that file by hand. Do not re-run the installer: it generates new secrets and a new database password.
+
+**Redis data is not migrated**, including anything still queued. Switch when no jobs are in progress and check your scheduled posts afterwards.
+
+1. Set `REDIS_URL=redis://postiz-redis:6379`.
+2. Add this service under `services:`:
+
+```yaml
+  postiz-redis:
+    image: redis:7.2-alpine
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning --maxmemory-policy noeviction
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - postiz-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+```
+
+3. Apply: `cd /opt/stacks/postiz && docker compose up -d`.
 
 ## Requirements
 
