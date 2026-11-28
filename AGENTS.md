@@ -77,6 +77,7 @@ Install once per clone: `pre-commit install` (installs the pre-commit and pre-pu
 
 - pre-commit: TruffleHog secret scan.
 - pre-push: **no unhandled open pull requests or issues.** The push is refused while (a) any open PR other than the one for the branch being pushed exists (Dependabot included), or (b) any open issue is neither closed nor closed by the pushed commits (`Closes #N` / `Fixes #N` / `Resolves #N` in a commit message, so merging closes it). Findings outside a task's scope are filed as issues labelled `znalezisko` and must be handled the same way: fix, or close with a reason. Emergency bypass only: `git push --no-verify`.
+- Server side (release gate): StackPilot releases by merging to `main`, so the required check **Nothing left open** (`.github/workflows/open-items.yml`, shared gate script `.github/scripts/open-items-gate.sh` in `pr` mode) refuses the merge while other pull requests, issues, code scanning or Dependabot alerts are open. The pull request itself and the issues its description closes (`Closes #N`) do not count, so put `Closes #N` in the PR description. Secret scanning alerts and draft advisories are out of reach of `GITHUB_TOKEN`: run `bash .github/scripts/open-items-gate.sh start` locally (gh login with admin rights) before starting a release cycle. A non-critical item may wait with label `deferred-next-release` for at most 30 days.
 
 ## Dual-Mode Operation (local + on-server)
 

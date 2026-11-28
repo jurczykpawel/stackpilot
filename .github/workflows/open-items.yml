@@ -1,0 +1,36 @@
+name: Open items
+
+# StackPilot releases by merging to main, so this is the release gate: a required check on pull
+# requests to main. It refuses the merge while other pull requests, issues or security alerts are open;
+# the pull request itself and the issues its description closes ("Closes #N") do not count.
+# Script: .github/scripts/open-items-gate.sh (shared gate, pr mode). Only GITHUB_TOKEN is used: secret
+# scanning alerts and draft advisories are out of its reach (open-items-gate.sh start, locally).
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  open-items:
+    name: Nothing left open
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      security-events: read
+      vulnerability-alerts: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Check open pull requests, issues and security alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_PR: ${{ github.event.pull_request.number }}
+        run: bash .github/scripts/open-items-gate.sh pr
